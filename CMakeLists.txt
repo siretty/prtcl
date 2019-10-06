@@ -10,10 +10,90 @@ project(
   LANGUAGES C CXX
 )
 
-include( DECommonDiagnosticFlags RESULT_VARIABLE _FOUND )
-include( DELibCXXFlags RESULT_VARIABLE _FOUND )
+set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
+
+find_package( Threads )
+find_package( OpenMP )
+
+include( DECommonDiagnosticFlags )
+include( DELibCXXFlags )
+include( DECatch2 )
+include( DECXX17 )
+include( DEAddOurIncludeDirectories )
 
 message( "Common C++ Diagnostic Flags: ${DE_COMMON_DIAGNOSTICS_FLAGS_CXX}" )
 message( "LibC++ CXX_FLAGS: ${DE_LibCXX_CXX_FLAGS}" )
 message( "LibC++ LINK_FLAGS: ${DE_LibCXX_LINK_FLAGS}" )
+
+add_subdirectory( ${CMAKE_CURRENT_SOURCE_DIR}/subprojects/catch2 )
+
+include( ExternalProject )
+
+set( triSYCL_PREFIX_DIR "${CMAKE_CURRENT_BINARY_DIR}/subprojects/triSYCL" )
+set( triSYCL_INCLUDE_DIR "${triSYCL_PREFIX_DIR}/include" )
+ExternalProject_Add(
+  triSYCL
+  PREFIX     ${CMAKE_CURRENT_BINARY_DIR}/subprojects/triSYCL.build
+  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/subprojects/triSYCL
+  CMAKE_ARGS
+    -DBUILD_TESTING=FALSE
+    -DCMAKE_INSTALL_PREFIX=${triSYCL_PREFIX_DIR}
+)
+
+set( _SRC ${CMAKE_CURRENT_SOURCE_DIR}/sources )
+
+DE_Add_Catch2_Main( test_main )
+DE_LibCXX_Target( test_main )
+
+DE_Add_Catch2_Test(
+  prtcl-tests test_main
+  ${_SRC}/tests/prtcl/dummy.cpp
+  # linear data / buffer / access
+  ${_SRC}/tests/prtcl/data/host/host_linear_data.cpp
+  ${_SRC}/tests/prtcl/data/host/host_linear_access.cpp
+  ${_SRC}/tests/prtcl/data/sycl/sycl_linear_buffer.cpp
+  ${_SRC}/tests/prtcl/data/sycl/sycl_linear_access.cpp
+  # scalar data / buffer / access
+  ${_SRC}/tests/prtcl/data/host/vector_of_scalars.cpp
+  ${_SRC}/tests/prtcl/data/sycl/vector_of_scalars.cpp
+  # array data / buffer / access
+  ${_SRC}/tests/prtcl/data/host/array_of_vectors.cpp
+  ${_SRC}/tests/prtcl/data/sycl/array_of_vectors.cpp
+  ${_SRC}/tests/prtcl/data/host/vector_of_arrays.cpp
+  ${_SRC}/tests/prtcl/data/sycl/vector_of_arrays.cpp
+)
+
+DE_CXX17_Target( prtcl-tests )
+DE_Common_Diagnostics_CXX_Target( prtcl-tests )
+DE_LibCXX_Target( prtcl-tests )
+DE_Add_Our_Include_Directories( prtcl-tests include sources )
+target_include_directories(
+  prtcl-tests
+  PUBLIC
+    ${triSYCL_INCLUDE_DIR}
+)
+target_link_libraries(
+  prtcl-tests
+  PUBLIC Threads::Threads
+  PUBLIC OpenMP::OpenMP_CXX
+)
+
+add_executable(
+  prtcl-tests-data-sycl-device-accessor
+  ${_SRC}/tests/prtcl/data/sycl/sycl_linear_access_device.cpp
+)
+DE_CXX17_Target( prtcl-tests-data-sycl-device-accessor )
+DE_Common_Diagnostics_CXX_Target( prtcl-tests-data-sycl-device-accessor )
+DE_LibCXX_Target( prtcl-tests-data-sycl-device-accessor )
+DE_Add_Our_Include_Directories( prtcl-tests-data-sycl-device-accessor include sources )
+target_include_directories(
+  prtcl-tests-data-sycl-device-accessor
+  PUBLIC
+    ${triSYCL_INCLUDE_DIR}
+)
+target_link_libraries(
+  prtcl-tests-data-sycl-device-accessor
+  PUBLIC Threads::Threads
+  PUBLIC OpenMP::OpenMP_CXX
+)
 
