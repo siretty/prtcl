@@ -61,6 +61,14 @@ DE_Add_Catch2_Test(
   ${_SRC}/tests/prtcl/data/sycl/array_of_vectors.cpp
   ${_SRC}/tests/prtcl/data/host/vector_of_arrays.cpp
   ${_SRC}/tests/prtcl/data/sycl/vector_of_arrays.cpp
+  # group data
+  ${_SRC}/tests/prtcl/data/group_data.cpp
+  # expr terminal
+  ${_SRC}/tests/prtcl/expr/terminal/uniform_varying_scalar_vector.cpp
+  ${_SRC}/tests/prtcl/expr/grammar/scalar.cpp
+  ${_SRC}/tests/prtcl/expr/grammar/vector.cpp
+  # transforms
+  ${_SRC}/tests/prtcl/expr/transform/find_used_fields.cpp
 )
 
 DE_CXX17_Target( prtcl-tests )

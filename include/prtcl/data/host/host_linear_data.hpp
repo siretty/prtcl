@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <memory>
 #include <type_traits>
+#include <vector>
 
 #include <cstddef>
 
@@ -11,13 +12,27 @@ namespace prtcl {
 template <typename T> struct host_linear_data {
   static_assert(!std::is_const<T>::value);
 
-  size_t size_ = 0;
-  std::unique_ptr<T[]> data_ = {};
+private:
+  struct impl {
+    std::vector<T> data;
+  };
+
+private:
+  std::shared_ptr<impl> impl_;
 
 public:
-  size_t size() const { return size_; }
+  host_linear_data() : impl_{std::make_shared<impl>()} {}
 
-  T *data() const { return data_.get(); }
+  host_linear_data(host_linear_data const &) = default;
+  host_linear_data &operator=(host_linear_data const &) = default;
+
+  host_linear_data(host_linear_data &&) = default;
+  host_linear_data &operator=(host_linear_data &&) = default;
+
+public:
+  size_t size() const { return impl_->data.size(); }
+
+  T *data() const { return impl_->data.data(); }
 
 public:
   T *begin() const { return data(); }
@@ -29,14 +44,7 @@ public:
 
 public:
   void resize(size_t new_size) {
-    data_ = std::make_unique<T[]>(new_size);
-    size_ = new_size;
-  }
-
-  void resize(size_t new_size, T value) {
-    data_ = std::make_unique<T[]>(new_size);
-    size_ = new_size;
-    std::fill(&data_[0], &data_[new_size], value);
+    impl_->data.resize(new_size);
   }
 };
 
