@@ -6,7 +6,6 @@
 #include <prtcl/expr/terminal/uniform_vector.hpp>
 #include <prtcl/expr/terminal/varying_scalar.hpp>
 #include <prtcl/expr/terminal/varying_vector.hpp>
-//#include <prtcl/expr/transform/find_used_fields.hpp>
 #include <prtcl/expr/transform/for_each_used_field.hpp>
 
 #include <iterator>
@@ -30,7 +29,7 @@ TEST_CASE("prtcl::expr::transform::find_used_fields", "[prtcl][expr]") {
   auto vector_expr = boost::proto::deep_copy(uvi[i] * uvj[j] + vvi[i] * vvj[j]);
 
   std::unordered_set<std::string> names;
-  
+
   // -----
 
   SECTION("active uniform scalar") {

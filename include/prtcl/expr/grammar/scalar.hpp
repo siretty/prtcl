@@ -5,6 +5,8 @@
 #include "../terminal/uniform_scalar.hpp"
 #include "../terminal/varying_scalar.hpp"
 
+#include <type_traits>
+
 #include <boost/proto/proto.hpp>
 
 namespace prtcl::expr {
@@ -15,6 +17,12 @@ struct ScalarCases {
   // primary template matches nothing
   template <typename Tag> struct case_ : boost::proto::not_<boost::proto::_> {};
 };
+
+template <>
+struct ScalarCases::case_<boost::proto::tag::terminal>
+    : boost::proto::and_<
+          boost::proto::terminal<boost::proto::_>,
+          boost::proto::if_<std::is_arithmetic<boost::proto::_value>()>> {};
 
 template <>
 struct ScalarCases::case_<boost::proto::tag::subscript>

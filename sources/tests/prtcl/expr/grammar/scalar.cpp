@@ -15,7 +15,7 @@ TEST_CASE("prtcl::expr::grammar scalar", "[prtcl][expr]") {
   uniform_scalar_term<std::string> u{"u"};
   varying_scalar_term<std::string> v{"v"};
 
-  REQUIRE(boost::proto::matches<decltype(u[i] + v[j] - u[i] * v[j] / u[i] +
+  REQUIRE(boost::proto::matches<decltype(2.f * u[i] + v[j] - u[i] * v[j] / u[i] +
                                          (+u[j]) + (-u[i])),
                                 Scalar>::value);
 

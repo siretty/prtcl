@@ -13,11 +13,12 @@
 namespace prtcl {
 
 template <typename T, size_t N> struct group_data {
+public:
   using vectors_type = array_of_vectors_data<T, N, host_linear_data<T>>;
   using scalars_type = vector_of_scalars_data<T, host_linear_data<T>>;
 
 private:
-  size_t size_;
+  size_t size_ = 0;
 
 public:
   size_t size() const { return size_; }

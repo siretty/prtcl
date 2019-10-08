@@ -91,7 +91,8 @@ public:
 // ============================================================
 
 template <typename T, size_t N, typename Linear, typename... Args>
-auto get_buffer(vector_of_arrays_data<T, N, Linear> &data, Args &&... args) {
+auto get_buffer(vector_of_arrays_data<T, N, Linear> const &data,
+                Args &&... args) {
   vector_of_arrays_buffer<T, N,
                           decltype(get_buffer(std::declval<Linear &>(),
                                               std::forward<Args>(args)...))>
