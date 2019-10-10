@@ -9,7 +9,7 @@
 template <typename T, typename Data> void test_host_access(Data &data) {
   using namespace prtcl;
 
-  auto buf = get_buffer(data, tags::sycl{});
+  auto buf = get_buffer(data, tag::sycl{});
   REQUIRE(10 == buf.size());
 
   auto rw = get_rw_access(buf);
@@ -30,7 +30,7 @@ template <typename T, typename Data> void test_device_access(Data &data) {
   {
     sycl::queue queue;
 
-    auto buf = get_buffer(data, tags::sycl{});
+    auto buf = get_buffer(data, tag::sycl{});
 
     queue.submit([&](auto &cgh) {
       auto rw = get_rw_access(buf, cgh);

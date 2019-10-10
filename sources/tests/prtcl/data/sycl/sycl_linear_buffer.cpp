@@ -22,6 +22,6 @@ TEST_CASE("prtcl::sycl_linear_buffer", "[prtcl]") {
   REQUIRE(10 == data.size());
   REQUIRE(nullptr != data.data());
 
-  auto buf = get_buffer(data, tags::sycl{});
+  auto buf = get_buffer(data, tag::sycl{});
   REQUIRE(10 == buf.size());
 }

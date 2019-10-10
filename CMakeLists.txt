@@ -68,10 +68,14 @@ DE_Add_Catch2_Test(
   ${_SRC}/tests/prtcl/expr/grammar/scalar.cpp
   ${_SRC}/tests/prtcl/expr/grammar/vector.cpp
   # transforms
-  ${_SRC}/tests/prtcl/expr/transform/for_each_used_field.cpp
-  ${_SRC}/tests/prtcl/expr/transform/bind_field_data.cpp
+  #${_SRC}/tests/prtcl/expr/transform/for_each_used_field.cpp
+  #${_SRC}/tests/prtcl/expr/transform/bind_field_data.cpp
   # equation
   ${_SRC}/tests/prtcl/equation.cpp
+  # tag types
+  ${_SRC}/tests/prtcl/tags.cpp
+  # expression types
+  ${_SRC}/tests/prtcl/expression/field_data.cpp
 )
 
 DE_CXX17_Target( prtcl-tests )

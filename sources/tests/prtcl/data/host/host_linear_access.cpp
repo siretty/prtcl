@@ -22,7 +22,7 @@ TEST_CASE("prtcl::host_linear_access", "[prtcl]") {
   REQUIRE(10 == data.size());
   REQUIRE(nullptr != data.data());
 
-  auto buf = get_buffer(data);
+  auto buf = get_buffer(data, tag::host{});
   REQUIRE(10 == buf.size());
 
   auto rw = get_rw_access(buf);

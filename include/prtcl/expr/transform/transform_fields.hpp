@@ -25,6 +25,12 @@ struct TransformFields
                                  boost::proto::_value(boost::proto::_child1),
                                  boost::proto::_data),
                   boost::proto::_child1)>,
+          //// value-ify assignments
+          //boost::proto::when<
+          //    boost::proto::assign<boost::proto::_, boost::proto::_>,
+          //    boost::proto::_make_assign(
+          //        boost::proto::_byval(boost::proto::_child0),
+          //        boost::proto::_byval(boost::proto::_child1))>,
           // swallow terminals
           boost::proto::when<boost::proto::terminal<boost::proto::_>,
                              boost::proto::_>,

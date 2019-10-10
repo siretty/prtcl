@@ -1,6 +1,10 @@
 #pragma once
 
+#include "host/host_linear_access.hpp"
+#include "host/host_linear_buffer.hpp"
+
 #include <array>
+#include <ostream>
 #include <type_traits>
 #include <vector>
 
@@ -23,6 +27,11 @@ public:
   void resize(size_t new_size) { data_.resize(new_size); }
 
   void fill(value_type value) { std::fill(data_.begin(), data_.end(), value); }
+
+  friend std::ostream &operator<<(std::ostream &s,
+                                  vector_of_scalars_data const &) {
+    return s << "vector_of_scalars_data";
+  }
 };
 
 // ============================================================
@@ -36,6 +45,11 @@ template <typename T, typename Linear> struct vector_of_scalars_buffer {
 
 public:
   size_t size() const { return data_.size(); }
+
+  friend std::ostream &operator<<(std::ostream &s,
+                                  vector_of_scalars_buffer const &) {
+    return s << "vector_of_scalars_buffer";
+  }
 };
 
 // ============================================================
@@ -58,18 +72,32 @@ public:
   value_type set(size_t pos, value_type const &value) const {
     return data_[pos] = value;
   }
+
+  friend std::ostream &operator<<(std::ostream &s,
+                                  vector_of_scalars_access const &) {
+    return s << "vector_of_scalars_access";
+  }
 };
 
 // ============================================================
 // get_buffer(vector_of_scalars_data, ...)
 // ============================================================
 
+namespace result_of {
+
 template <typename T, typename Linear, typename... Args>
-auto get_buffer(vector_of_scalars_data<T, Linear> const &data,
-                Args &&... args) {
-  vector_of_scalars_buffer<T, decltype(get_buffer(std::declval<Linear &>(),
-                                                  std::forward<Args>(args)...))>
-      result;
+struct get_buffer<vector_of_scalars_data<T, Linear>, Args...> {
+  using type =
+      vector_of_scalars_buffer<T, typename get_buffer<Linear, Args...>::type>;
+};
+
+} // namespace result_of
+
+template <typename T, typename Linear, typename... Args>
+typename result_of::get_buffer<vector_of_scalars_data<T, Linear>, Args...>::type
+get_buffer(vector_of_scalars_data<T, Linear> const &data, Args &&... args) {
+  typename result_of::get_buffer<vector_of_scalars_data<T, Linear>,
+                                 Args...>::type result;
   result.data_ = get_buffer(data.data_, std::forward<Args>(args)...);
   return result;
 }
@@ -78,13 +106,25 @@ auto get_buffer(vector_of_scalars_data<T, Linear> const &data,
 // get_rw_access(vector_of_scalars_buffer, ...)
 // ============================================================
 
+namespace result_of {
+
 template <typename T, typename Linear, typename... Args>
-auto get_rw_access(vector_of_scalars_buffer<T, Linear> &buffer,
-                   Args &&... args) {
+struct get_rw_access<vector_of_scalars_buffer<T, Linear>, Args...> {
+  using type =
+      vector_of_scalars_access<T,
+                               typename get_rw_access<Linear, Args...>::type>;
+};
+
+} // namespace result_of
+
+template <typename T, typename Linear, typename... Args>
+typename result_of::get_rw_access<vector_of_scalars_buffer<T, Linear>,
+                                  Args...>::type
+get_rw_access(vector_of_scalars_buffer<T, Linear> const &buffer,
+              Args &&... args) {
   using result_type =
-      vector_of_scalars_access<T, decltype(get_rw_access(
-                                      std::declval<Linear &>(),
-                                      std::forward<Args>(args)...))>;
+      typename result_of::get_rw_access<vector_of_scalars_buffer<T, Linear>,
+                                        Args...>::type;
   return result_type{get_rw_access(buffer.data_, std::forward<Args>(args)...)};
 }
 
@@ -92,13 +132,25 @@ auto get_rw_access(vector_of_scalars_buffer<T, Linear> &buffer,
 // get_ro_access(vector_of_scalars_buffer, ...)
 // ============================================================
 
+namespace result_of {
+
 template <typename T, typename Linear, typename... Args>
-auto get_ro_access(vector_of_scalars_buffer<T, Linear> &buffer,
-                   Args &&... args) {
+struct get_ro_access<vector_of_scalars_buffer<T, Linear>, Args...> {
+  using type =
+      vector_of_scalars_access<T,
+                               typename get_ro_access<Linear, Args...>::type>;
+};
+
+} // namespace result_of
+
+template <typename T, typename Linear, typename... Args>
+typename result_of::get_ro_access<vector_of_scalars_buffer<T, Linear>,
+                                  Args...>::type
+get_ro_access(vector_of_scalars_buffer<T, Linear> const &buffer,
+              Args &&... args) {
   using result_type =
-      vector_of_scalars_access<T, decltype(get_ro_access(
-                                      std::declval<Linear &>(),
-                                      std::forward<Args>(args)...))>;
+      typename result_of::get_ro_access<vector_of_scalars_buffer<T, Linear>,
+                                        Args...>::type;
   return result_type{get_ro_access(buffer.data_, std::forward<Args>(args)...)};
 }
 

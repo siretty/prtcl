@@ -2,6 +2,8 @@
 
 #include <catch.hpp>
 
+#include <prtcl/tags.hpp>
+
 namespace prtcl_tests {
 
 template <typename T, size_t N, template <typename> typename LinearDataT,
@@ -17,7 +19,7 @@ void common_host_array_data() {
   REQUIRE(10 == data.size());
 
   SECTION("buffer") {
-    auto buf = get_buffer(data);
+    auto buf = get_buffer(data, prtcl::tag::host{});
     REQUIRE(10 == buf.size());
 
     std::array<T, N> value;
@@ -61,7 +63,7 @@ void common_host_scalar_data() {
   REQUIRE(10 == data.size());
 
   SECTION("buffer") {
-    auto buf = get_buffer(data);
+    auto buf = get_buffer(data, prtcl::tag::host{});
     REQUIRE(10 == buf.size());
 
     T value = 1234;

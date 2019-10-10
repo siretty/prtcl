@@ -3,7 +3,7 @@
 #include <catch.hpp>
 
 #include <prtcl/libs/sycl.hpp>
-#include <prtcl/tags/sycl.hpp>
+#include <prtcl/tags.hpp>
 
 #include <sstream>
 #include <string>
@@ -23,7 +23,7 @@ void common_sycl_array_data() {
   REQUIRE(10 == data.size());
 
   SECTION("buffer") {
-    auto buf = get_buffer(data, ::prtcl::tags::sycl{});
+    auto buf = get_buffer(data, ::prtcl::tag::sycl{});
     REQUIRE(10 == buf.size());
 
     std::array<T, N> value;
@@ -62,7 +62,7 @@ void common_sycl_array_data() {
       { // fill the buffer with some data
         sycl::queue queue;
 
-        auto buf = get_buffer(data, ::prtcl::tags::sycl{});
+        auto buf = get_buffer(data, ::prtcl::tag::sycl{});
         REQUIRE(10 == buf.size());
 
         queue.submit([&](auto &cgh) {
@@ -76,7 +76,7 @@ void common_sycl_array_data() {
       }
 
       // check using a host accessor
-      auto buf = get_buffer(data, ::prtcl::tags::sycl{});
+      auto buf = get_buffer(data, ::prtcl::tag::sycl{});
       auto ro = get_ro_access(buf);
 
       for (size_t pos = 0; pos < data.size(); ++pos)
@@ -87,7 +87,7 @@ void common_sycl_array_data() {
       { // fill the buffer with some data
         sycl::queue queue;
 
-        auto buf = get_buffer(data, ::prtcl::tags::sycl{});
+        auto buf = get_buffer(data, ::prtcl::tag::sycl{});
         REQUIRE(10 == buf.size());
 
         queue.submit([&](auto &cgh) {
@@ -116,7 +116,7 @@ void common_sycl_array_data() {
         });
       }
 
-      auto buf = get_buffer(data, ::prtcl::tags::sycl{});
+      auto buf = get_buffer(data, ::prtcl::tag::sycl{});
       REQUIRE(10 == buf.size());
 
       // check using a host accessor
@@ -150,7 +150,7 @@ void common_sycl_scalar_data() {
   REQUIRE(10 == data.size());
 
   SECTION("host") {
-    auto buf = get_buffer(data, ::prtcl::tags::sycl{});
+    auto buf = get_buffer(data, ::prtcl::tag::sycl{});
     REQUIRE(10 == buf.size());
 
     T value = 1234;
@@ -186,7 +186,7 @@ void common_sycl_scalar_data() {
       { // fill the buffer with some data
         sycl::queue queue;
 
-        auto buf = get_buffer(data, ::prtcl::tags::sycl{});
+        auto buf = get_buffer(data, ::prtcl::tag::sycl{});
         REQUIRE(10 == buf.size());
 
         queue.submit([&](auto &cgh) {
@@ -200,7 +200,7 @@ void common_sycl_scalar_data() {
       }
 
       // check using a host accessor
-      auto buf = get_buffer(data, ::prtcl::tags::sycl{});
+      auto buf = get_buffer(data, ::prtcl::tag::sycl{});
       auto ro = get_ro_access(buf);
 
       for (size_t pos = 0; pos < data.size(); ++pos)
@@ -208,14 +208,14 @@ void common_sycl_scalar_data() {
     }
 
     SECTION("ro access") {
-      auto buf = get_buffer(data, ::prtcl::tags::sycl{});
+      auto buf = get_buffer(data, ::prtcl::tag::sycl{});
       REQUIRE(10 == buf.size());
 
       ScalarDataT<T, LinearDataT<T>> data2;
       data2.resize(data.size());
       REQUIRE(data.size() == data2.size());
 
-      auto buf2 = get_buffer(data2, ::prtcl::tags::sycl{});
+      auto buf2 = get_buffer(data2, ::prtcl::tag::sycl{});
       REQUIRE(10 == buf2.size());
 
       { // fill the buffer with some data

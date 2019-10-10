@@ -1,11 +1,14 @@
 #pragma once
 
+#include "../meta/ctor_call_expand_pack.hpp"
+#include "host/host_linear_access.hpp"
+#include "host/host_linear_buffer.hpp"
+
 #include <array>
+#include <ostream>
 #include <vector>
 
 #include <cstddef> // size_t
-
-#include "detail/ctor_call_expand_pack.hpp"
 
 namespace prtcl {
 
@@ -23,6 +26,11 @@ public:
     for (auto &v : data_)
       v.resize(new_size);
   }
+
+  friend std::ostream &operator<<(std::ostream &s,
+                                  array_of_vectors_data const &) {
+    return s << "array_of_vectors_data";
+  }
 };
 
 // ============================================================
@@ -35,6 +43,11 @@ struct array_of_vectors_buffer {
 
 public:
   size_t size() const { return data_[0].size(); }
+
+  friend std::ostream &operator<<(std::ostream &s,
+                                  array_of_vectors_buffer const &) {
+    return s << "array_of_vectors_buffer";
+  }
 };
 
 // ============================================================
@@ -52,30 +65,41 @@ public:
   size_t size() const { return data_[0].size(); }
 
 private:
-  template <typename> struct get_impl_type;
-  template <size_t... Ns> struct get_impl_type<std::index_sequence<Ns...>> {
-    value_type operator()(array_of_vectors_access const &s, size_t pos) const {
-      return value_type{s.data_[Ns][pos]...};
+  template <typename, typename> struct get_impl_type;
+  template <typename Value, size_t... Ns>
+  struct get_impl_type<Value, std::index_sequence<Ns...>> {
+    Value operator()(array_of_vectors_access const &s, size_t pos) const {
+      return Value{s.data_[Ns][pos]...};
     }
   };
-  constexpr static get_impl_type<std::make_index_sequence<N>> get_impl;
+  template <typename Value>
+  constexpr static get_impl_type<Value, std::make_index_sequence<N>> get_impl;
 
-  template <typename> struct set_impl_type;
-  template <size_t... Ns> struct set_impl_type<std::index_sequence<Ns...>> {
+  template <typename, typename> struct set_impl_type;
+  template <typename Value, size_t... Ns>
+  struct set_impl_type<Value, std::index_sequence<Ns...>> {
     void operator()(array_of_vectors_access const &s, size_t pos,
-                    value_type const &value) const {
+                    Value const &value) const {
       ((void)(s.data_[Ns][pos] = value[Ns]), ...);
     }
   };
-  constexpr static set_impl_type<std::make_index_sequence<N>> set_impl;
+  template <typename Value>
+  constexpr static set_impl_type<Value, std::make_index_sequence<N>> set_impl;
 
 public:
-  value_type get(size_t pos) const { return get_impl(*this, pos); }
+  template <typename Value = value_type> Value get(size_t pos) const {
+    return get_impl<Value>(*this, pos);
+  }
 
-  template <typename U = T,
+  template <typename Value = value_type, typename U = T,
             typename = std::enable_if_t<!std::is_const<U>::value>>
   void set(size_t pos, value_type const &value) const {
-    set_impl(*this, pos, value);
+    set_impl<Value>(*this, pos, value);
+  }
+
+  friend std::ostream &operator<<(std::ostream &s,
+                                  array_of_vectors_access const &) {
+    return s << "array_of_vectors_access";
   }
 };
 
@@ -83,12 +107,22 @@ public:
 // get_buffer(array_of_vectors_data, ...)
 // ============================================================
 
+namespace result_of {
+
 template <typename T, size_t N, typename Linear, typename... Args>
-auto get_buffer(array_of_vectors_data<T, N, Linear> const &data, Args &&... args) {
-  array_of_vectors_buffer<T, N,
-                          decltype(get_buffer(std::declval<Linear>(),
-                                              std::forward<Args>(args)...))>
-      result;
+struct get_buffer<array_of_vectors_data<T, N, Linear>, Args...> {
+  using type =
+      array_of_vectors_buffer<T, N, typename get_buffer<Linear, Args...>::type>;
+};
+
+} // namespace result_of
+
+template <typename T, size_t N, typename Linear, typename... Args>
+typename result_of::get_buffer<array_of_vectors_data<T, N, Linear>,
+                               Args...>::type
+get_buffer(array_of_vectors_data<T, N, Linear> const &data, Args &&... args) {
+  typename result_of::get_buffer<array_of_vectors_data<T, N, Linear>,
+                                 Args...>::type result;
   for (size_t n = 0; n < N; ++n)
     result.data_[n] = get_buffer(data.data_[n], std::forward<Args>(args)...);
   return result;
@@ -98,15 +132,26 @@ auto get_buffer(array_of_vectors_data<T, N, Linear> const &data, Args &&... args
 // get_rw_access(array_of_vectors_buffer, ...)
 // ============================================================
 
+namespace result_of {
+
 template <typename T, size_t N, typename Linear, typename... Args>
-auto get_rw_access(array_of_vectors_buffer<T, N, Linear> &buffer,
-                   Args &&... args) {
-  using result_type =
+struct get_rw_access<array_of_vectors_buffer<T, N, Linear>, Args...> {
+  using type =
       array_of_vectors_access<T, N,
-                              decltype(
-                                  get_rw_access(std::declval<Linear &>(),
-                                                std::forward<Args>(args)...))>;
-  return detail::ctor_call_expand_pack<result_type, N>(
+                              typename get_rw_access<Linear, Args...>::type>;
+};
+
+} // namespace result_of
+
+template <typename T, size_t N, typename Linear, typename... Args>
+typename result_of::get_rw_access<array_of_vectors_buffer<T, N, Linear>,
+                                  Args...>::type
+get_rw_access(array_of_vectors_buffer<T, N, Linear> const &buffer,
+              Args &&... args) {
+  using result_type =
+      typename result_of::get_rw_access<array_of_vectors_buffer<T, N, Linear>,
+                                        Args...>::type;
+  return ctor_call_expand_pack<result_type, N>(
       [](auto n, auto &buffer, auto &&... args) {
         return get_rw_access(buffer.data_[n],
                              std::forward<decltype(args)>(args)...);
@@ -118,15 +163,26 @@ auto get_rw_access(array_of_vectors_buffer<T, N, Linear> &buffer,
 // get_ro_access(array_of_vectors_buffer, ...)
 // ============================================================
 
+namespace result_of {
+
 template <typename T, size_t N, typename Linear, typename... Args>
-auto get_ro_access(array_of_vectors_buffer<T, N, Linear> &buffer,
-                   Args &&... args) {
-  using result_type =
+struct get_ro_access<array_of_vectors_buffer<T, N, Linear>, Args...> {
+  using type =
       array_of_vectors_access<T, N,
-                              decltype(
-                                  get_ro_access(std::declval<Linear &>(),
-                                                std::forward<Args>(args)...))>;
-  return detail::ctor_call_expand_pack<result_type, N>(
+                              typename get_ro_access<Linear, Args...>::type>;
+};
+
+} // namespace result_of
+
+template <typename T, size_t N, typename Linear, typename... Args>
+typename result_of::get_ro_access<array_of_vectors_buffer<T, N, Linear>,
+                                  Args...>::type
+get_ro_access(array_of_vectors_buffer<T, N, Linear> const &buffer,
+              Args &&... args) {
+  using result_type =
+      typename result_of::get_ro_access<array_of_vectors_buffer<T, N, Linear>,
+                                        Args...>::type;
+  return ctor_call_expand_pack<result_type, N>(
       [](auto n, auto &buffer, auto &&... args) {
         return get_ro_access(buffer.data_[n],
                              std::forward<decltype(args)>(args)...);

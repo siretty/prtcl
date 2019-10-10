@@ -1,6 +1,6 @@
 #pragma once
 
-#include "host_linear_data.hpp"
+#include "host_linear_buffer.hpp"
 
 #include <algorithm>
 #include <memory>
@@ -10,9 +10,19 @@
 
 namespace prtcl {
 
-template <typename T> struct host_linear_access {
+template <typename T> class host_linear_access {
   size_t size_ = 0;
   T *data_ = nullptr;
+
+public:
+  host_linear_access() = default;
+  host_linear_access(host_linear_access const &) = default;
+  host_linear_access &operator=(host_linear_access const &) = default;
+  host_linear_access(host_linear_access &&) = default;
+  host_linear_access &operator=(host_linear_access &&) = default;
+
+  // private:
+  host_linear_access(size_t s, T *d) : size_{s}, data_{d} {}
 
 public:
   size_t size() const { return size_; }
@@ -38,21 +48,42 @@ public:
   }
 };
 
-template <typename T>
-host_linear_access<T> get_buffer(host_linear_data<T> const &data) {
-  return host_linear_access<T>{data.size(), data.data()};
-}
+namespace result_of {
+
+// Primary template is never defined.
+template <typename...> struct get_rw_access;
+
+template <typename T> struct get_rw_access<host_linear_buffer<T>> {
+  using type = host_linear_access<T>;
+};
+
+} // namespace result_of
 
 template <typename T>
-host_linear_access<T> get_rw_access(host_linear_access<T> const &buffer) {
+typename result_of::get_rw_access<host_linear_buffer<T>>::type
+get_rw_access(host_linear_buffer<T> const &buffer) {
   static_assert(!std::is_const<T>::value);
-  return host_linear_access<T>{buffer.size(), buffer.data()};
+  auto *data = detail::host_linear_buffer_access::data(buffer);
+  return {buffer.size(), data};
 }
 
+namespace result_of {
+
+// Primary template is never defined.
+template <typename, typename...> struct get_ro_access;
+
+template <typename T> struct get_ro_access<host_linear_buffer<T>> {
+  using type = host_linear_access<T const>;
+};
+
+} // namespace result_of
+
 template <typename T>
-host_linear_access<T const> get_ro_access(host_linear_access<T> const &buffer) {
+typename result_of::get_ro_access<host_linear_buffer<T>>::type
+get_ro_access(host_linear_buffer<T> const &buffer) {
   static_assert(!std::is_const<T>::value);
-  return host_linear_access<T const>{buffer.size(), buffer.data()};
+  auto *data = detail::host_linear_buffer_access::data(buffer);
+  return {buffer.size(), data};
 }
 
 } // namespace prtcl

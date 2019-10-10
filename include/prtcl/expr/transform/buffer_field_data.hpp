@@ -23,39 +23,34 @@ public:
   template <typename Func> struct result;
 
 public:
-  template <typename This, typename FieldData, typename Index, typename Data,
-            typename... Args>
-  struct result<This(varying_scalar<FieldData> &, Index &, Data &,
-                     Args... args)> {
-    using type = varying_scalar_term<decltype(
-        get_buffer(std::declval<FieldData &>(), std::declval<Args>()...))>;
-  };
+  //template <typename This, typename FieldData, typename Index, typename Data>
+  //struct result<This(varying_scalar<FieldData> &, Index &, Data &)> {
+  //  using type =
+  //      varying_scalar_term<decltype(get_buffer(std::declval<FieldData &>()))>;
+  //};
 
-  template <typename This, typename FieldData, typename Index, typename Data,
-            typename... Args>
-  struct result<This(varying_scalar<FieldData> const &, Index &, Data &,
-                     Args... args)> {
-    using type = varying_scalar_term<decltype(
-        get_buffer(std::declval<FieldData &>(), std::declval<Args>()...))>;
+  template <typename This, typename FieldData, typename Index, typename Data>
+  struct result<This(varying_scalar<FieldData> const &, Index &, Data &)> {
+    using type =
+        varying_scalar_term<decltype(get_buffer(std::declval<FieldData &>()))>;
   };
 
 public:
-  template <typename FieldData, typename Data, typename... Args>
-  auto operator()(varying_scalar<FieldData> const &field, active_index const &,
-                  Data const &, Args &&... args) const {
-    return varying_scalar_term<decltype(
-        get_buffer(std::declval<FieldData &>(), std::declval<Args>()...))>{
-        get_buffer(field.value, std::forward<Args>(args)...)};
+  template <typename FieldData, typename Data>
+  varying_scalar_term<decltype(get_buffer(std::declval<FieldData &>()))>
+  operator()(varying_scalar<FieldData> const &field, active_index const &,
+             Data const &) const {
+    return {get_buffer(field.value)};
   }
 
-  template <typename FieldData, typename Data, typename... Args>
-  auto operator()(varying_scalar<FieldData> const &field, neighbour_index const &,
-                  Data const &, Args &&... args) const {
-    return varying_scalar_term<decltype(
-        get_buffer(std::declval<FieldData &>(), std::declval<Args>()...))>{
-        get_buffer(field.value, std::forward<Args>(args)...)};
+  template <typename FieldData, typename Data>
+  varying_scalar_term<decltype(get_buffer(std::declval<FieldData &>()))>
+  operator()(varying_scalar<FieldData> const &field, neighbour_index const &,
+             Data const &) const {
+    return {get_buffer(field.value)};
   }
 
+  /*
 public:
   template <typename This, typename FieldData, typename Index, typename Data,
             typename... Args>
@@ -83,12 +78,12 @@ public:
   }
 
   template <typename FieldData, typename Data, typename... Args>
-  auto operator()(varying_vector<FieldData> const &field, neighbour_index const &,
-                  Data const &, Args &&... args) const {
-    return varying_vector_term<decltype(
+  auto operator()(varying_vector<FieldData> const &field, neighbour_index const
+&, Data const &, Args &&... args) const { return varying_vector_term<decltype(
         get_buffer(std::declval<FieldData &>(), std::declval<Args>()...))>{
         get_buffer(field.value, std::forward<Args>(args)...)};
   }
+  */
 };
 
 } // namespace detail

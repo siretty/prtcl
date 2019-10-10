@@ -52,6 +52,27 @@ TEST_CASE("prtcl::group_data", "[prtcl]") {
     REQUIRE(20 == vs_a->size());
     REQUIRE(20 == vv_a->size());
   }
+
+  { // buffer
+    auto buffer = get_buffer(data, tag::host{});
+    REQUIRE(20 == buffer.size());
+
+    { // known names
+      auto vs_a = buffer.get_varying_scalar("a");
+      REQUIRE(vs_a.has_value());
+      REQUIRE(20 == vs_a->size());
+
+      auto vv_a = buffer.get_varying_vector("a");
+      REQUIRE(vv_a.has_value());
+      REQUIRE(20 == vv_a->size());
+
+      auto us_a = buffer.get_uniform_scalar_index("a");
+      REQUIRE(us_a.has_value());
+
+      auto uv_a = buffer.get_uniform_vector_index("a");
+      REQUIRE(uv_a.has_value());
+    }
+  }
 }
 
 // vim: set foldmethod=marker:

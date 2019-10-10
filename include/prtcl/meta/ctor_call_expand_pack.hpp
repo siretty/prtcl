@@ -1,6 +1,11 @@
 #pragma once
 
-namespace prtcl::detail {
+#include <type_traits>
+#include <utility>
+
+namespace prtcl {
+
+namespace detail {
 
 template <typename, typename> struct ctor_call_expand_pack_impl;
 
@@ -12,8 +17,10 @@ struct ctor_call_expand_pack_impl<Type, std::index_sequence<Ns...>> {
   }
 };
 
+} // namespace detail
+
 template <typename Type, size_t N>
-constexpr ctor_call_expand_pack_impl<Type, std::make_index_sequence<N>>
+constexpr detail::ctor_call_expand_pack_impl<Type, std::make_index_sequence<N>>
     ctor_call_expand_pack = {};
 
-} // namespace prtcl::detail
+} // namespace prtcl

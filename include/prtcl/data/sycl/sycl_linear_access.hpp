@@ -1,6 +1,9 @@
 #pragma once
 
+#include "../../meta/remove_cvref.hpp"
 #include "../../tags/sycl.hpp"
+#include "../host/host_linear_access.hpp"
+#include "../host/host_linear_buffer.hpp"
 #include "sycl_linear_buffer.hpp"
 
 #include <algorithm>
@@ -40,24 +43,50 @@ public:
   }
 };
 
-template <typename T, typename... Args>
-auto get_rw_access(sycl_linear_buffer<T> &buffer, Args &&... args) {
-  static_assert(!std::is_const<T>::value);
-  constexpr sycl::access::mode Mode = sycl::access::mode::read_write;
-  using accessor_type = decltype(
-      buffer.data_.template get_access<Mode>(std::forward<Args>(args)...));
-  return sycl_linear_access<T, accessor_type>{
-      buffer.data_.template get_access<Mode>(std::forward<Args>(args)...)};
-}
+namespace result_of {
 
 template <typename T, typename... Args>
-auto get_ro_access(sycl_linear_buffer<T> &buffer, Args &&... args) {
+struct get_rw_access<sycl_linear_buffer<T>, Args...> {
+  using accessor_type = remove_cvref_t<decltype(
+      detail::sycl_linear_buffer_access::sycl_buffer(
+          std::declval<sycl_linear_buffer<T>>())
+          .template get_access<sycl::access::mode::read_write>(
+              std::declval<Args>()...))>;
+  using type = sycl_linear_access<T, accessor_type>;
+};
+
+} // namespace result_of
+
+template <typename T, typename... Args>
+typename result_of::get_rw_access<sycl_linear_buffer<T>, Args...>::type
+get_rw_access(sycl_linear_buffer<T> buffer, Args &&... args) {
   static_assert(!std::is_const<T>::value);
-  constexpr sycl::access::mode Mode = sycl::access::mode::read;
-  using accessor_type = decltype(
-      buffer.data_.template get_access<Mode>(std::forward<Args>(args)...));
-  return sycl_linear_access<T const, accessor_type>{
-      buffer.data_.template get_access<Mode>(std::forward<Args>(args)...)};
+  return {detail::sycl_linear_buffer_access::sycl_buffer(buffer)
+              .template get_access<sycl::access::mode::read_write>(
+                  std::forward<Args>(args)...)};
+}
+
+namespace result_of {
+
+template <typename T, typename... Args>
+struct get_ro_access<sycl_linear_buffer<T>, Args...> {
+  using accessor_type = remove_cvref_t<decltype(
+      detail::sycl_linear_buffer_access::sycl_buffer(
+          std::declval<sycl_linear_buffer<T>>())
+          .template get_access<sycl::access::mode::read>(
+              std::declval<Args>()...))>;
+  using type = sycl_linear_access<T const, accessor_type>;
+};
+
+} // namespace result_of
+
+template <typename T, typename... Args>
+typename result_of::get_ro_access<sycl_linear_buffer<T>, Args...>::type
+get_ro_access(sycl_linear_buffer<T> buffer, Args &&... args) {
+  static_assert(!std::is_const<T>::value);
+  return {detail::sycl_linear_buffer_access::sycl_buffer(buffer)
+              .template get_access<sycl::access::mode::read>(
+                  std::forward<Args>(args)...)};
 }
 
 } // namespace prtcl
