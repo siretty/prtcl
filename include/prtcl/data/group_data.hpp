@@ -11,6 +11,8 @@
 
 #include <cstddef>
 
+#include <iostream>
+
 namespace prtcl {
 
 namespace detail {
@@ -83,7 +85,7 @@ public:
     auto [it, inserted] = uniform_scalars_.insert({name, index});
     if (!inserted)
       return;
-    uniform_scalars_data_.resize(index);
+    uniform_scalars_data_.resize(index + 1);
   }
 
   std::optional<size_t> get_uniform_scalar_index(std::string name) const {
@@ -105,7 +107,7 @@ public:
     auto [it, inserted] = uniform_vectors_.insert({name, index});
     if (!inserted)
       return;
-    uniform_vectors_data_.resize(index);
+    uniform_vectors_data_.resize(index + 1);
   }
 
   std::optional<size_t> get_uniform_vector_index(std::string name) const {
@@ -364,67 +366,5 @@ get_buffer(group_data<T, N, Linear> const &data, Args &&... args) {
   }
   return result;
 }
-
-/*
-// ============================================================
-// get_rw_access(array_of_vectors_buffer, ...)
-// ============================================================
-
-namespace result_of {
-
-template <typename T, size_t N, typename Linear, typename... Args>
-struct get_rw_access<array_of_vectors_buffer<T, N, Linear>, Args...> {
-  using type =
-      array_of_vectors_access<T, N,
-                              typename get_rw_access<Linear, Args...>::type>;
-};
-
-} // namespace result_of
-
-template <typename T, size_t N, typename Linear, typename... Args>
-typename result_of::get_rw_access<array_of_vectors_buffer<T, N, Linear>,
-                                  Args...>::type
-get_rw_access(array_of_vectors_buffer<T, N, Linear> &buffer, Args &&... args) {
-  using result_type =
-      typename result_of::get_rw_access<array_of_vectors_buffer<T, N, Linear>,
-                                        Args...>::type;
-  return ctor_call_expand_pack<result_type, N>(
-      [](auto n, auto &buffer, auto &&... args) {
-        return get_rw_access(buffer.data_[n],
-                             std::forward<decltype(args)>(args)...);
-      },
-      buffer, std::forward<Args>(args)...);
-}
-
-// ============================================================
-// get_ro_access(array_of_vectors_buffer, ...)
-// ============================================================
-
-namespace result_of {
-
-template <typename T, size_t N, typename Linear, typename... Args>
-struct get_ro_access<array_of_vectors_buffer<T, N, Linear>, Args...> {
-  using type =
-      array_of_vectors_access<T, N,
-                              typename get_ro_access<Linear, Args...>::type>;
-};
-
-} // namespace result_of
-
-template <typename T, size_t N, typename Linear, typename... Args>
-typename result_of::get_ro_access<array_of_vectors_buffer<T, N, Linear>,
-                                  Args...>::type
-get_ro_access(array_of_vectors_buffer<T, N, Linear> &buffer, Args &&... args) {
-  using result_type =
-      typename result_of::get_ro_access<array_of_vectors_buffer<T, N, Linear>,
-                                        Args...>::type;
-  return ctor_call_expand_pack<result_type, N>(
-      [](auto n, auto &buffer, auto &&... args) {
-        return get_ro_access(buffer.data_[n],
-                             std::forward<decltype(args)>(args)...);
-      },
-      buffer, std::forward<Args>(args)...);
-}
-*/
 
 } // namespace prtcl

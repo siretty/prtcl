@@ -37,12 +37,12 @@ template <typename T, typename Data> void test_device_access(Data &data) {
 
       cgh.template parallel_for<class testing>(
           sycl::range<1>{buf.size()},
-          [=](sycl::item<1> id) { rw[id[0]] = id[0]; });
+          [=](sycl::item<1> id) { rw[id[0]] = static_cast<T>(id[0]); });
     });
   }
 
   for (size_t pos = 0; pos < data.size(); ++pos)
-    REQUIRE(pos == data[pos]);
+    REQUIRE(static_cast<T>(pos) == data[pos]);
 }
 
 TEST_CASE("prtcl::sycl_linear_access", "[prtcl]") {

@@ -28,10 +28,29 @@ struct field_data_value {
   static_assert(tag::is_group_tag_v<GroupTag>, "invalid GroupTag");
 
   friend std::ostream &operator<<(std::ostream &s, field_data_value const &v) {
-    s << "field_data<" << kind_tag{} << ", " << type_tag{} << ", "
-      << group_tag{} << ">(";
-    s << boost::lexical_cast<std::string>(v.data);
-    return s << ")";
+    return s << "field_data<" << kind_tag{} << ", " << type_tag{} << ", "
+             << group_tag{} << ">(" << boost::lexical_cast<std::string>(v.data)
+             << ")";
+  }
+};
+
+template <typename TypeTag, typename GroupTag, typename DataType>
+struct field_data_value<tag::uniform, TypeTag, GroupTag, DataType> {
+  using kind_tag = tag::uniform;
+  using type_tag = TypeTag;
+  using group_tag = GroupTag;
+  using data_type = DataType;
+
+  size_t index;
+  data_type data;
+
+  static_assert(tag::is_type_tag_v<TypeTag>, "invalid TypeTag");
+  static_assert(tag::is_group_tag_v<GroupTag>, "invalid GroupTag");
+
+  friend std::ostream &operator<<(std::ostream &s, field_data_value const &v) {
+    return s << "field_data<" << kind_tag{} << ", " << type_tag{} << ", "
+             << group_tag{} << ">(" << v.index << ", "
+             << boost::lexical_cast<std::string>(v.data) << ")";
   }
 };
 

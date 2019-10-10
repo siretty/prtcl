@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../../meta/is_any_of.hpp"
 #include "../field_data.hpp"
 #include "../field_name.hpp"
 #include "../group.hpp"
@@ -25,7 +26,11 @@ struct index_field_name : boost::proto::callable {
   template <typename FN, typename GT>
   typename result<index_field_name(FN, GT)>::type operator()(FN const &fn,
                                                              GT const &) {
-    return {fn.name};
+    using kind_tag = typename rcvr_t<FN>::kind_tag;
+    if constexpr (is_any_of_v<kind_tag, tag::uniform>)
+      return {0, fn.name};
+    else
+      return {fn.name};
   }
 };
 

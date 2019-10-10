@@ -43,7 +43,10 @@ struct rw_access_field : boost::proto::callable {
   template <typename FD, typename D>
   typename result<rw_access_field(FD, D)>::type operator()(FD const &fd,
                                                            D const &data) {
-    return {std::invoke(call_get_rw_access{}, fd.data, data)};
+    if constexpr (is_any_of_v<kind_t<FD>, tag::uniform>)
+      return {fd.index, std::invoke(call_get_rw_access{}, fd.data, data)};
+    else
+      return {std::invoke(call_get_rw_access{}, fd.data, data)};
   }
 };
 
@@ -76,7 +79,10 @@ struct ro_access_field : boost::proto::callable {
   template <typename FD, typename D>
   typename result<ro_access_field(FD, D)>::type operator()(FD const &fd,
                                                            D const &data) {
-    return {std::invoke(call_get_ro_access{}, fd.data, data)};
+    if constexpr (is_any_of_v<kind_t<FD>, tag::uniform>)
+      return {fd.index, std::invoke(call_get_ro_access{}, fd.data, data)};
+    else
+      return {std::invoke(call_get_ro_access{}, fd.data, data)};
   }
 };
 

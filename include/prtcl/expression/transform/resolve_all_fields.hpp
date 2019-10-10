@@ -28,8 +28,6 @@ struct resolve_field : boost::proto::callable {
     static_assert(is_any_of_v<kind_t<FD>, tag::uniform, tag::varying>);
     static_assert(is_any_of_v<type_t<FD>, tag::scalar, tag::vector>);
 
-#pragma message "warning: uniforms currently not implemented correctly"
-
     using data_type =
         std::conditional_t<std::is_same<type_t<FD>, tag::scalar>::value,
                            scalars_type, vectors_type>;
@@ -41,10 +39,14 @@ struct resolve_field : boost::proto::callable {
   typename result<resolve_field(FD, GB)>::type operator()(FD const &fd,
                                                           GB const &group) {
     if constexpr (is_any_of_v<kind_t<FD>, tag::uniform>) {
-      if constexpr (is_any_of_v<type_t<FD>, tag::scalar>)
-        return {group.get_uniform_scalars()};
+      if constexpr (is_any_of_v<type_t<FD>, tag::scalar>) {
+        std::cout << "NAME-INDEX: " << fd.data << " " << *group.get_uniform_scalar_index(fd.data) << std::endl;
+        return {*group.get_uniform_scalar_index(fd.data),
+                group.get_uniform_scalars()};
+      }
       if constexpr (is_any_of_v<type_t<FD>, tag::vector>)
-        return {group.get_uniform_vectors()};
+        return {*group.get_uniform_vector_index(fd.data),
+                group.get_uniform_vectors()};
       throw "unknown field type";
     }
     if constexpr (is_any_of_v<kind_t<FD>, tag::varying>) {

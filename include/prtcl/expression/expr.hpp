@@ -14,7 +14,10 @@ struct expr_domain : boost::proto::domain<expr_generator> {
 };
 
 template <typename E> struct expr {
-  BOOST_PROTO_EXTENDS(E, expr<E>, expr_domain);
+  BOOST_PROTO_EXTENDS(E, expr<E>, expr_domain)
+
+  expr() = default;
+  expr(expr const &) = default;
 };
 
 } // namespace expression

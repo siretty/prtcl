@@ -6,7 +6,9 @@
 
 TEST_CASE("prtcl::tag", "[prtcl][tag]") {
   auto tag_to_string = [](auto tag) {
-    return (std::ostringstream{} << tag).str();
+    std::ostringstream s;
+    s << tag;
+    return s.str();
   };
 
   REQUIRE("active" == tag_to_string(prtcl::tag::active{}));

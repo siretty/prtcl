@@ -10,12 +10,7 @@
 #include <iostream>
 
 template <typename E, typename S>
-void display_cxx_type(E const &e, S &out, char indent_marker = '|') {
-  auto putter = std::ostreambuf_iterator<char>{out};
-
-  std::string type = boost::typeindex::type_id<decltype(e)>().pretty_name();
-  size_t indent = 0;
-
+void display_cxx_type(E const &, S &out, char indent_marker = '|') {
   auto generate_indent = [indent_marker](auto it, size_t indent) {
     if (indent_marker == ' ')
       std::fill_n(it, 4 * indent, ' ');
@@ -27,6 +22,19 @@ void display_cxx_type(E const &e, S &out, char indent_marker = '|') {
         *(it++) = ' ';
       }
   };
+
+  std::string type;
+
+  try {
+    type = boost::typeindex::type_id<E>().pretty_name();
+  } catch (...) {
+    out << boost::typeindex::type_id<E>().name()
+        << " [type demangling failed]\n";
+    return;
+  }
+
+  auto putter = std::ostreambuf_iterator<char>{out};
+  size_t indent = 0;
 
   for (size_t pos = 0; pos < type.size(); ++pos) {
     char cur = type[pos];

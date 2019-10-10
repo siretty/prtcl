@@ -80,7 +80,8 @@ private:
     }
   };
   template <typename Value>
-  constexpr static get_impl_type<Value, std::make_index_sequence<N>> get_impl;
+  constexpr static get_impl_type<Value, std::make_index_sequence<N>> get_impl =
+      {};
 
   template <typename, typename> struct set_impl_type;
   template <typename Value, size_t... Ns>
@@ -91,7 +92,8 @@ private:
     }
   };
   template <typename Value>
-  constexpr static set_impl_type<Value, std::make_index_sequence<N>> set_impl;
+  constexpr static set_impl_type<Value, std::make_index_sequence<N>> set_impl =
+      {};
 
 public:
   template <typename Value = value_type> Value get(size_t pos) const {
@@ -100,7 +102,7 @@ public:
 
   template <typename Value = value_type, typename U = T,
             typename = std::enable_if_t<!std::is_const<U>::value>>
-  void set(size_t pos, value_type const &value) const {
+  void set(size_t pos, Value const &value) const {
     set_impl<Value>(*this, pos, value);
   }
 

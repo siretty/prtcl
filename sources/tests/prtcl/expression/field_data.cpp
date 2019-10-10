@@ -3,6 +3,7 @@
 #include "../format_cxx_type.hpp"
 
 #include <prtcl/data/group_data.hpp>
+#include <prtcl/expression/eval_context.hpp>
 #include <prtcl/expression/field_data.hpp>
 #include <prtcl/expression/field_name.hpp>
 #include <prtcl/expression/group.hpp>
@@ -17,11 +18,20 @@
 
 #include <boost/type_index.hpp>
 
+#include <eigen3/Eigen/Eigen>
+
 TEST_CASE("prtcl::expression::field_data", "[prtcl][expression][field_data]") {
   using namespace prtcl;
   using namespace prtcl::expression;
 
-  auto str = [](auto f) { return (std::ostringstream{} << f).str(); };
+  using T = float;
+  constexpr size_t N = 3;
+
+  auto str = [](auto f) {
+    std::ostringstream s;
+    s << f;
+    return s.str();
+  };
 
   REQUIRE("field_name<uniform, scalar>(hello world)" ==
           str(field_name_value<tag::uniform, tag::scalar>{"hello world"}));
@@ -29,8 +39,7 @@ TEST_CASE("prtcl::expression::field_data", "[prtcl][expression][field_data]") {
   std::function<void(std::ostream &)> run_after_scope;
 
   struct {
-    using group_type = group_data<float, 3>;
-    group_type active, passive;
+    group_data<T, N> active, passive;
   } gds;
 
   auto init_group = [](auto &group) {
@@ -39,6 +48,8 @@ TEST_CASE("prtcl::expression::field_data", "[prtcl][expression][field_data]") {
     group.add_varying_scalar("bbb");
     group.add_uniform_vector("ccc");
     group.add_varying_vector("ddd");
+    group.add_uniform_scalar("eee");
+    group.add_uniform_vector("fff");
   };
 
   init_group(gds.active);
@@ -46,9 +57,9 @@ TEST_CASE("prtcl::expression::field_data", "[prtcl][expression][field_data]") {
 
   auto buffer_gds = [](auto &gds) {
     struct {
-      using group_type =
-          typename result_of::get_buffer<decltype(gds.active), tag::host>::type;
-      group_type active, passive;
+      typename result_of::get_buffer<decltype(gds.active), tag::host>::type
+          active,
+          passive;
     } gbs{get_buffer(gds.active, tag::host{}),
           get_buffer(gds.passive, tag::host{})};
     return gbs;
@@ -64,9 +75,15 @@ TEST_CASE("prtcl::expression::field_data", "[prtcl][expression][field_data]") {
     auto b = make_varying_scalar_field_name("bbb");
     auto c = make_uniform_vector_field_name("ccc");
     auto d = make_varying_vector_field_name("ddd");
+    auto e = make_uniform_scalar_field_name("eee");
+    auto f = make_uniform_vector_field_name("fff");
 
-    auto expr_fn = boost::proto::deep_copy(
-        a[i] = 101 * (b[i] * a[j] - c[i] * d[j] * a[i] * d[j] * c[i] / b[j]));
+    // auto expr_fn = boost::proto::deep_copy(
+    //    a[i] = 101 * (b[i] * a[j] - c[i] * d[j] * a[i] * d[j] * c[i] / b[j] +
+    //                  e[i] - f[j]));
+    // auto expr_fn = boost::proto::deep_copy(b[i] = b[j] * b[i]);
+    // auto expr_fn = boost::proto::deep_copy(d[i] = d[j] * d[i]);
+    auto expr_fn = boost::proto::deep_copy(d[i] = b[i] * d[j] + b[j] * d[i]);
 
     std::cout << "expr_fn = ";
     boost::proto::display_expr(expr_fn, std::cout);
@@ -109,6 +126,12 @@ TEST_CASE("prtcl::expression::field_data", "[prtcl][expression][field_data]") {
       std::cout << "expr_fa = ";
       boost::proto::display_expr(expr_fa, std::cout);
       display_cxx_type(expr_fa, std::cout);
+
+      eval_context<T, Eigen::Array<T, N, 1>> ctx;
+      ctx.active = 0;
+      ctx.passive = 1;
+
+      boost::proto::eval(expr_fa, ctx);
     };
   }
 
