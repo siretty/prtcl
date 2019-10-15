@@ -2,8 +2,6 @@
 
 #include <catch.hpp>
 
-#include <prtcl/tags/sycl.hpp>
-
 namespace tests::prtcl {
 
 template <typename Data> inline void common_host_data_tests(Data &data) {

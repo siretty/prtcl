@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../../meta/remove_cvref.hpp"
-#include "../../tags/sycl.hpp"
 #include "../host/host_linear_access.hpp"
 #include "../host/host_linear_buffer.hpp"
 #include "sycl_linear_buffer.hpp"

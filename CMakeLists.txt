@@ -63,15 +63,6 @@ DE_Add_Catch2_Test(
   ${_SRC}/tests/prtcl/data/sycl/vector_of_arrays.cpp
   # group data
   ${_SRC}/tests/prtcl/data/group_data.cpp
-  # expr terminal
-  #${_SRC}/tests/prtcl/expr/terminal/uniform_varying_scalar_vector.cpp
-  #${_SRC}/tests/prtcl/expr/grammar/scalar.cpp
-  #${_SRC}/tests/prtcl/expr/grammar/vector.cpp
-  # transforms
-  #${_SRC}/tests/prtcl/expr/transform/for_each_used_field.cpp
-  #${_SRC}/tests/prtcl/expr/transform/bind_field_data.cpp
-  # equation
-  ${_SRC}/tests/prtcl/equation.cpp
   # tag types
   ${_SRC}/tests/prtcl/tags.cpp
   # expression types
