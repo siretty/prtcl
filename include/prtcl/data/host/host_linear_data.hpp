@@ -7,6 +7,8 @@
 
 #include <cstddef>
 
+#include <iostream>
+
 namespace prtcl {
 
 template <typename T> struct host_linear_data {
@@ -43,9 +45,7 @@ public:
   T &operator[](size_t pos) const { return data()[pos]; }
 
 public:
-  void resize(size_t new_size) {
-    impl_->data.resize(new_size);
-  }
+  void resize(size_t new_size) { impl_->data.resize(new_size); }
 };
 
 } // namespace prtcl

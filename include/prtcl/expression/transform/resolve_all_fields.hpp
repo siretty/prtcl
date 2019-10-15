@@ -40,7 +40,8 @@ struct resolve_field : boost::proto::callable {
                                                           GB const &group) {
     if constexpr (is_any_of_v<kind_t<FD>, tag::uniform>) {
       if constexpr (is_any_of_v<type_t<FD>, tag::scalar>) {
-        std::cout << "NAME-INDEX: " << fd.data << " " << *group.get_uniform_scalar_index(fd.data) << std::endl;
+        // std::cout << "NAME-INDEX: " << fd.data << " " <<
+        // *group.get_uniform_scalar_index(fd.data) << std::endl;
         return {*group.get_uniform_scalar_index(fd.data),
                 group.get_uniform_scalars()};
       }

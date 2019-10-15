@@ -3,6 +3,7 @@
 #include "../meta/is_any_of.hpp"
 #include "../tags.hpp"
 #include "field_data.hpp"
+#include "function.hpp"
 
 #include "../../../sources/tests/prtcl/format_cxx_type.hpp"
 
@@ -74,6 +75,7 @@ struct eval_field_get : boost::proto::callable {
   typename result<eval_field_get(FD, D)>::type operator()(FD const &field,
                                                           D data) const {
     static_assert(is_any_of_v<kind_t<FD>, tag::uniform, tag::varying>);
+    static_assert(is_any_of_v<type_t<FD>, tag::scalar, tag::vector>);
     static_assert(is_any_of_v<group_t<FD>, tag::active, tag::passive>);
 
     if constexpr (is_any_of_v<kind_t<FD>, tag::uniform>) {
@@ -83,7 +85,7 @@ struct eval_field_get : boost::proto::callable {
         return field.data.get(field.index);
     }
 
-    size_t index;
+    [[maybe_unused]] size_t index;
     if constexpr (is_any_of_v<group_t<FD>, tag::active>)
       index = data.active;
     if constexpr (is_any_of_v<group_t<FD>, tag::passive>)
@@ -98,45 +100,76 @@ struct eval_field_get : boost::proto::callable {
   }
 };
 
+struct eval_function_tag : boost::proto::callable {
+  template <typename T> using rcvr_t = remove_cvref_t<T>;
+
+  template <typename> struct result;
+
+  template <typename This, typename FT, typename Data>
+  struct result<This(FT, Data)> {
+    static_assert(tag::is_function_tag_v<rcvr_t<FT>>);
+    using type = rcvr_t<typename boost::fusion::result_of::at_key<
+        decltype(std::declval<Data>().functions), rcvr_t<FT>>::type>;
+  };
+
+  template <typename FT, typename Data>
+  typename result<eval_function_tag(FT, Data)>::type
+  operator()(FT const &, Data &&data) const {
+    static_assert(tag::is_function_tag_v<rcvr_t<FT>>);
+
+    return boost::fusion::at_key<rcvr_t<FT>>(
+        std::forward<Data>(data).functions);
+  }
+};
+
 template <typename Scalar, typename Vector>
-struct eval_assign_rhs
+struct eval_expr
     : boost::proto::or_<
+          // Evaluate field data.
           boost::proto::when<
               FieldData, boost::proto::_make_terminal(
                              boost::proto::call<eval_field_get<Scalar, Vector>(
                                  boost::proto::_value, boost::proto::_data)>)>,
+          // Evaluate function tags.
+          boost::proto::when<Function,
+                             boost::proto::_make_terminal(eval_function_tag(
+                                 boost::proto::_value, boost::proto::_data))>,
           // Terminals are stored by value and are not modified in this step.
           boost::proto::when<boost::proto::terminal<boost::proto::_>,
                              boost::proto::_byval(boost::proto::_)>,
           // Recurse into any Non-Terminals.
           boost::proto::nary_expr<
               boost::proto::_,
-              boost::proto::vararg<eval_assign_rhs<Scalar, Vector>>>> {};
+              boost::proto::vararg<eval_expr<Scalar, Vector>>>> {};
 
-template <typename Scalar, typename Vector>
-struct eval_context
-    : boost::proto::callable_context<eval_context<Scalar, Vector> const> {
+template <typename Scalar, typename Vector, typename Functions>
+struct eval_context : boost::proto::callable_context<
+                          eval_context<Scalar, Vector, Functions> const> {
   size_t active, passive;
+  Functions functions;
 
   using result_type = void;
 
+  // template <typename FunTerm, typename... Args>
+  // auto operator()(boost::proto::tag::function, FunTerm, Args &&... args)
+  // const {
+  //  using key_type =
+  //      typename
+  //      boost::proto::result_of::value<remove_cvref_t<FunTerm>>::type;
+  //  return boost::fusion::at_key<key_type>(functions)(boost::proto::eval(
+  //      eval_expr<Scalar, Vector>{}(std::forward<Args>(args), 0, *this),
+  //      *this)...);
+  //}
+
   template <typename LHS, typename RHS>
-  void operator()(boost::proto::tag::assign, LHS lhs, RHS rhs) const {
-    // std::cout << "ASSIGN ";
-    // boost::proto::display_expr(lhs);
-    // display_cxx_type(lhs, std::cout);
-
-    // std::cout << "TO ";
-    // boost::proto::display_expr(rhs);
-    // display_cxx_type(rhs, std::cout);
-
+  void operator()(boost::proto::tag::assign, LHS &&lhs, RHS &&rhs) const {
     // assign the left hand side
-    eval_field_set{}(
-        boost::proto::value(lhs),
-        // evaluate the right hand side
-        boost::proto::eval(eval_assign_rhs<Scalar, Vector>{}(rhs, 0, *this),
-                           *this),
-        *this);
+    eval_field_set{}(boost::proto::value(std::forward<LHS>(lhs)),
+                     // evaluate the right hand side
+                     boost::proto::eval(eval_expr<Scalar, Vector>{}(
+                                            std::forward<RHS>(rhs), 0, *this),
+                                        *this),
+                     *this);
   }
 };
 

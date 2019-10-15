@@ -127,7 +127,7 @@ TEST_CASE("prtcl::expression::field_data", "[prtcl][expression][field_data]") {
       boost::proto::display_expr(expr_fa, std::cout);
       display_cxx_type(expr_fa, std::cout);
 
-      eval_context<T, Eigen::Array<T, N, 1>> ctx;
+      eval_context<T, Eigen::Array<T, N, 1>, int> ctx;
       ctx.active = 0;
       ctx.passive = 1;
 

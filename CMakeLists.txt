@@ -76,6 +76,13 @@ DE_Add_Catch2_Test(
   ${_SRC}/tests/prtcl/tags.cpp
   # expression types
   ${_SRC}/tests/prtcl/expression/field_data.cpp
+  # schemes
+  ${_SRC}/tests/prtcl/scheme/basic_scheme.cpp
+  # math traits
+  ${_SRC}/tests/prtcl/math/traits/host_math_traits.cpp
+  ${_SRC}/tests/prtcl/math/traits/sycl_math_traits.cpp
+  # math kernel
+  ${_SRC}/tests/prtcl/math/kernel/cubic_spline_kernel.cpp
 )
 
 DE_CXX17_Target( prtcl-tests )

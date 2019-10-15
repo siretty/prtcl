@@ -2,6 +2,7 @@
 
 BLD="${1:-asan/clang}"
 RUN_COUNT="${RUN_COUNT:-100}"
+RUN_DEBUG="${RUN_DEBUG:-}"
 
 shift
 ARGS=( "$@" )
@@ -20,8 +21,25 @@ if ! ninja -C bld/$BLD ; then
   exit 1
 fi
 
+CMD=()
+if [ -n "${RUN_DEBUG}" ] ; then
+  CMD+=( gdb -q )
+fi
+CMD+=( "./bld/$BLD/prtcl-tests" )
+if [ -n "${RUN_DEBUG}" ] ; then
+  QUOTED_ARGS=()
+  for i in $(seq 0 $(( ${#ARGS[@]} - 1 )) ) ; do
+    QUOTED_ARGS+=( "$(printf "%q" "${ARGS[$i]}")" )
+  done
+  CMD+=( -ex "run ${QUOTED_ARGS[@]}" )
+else
+  CMD+=( "${ARGS[@]}" )
+fi
+
+echo "${CMD[@]}"
+
 for iteration in $(seq 1 "${RUN_COUNT}") ; do
-  if ! ./bld/$BLD/prtcl-tests "${ARGS[@]}" ; then
+  if ! "${CMD[@]}" ; then
     print_error "TEST FAILED"
     exit 1
   fi

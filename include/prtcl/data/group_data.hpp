@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 
 #include <cstddef>
@@ -42,13 +43,24 @@ public:
   }
 
 private:
+  std::unordered_set<std::string> flags_;
+
+public:
+  void add_flag(std::string name) { flags_.insert(name); }
+
+  bool has_flag(std::string name) const {
+    return flags_.find(name) != flags_.end();
+  }
+
+private:
   std::unordered_map<std::string, scalars_type> varying_scalars_;
 
 public:
-  void add_varying_scalar(std::string name) {
+  scalars_type add_varying_scalar(std::string name) {
     auto [it, inserted] = varying_scalars_.insert({name, scalars_type{}});
     if (inserted)
       it->second.resize(size());
+    return it->second;
   }
 
   std::optional<scalars_type> get_varying_scalar(std::string name) const {
@@ -62,10 +74,11 @@ private:
   std::unordered_map<std::string, vectors_type> varying_vectors_;
 
 public:
-  void add_varying_vector(std::string name) {
+  vectors_type add_varying_vector(std::string name) {
     auto [it, inserted] = varying_vectors_.insert({name, vectors_type{}});
     if (inserted)
       it->second.resize(size());
+    return it->second;
   }
 
   std::optional<vectors_type> get_varying_vector(std::string name) const {
@@ -80,12 +93,13 @@ private:
   scalars_type uniform_scalars_data_;
 
 public:
-  void add_uniform_scalar(std::string name) {
+  size_t add_uniform_scalar(std::string name) {
     size_t index = uniform_scalars_data_.size();
     auto [it, inserted] = uniform_scalars_.insert({name, index});
     if (!inserted)
-      return;
+      return it->second;
     uniform_scalars_data_.resize(index + 1);
+    return it->second;
   }
 
   std::optional<size_t> get_uniform_scalar_index(std::string name) const {
@@ -102,12 +116,13 @@ private:
   vectors_type uniform_vectors_data_;
 
 public:
-  void add_uniform_vector(std::string name) {
+  size_t add_uniform_vector(std::string name) {
     size_t index = uniform_vectors_data_.size();
     auto [it, inserted] = uniform_vectors_.insert({name, index});
     if (!inserted)
-      return;
+      return it->second;
     uniform_vectors_data_.resize(index + 1);
+    return it->second;
   }
 
   std::optional<size_t> get_uniform_vector_index(std::string name) const {
@@ -125,6 +140,11 @@ public:
 namespace detail {
 
 struct group_data_access {
+  template <typename T, size_t N, typename Linear>
+  static auto get_flags(group_data<T, N, Linear> const &gd) {
+    return std::make_pair(gd.flags_.begin(), gd.flags_.end());
+  }
+
   template <typename T, size_t N, typename Linear>
   static auto get_varying_scalars(group_data<T, N, Linear> const &gd) {
     return std::make_pair(gd.varying_scalars_.begin(),
@@ -176,6 +196,14 @@ public:
       s.resize(new_size);
 
     size_ = new_size;
+  }
+
+private:
+  std::unordered_set<std::string> flags_;
+
+public:
+  bool has_flag(std::string name) const {
+    return flags_.find(name) != flags_.end();
   }
 
 private:
@@ -237,6 +265,11 @@ struct group_buffer_access {
   template <typename T, size_t N, typename Linear>
   static auto set_size(group_buffer<T, N, Linear> &group, size_t size) {
     group.size_ = size;
+  }
+
+  template <typename T, size_t N, typename Linear>
+  static auto add_flag(group_buffer<T, N, Linear> &group, std::string name) {
+    group.flags_.insert(name);
   }
 
   template <typename T, size_t N, typename Linear>
@@ -326,6 +359,12 @@ get_buffer(group_data<T, N, Linear> const &data, Args &&... args) {
       result;
   // size
   detail::group_buffer_access::set_size(result, data.size());
+  { // flags
+    auto [first, last] = detail::group_data_access::get_flags(data);
+    for (auto it = first; it != last; ++it) {
+      detail::group_buffer_access::add_flag(result, *it);
+    }
+  }
   { // varying scalars
     auto [first, last] = detail::group_data_access::get_varying_scalars(data);
     for (auto it = first; it != last; ++it) {
