@@ -181,12 +181,12 @@ void display_fluid_vtk(std::string description, Group &group, std::ostream &s) {
     s << std::fixed << format_array(v.get(i)) << "\n";
 
   s << "SCALARS density float 1\n";
-  s << "LOOKUP_TABLE default";
+  s << "LOOKUP_TABLE default\n";
   for (size_t i = 0; i < group.size(); ++i)
     s << std::fixed << rho.get(i) << "\n";
 
   s << "SCALARS pressure float 1\n";
-  s << "LOOKUP_TABLE default";
+  s << "LOOKUP_TABLE default\n";
   for (size_t i = 0; i < group.size(); ++i)
     s << std::fixed << p.get(i) << "\n";
 
@@ -270,22 +270,22 @@ struct sesph_scheme : prtcl::basic_scheme<T, N, prtcl::tag::host> {
     this->for_each_pair(
         fluid_fluid,
         // compute viscosity acceleration
-        a[i] = a[i] + nu[i] * m[i] / rho[i] * dot(v[i] - v[j], x[i] - x[j]) /
+        a[i] = a[i] + nu[i] * m[j] / rho[i] * dot(v[i] - v[j], x[i] - x[j]) /
                           (norm_sq(x[i] - x[j]) + 0.01 * h[i] * h[i]) *
                           GradW(x[i] - x[j], h[i]),
         // compute pressure acceleration
-        a[i] = a[i] +
-               m[i] * (p[i] / (rho[i] * rho[i]) + p[j] / (rho[j] * rho[j])) *
+        a[i] = a[i] -
+               m[j] * (p[i] / (rho[i] * rho[i]) + p[j] / (rho[j] * rho[j])) *
                    GradW(x[i] - x[j], h[i]));
-    this->for_each_pair(fluid_boundary,
-                        // compute viscosity acceleration
-                        a[i] = a[i] +
-                               nu[i] * m[i] / rho[i] * dot(v[i], x[i] - x[j]) /
-                                   (norm_sq(x[i] - x[j]) + 0.01 * h[i] * h[i]) *
-                                   GradW(x[i] - x[j], h[i]),
-                        // compute pressure acceleration
-                        a[i] = a[i] + m[i] * (2 * p[i] / (rho[i] * rho[i])) *
-                                          GradW(x[i] - x[j], h[i]));
+    this->for_each_pair(
+        fluid_boundary,
+        // compute viscosity acceleration
+        a[i] = a[i] + nu[i] * V[j] * rho0[i] / rho[i] * dot(v[i], x[i] - x[j]) /
+                          (norm_sq(x[i] - x[j]) + 0.01 * h[i] * h[i]) *
+                          GradW(x[i] - x[j], h[i]),
+        // compute pressure acceleration
+        a[i] = a[i] - V[j] * rho0[i] * (2 * p[i] / (rho[i] * rho[i])) *
+                          GradW(x[i] - x[j], h[i]));
 
     // Euler-Cromer / Symplectic-Euler
     this->for_each(fluid,
@@ -395,18 +395,22 @@ TEST_CASE("prtcl/scheme/basic_scheme/sesph_scheme",
     }
   }
 
-  { // dump initial state
-    std::fstream f{"data.1.vtk", std::fstream::trunc | std::fstream::out};
-    display_fluid_vtk("fluid initial", scheme.get_group(g_index), f);
-  }
+  size_t max_frame = 20;
+  for (size_t frame = 0; frame <= max_frame; ++frame) {
+    { // dump initial state
+      std::fstream f{"data." + std::to_string(frame) + ".vtk",
+                     std::fstream::trunc | std::fstream::out};
+      display_fluid_vtk("fluid frame " + std::to_string(frame),
+                        scheme.get_group(g_index), f);
+    }
 
-  std::cout << "scheme.execute() ..." << std::endl;
-  for (size_t i = 0; i < 0.1f / time_step; ++i)
-    scheme.execute();
-  std::cout << "... done" << std::endl;
+    if (frame == max_frame)
+      break;
 
-  { // dump initial state
-    std::fstream f{"data.2.vtk", std::fstream::trunc | std::fstream::out};
-    display_fluid_vtk("fluid after", scheme.get_group(g_index), f);
+    std::cout << "frame " << (frame + 1) << " scheme.execute() ..."
+              << std::endl;
+    for (size_t i = 0; i < 0.01f / time_step; ++i)
+      scheme.execute();
+    std::cout << "... done" << std::endl;
   }
 }

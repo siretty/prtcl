@@ -66,6 +66,21 @@ struct is_type_tag : is_any_of<remove_cvref_t<T>, scalar, vector> {};
 
 template <typename T> constexpr bool is_type_tag_v = is_type_tag<T>::value;
 
+// field access
+
+struct read {
+  PRTCL_DEFINE_TAG_OSTREAM_LSHIFT(read)
+};
+
+struct read_write {
+  PRTCL_DEFINE_TAG_OSTREAM_LSHIFT(read_write)
+};
+
+template <typename T>
+struct is_access_tag : is_any_of<remove_cvref_t<T>, read, read_write> {};
+
+template <typename T> constexpr bool is_access_tag_v = is_access_tag<T>::value;
+
 // execution mode
 
 struct host {

@@ -127,7 +127,7 @@ public:
     update_sorted_to_raw(x);
     update_sorted_to_cell(x);
     update_cell_to_grid_and_sorted_range(x);
-    update_cell_to_adjacent_cells(x);
+    update_cell_to_adjacent_cells();
   }
 
 private:
@@ -294,8 +294,7 @@ private:
 
   // update_cell_to_adjacent_cells(GroupedVectorData) {{{
 
-  template <typename GroupedVectorData>
-  void update_cell_to_adjacent_cells(GroupedVectorData const &x) {
+  void update_cell_to_adjacent_cells() {
 #pragma omp parallel for
     for (size_t n_c = 0; n_c < cell_to_grid_.size(); ++n_c) {
       // enumerate all sparse adjacent cell offsets

@@ -191,6 +191,45 @@ private:
   }
 
 private:
+  template <typename RawExpr, typename Groups>
+  auto _transform_single_raw_expr(RawExpr &&raw_expr, Groups const &groups) {
+    return expression::access_all_fields{}(
+        expression::resolve_all_fields{}(expression::index_all_field_names{}(
+                                             std::forward<RawExpr>(raw_expr)),
+                                         0, groups),
+        0, std::make_tuple());
+  }
+
+  template <typename Select, typename RawExpr>
+  auto _transform_sigle_raw_expr_for_all_groups(Select &&select,
+                                                RawExpr &&raw_expr) {
+    struct groups_type {
+      group_buffer_type const &active, &passive;
+    };
+
+    using expr_type = decltype(_transform_single_raw_expr(
+        std::forward<RawExpr>(raw_expr), std::declval<groups_type>()));
+
+    std::vector<std::vector<std::optional<expr_type>>> expr;
+    expr.resize(group_buffer_.size());
+    for (auto &e : expr)
+      e.resize(group_buffer_.size());
+
+    for (size_t g_active = 0; g_active < group_buffer_.size(); ++g_active) {
+      for (size_t g_passive = 0; g_passive < group_buffer_.size();
+           ++g_passive) {
+        groups_type groups{group_buffer_[g_active], group_buffer_[g_passive]};
+        if (std::invoke(std::forward<Select>(select), groups.active,
+                        groups.passive)) {
+          expr[g_active][g_passive] = _transform_single_raw_expr(
+              std::forward<RawExpr>(raw_expr), groups);
+        }
+      }
+    }
+
+    return expr;
+  }
+
   template <typename RawExprs, typename Groups>
   auto _transform_raw_exprs(RawExprs &&raw_exprs, Groups const &groups) {
     // TODO: (?) merge with other transforms into one line
@@ -235,20 +274,48 @@ public:
     auto raw_exprs =
         boost::fusion::make_tuple(std::forward<RawExprArgs>(raw_expr_args)...);
 
-    _for_each_group_pair(
-        [this, &select, &raw_exprs](size_t g_active, size_t g_passive) {
-          struct {
-            group_buffer_type const &active, &passive;
-          } groups{group_buffer_[g_active], group_buffer_[g_passive]};
-
-          if (std::invoke(std::forward<Select>(select), groups.active,
-                          groups.passive)) {
-            // std::cerr << "for_each_pair " << g_active << " " << g_passive
-            //          << std::endl;
-            auto exprs = this->_transform_raw_exprs(raw_exprs, groups);
-            _for_each_pair(exprs, g_active, g_passive);
-          }
+    auto exprs =
+        boost::fusion::transform(raw_exprs, [this, &select](auto const &e) {
+          return this->_transform_sigle_raw_expr_for_all_groups(select, e);
         });
+
+    std::vector<std::vector<size_t>> neighbours;
+
+#pragma omp parallel private(neighbours)
+    {
+      for (size_t g_active = 0; g_active < group_buffer_.size(); ++g_active) {
+        auto &active = group_buffer_[g_active];
+#pragma omp for
+        for (size_t i_active = 0; i_active < active.size(); ++i_active) {
+          neighbours.resize(group_buffer_.size());
+          for (auto &n : neighbours)
+            n.clear();
+
+          grid_.neighbours(g_active, i_active, *this, [&neighbours](auto i_gr) {
+            neighbours[i_gr.get_group()].push_back(i_gr.get_index());
+          });
+
+          for (size_t g_passive = 0; g_passive < group_buffer_.size();
+               ++g_passive) {
+            for (size_t i_passive : neighbours[g_passive]) {
+              eval_context_t<decltype(std::declval<host_scheme>().functions())>
+                  ctx;
+              ctx.active = i_active;
+              ctx.passive = i_passive;
+              ctx.functions = functions();
+              // iterate over each expression e
+              boost::fusion::for_each(
+                  exprs, [g_active, g_passive, &ctx](auto const &e) {
+                    if (e[g_active][g_passive]) {
+                      // evaluate the expression e
+                      boost::proto::eval(*e[g_active][g_passive], ctx);
+                    }
+                  });
+            }
+          }
+        }
+      }
+    }
   }
 
   friend size_t get_group_count(host_scheme const &scheme) {

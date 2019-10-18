@@ -74,6 +74,14 @@ DE_Add_Catch2_Test(
   ${_SRC}/tests/prtcl/math/traits/sycl_math_traits.cpp
   # math kernel
   ${_SRC}/tests/prtcl/math/kernel/cubic_spline_kernel.cpp
+
+  # prtcl/expr/... transforms
+  ${_SRC}/tests/prtcl/expr/field_subscript_transform.cpp
+  #${_SRC}/tests/prtcl/expr/field_value_transform.cpp # not used / usable atm
+  #${_SRC}/tests/prtcl/expr/field_assign_transform.cpp # not used / usable atm
+  ${_SRC}/tests/prtcl/expr/text_transform.cpp
+  # prtcl/scheme/...
+  ${_SRC}/tests/prtcl/scheme/host_scheme.cpp
 )
 
 DE_CXX17_Target( prtcl-tests )
