@@ -179,9 +179,8 @@ TEST_CASE("prtcl/scheme/host_scheme sesph",
           p[f] = kappa[f] * max(rho[f] / rho0[f] - 1, 0));
 
       // compute accelerations
-      this->for_each(fluid(), a[f] = g[f]);
-      /*
-          ,
+      this->for_each(
+          fluid(), a[f] = g[f],
           this->for_each_neighbour(
               fluid(),
               // compute viscosity acceleration
@@ -200,26 +199,25 @@ TEST_CASE("prtcl/scheme/host_scheme sesph",
               nu[f] * rho0[f] * V[f_b] / rho[f] * dot(v[f], x[f] - x[f_b]) /
               (norm_sq(x[f] - x[f_b]) + h * h / 100) * GradW(x[f] - x[f_b]),
               // compute pressure acceleration
-              a[f] -= rho0[f] * V[f_b] * (2 * p[f] / (rho[f] * rho[f])) *
+              a[f] -= 0.7f * rho0[f] * V[f_b] * (2 * p[f] / (rho[f] * rho[f])) *
                       GradW(x[f] - x[f_b])));
-                     */
 
       // Euler-Cromer / Symplectic-Euler
-      // this->for_each(fluid(),
-      //               // compute velocity
-      //               v[f] = v[f] + dt[f] * a[f],
-      //               // compute position
-      //               x[f] = x[f] + dt[f] * v[f]);
+      this->for_each(fluid(),
+                     // compute velocity
+                     v[f] = v[f] + dt[f] * a[f],
+                     // compute position
+                     x[f] = x[f] + dt[f] * v[f]);
     }
   };
 
-  // T time_step = 0.00001f;
-  T time_step = 0.01f;
+  T time_step = 0.00001f;
+  // T time_step = 0.01f;
 
   sesph_scheme scheme;
   scheme.set_smoothing_scale(0.025f);
 
-  size_t grid_size = 2;
+  size_t grid_size = 10;
 
   auto gi_fluid = scheme.add_group();
   {
@@ -254,15 +252,16 @@ TEST_CASE("prtcl/scheme/host_scheme sesph",
 
     us.set(n_dt, 0.00001f);
     us.set(n_rho0, 1000);
-    us.set(n_kappa, 100'000);
+    us.set(n_kappa, 100'000'000);
     us.set(n_nu, 0.1f);
     us.set(n_m, constpow(scheme.get_smoothing_scale(), N) * us.get(n_rho0));
 
     uv.set(n_g, {0, -10, 0});
 
+
     size_t i = 0;
     for (auto ix : x_grid) {
-      auto const h = scheme.get_smoothing_scale();
+      auto const h = scheme.get_smoothing_scale() * 0.5f;
       x.set(i, make_array<T>(h * ix[0], h * ix[1], h * ix[2]));
       v.set(i, make_array<T>(0, 0, 0));
       ++i;
@@ -315,7 +314,7 @@ TEST_CASE("prtcl/scheme/host_scheme sesph",
     dump_boundary_vtk("boundary", scheme.get_group(gi_boundary), f);
   }
 
-  size_t max_frame = 1; // 20;
+  size_t max_frame = 40;
   for (size_t frame = 0; frame <= max_frame; ++frame) {
     { // save fluid data
       std::fstream f{"fluid." + std::to_string(frame) + ".vtk",
@@ -336,6 +335,8 @@ TEST_CASE("prtcl/scheme/host_scheme sesph",
 
   scheme.destroy_buffers();
 }
+
+// dump_boundary_vtk(...) {{{
 
 template <typename Group>
 void dump_boundary_vtk(std::string description, Group &group, std::ostream &s) {
@@ -372,6 +373,10 @@ void dump_boundary_vtk(std::string description, Group &group, std::ostream &s) {
 
   s.flags(s_flags);
 }
+
+// }}}
+
+// dump_fluid_vtk(...) {{{
 
 template <typename Group>
 void dump_fluid_vtk(std::string description, Group &group, std::ostream &s) {
@@ -427,3 +432,5 @@ void dump_fluid_vtk(std::string description, Group &group, std::ostream &s) {
 
   s.flags(s_flags);
 }
+
+// }}}

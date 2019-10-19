@@ -77,29 +77,6 @@ public:
   }
 
   void destroy_buffers() { group_buffer_.clear(); }
-
-  /*
-  template <typename RawExprs, typename Groups>
-  auto _transform_raw_exprs(RawExprs &&raw_exprs, Groups const &groups) {
-    // TODO: (?) merge with other transforms into one line
-    // combine field names and subscripted group indices
-    auto indexed_exprs = boost::fusion::transform(
-        raw_exprs, expression::index_all_field_names{});
-
-    // TODO: (?) merge with other transforms into one line
-    // resolve all field names to the group buffer
-    auto resolved_exprs =
-        boost::fusion::transform(indexed_exprs, [&groups](auto const &e) {
-          return expression::resolve_all_fields{}(e, 0, groups);
-        });
-
-    // TODO: (?) merge with other transforms into one line
-    // access all resolved field names
-    return boost::fusion::transform(resolved_exprs, [](auto const &e) {
-      return expression::access_all_fields{}(e, 0, std::make_tuple());
-    });
-  }
-  */
 };
 
 } // namespace prtcl
@@ -149,7 +126,7 @@ public:
 
   using kernel_type = KernelT<math_traits>;
 
-#define PRTCL_DEBUG
+  //#define PRTCL_DEBUG
 
   // call_transform {{{
 
@@ -176,15 +153,19 @@ private:
   private:
     auto const &get_group_buffer(tag::active) const {
       auto const &buffer = data.get_group_buffer(gi_a);
+#ifdef PRTCL_DEBUG
       std::cout << "get_group_buffer(active) a=" << gi_a << " " << &buffer
                 << "\n";
+#endif
       return buffer;
     }
 
     auto const &get_group_buffer(tag::passive) const {
       auto const &buffer = data.get_group_buffer(gi_p);
+#ifdef PRTCL_DEBUG
       std::cout << "get_group_buffer(passive) p=" << gi_p << " " << &buffer
                 << "\n";
+#endif
       return buffer;
     }
 
@@ -341,9 +322,30 @@ private:
 private:
   struct eval_transform {
   private:
-    template <typename Arg> auto _eval(Arg &&arg) const {
-      return boost::yap::evaluate(boost::yap::transform(
-          boost::yap::as_expr(std::forward<Arg>(arg)), *this));
+    template <typename Arg> auto _eval(tag::scalar, Arg &&arg) const {
+      auto arg1 = boost::yap::transform(
+          boost::yap::as_expr(std::forward<Arg>(arg)), *this);
+#ifdef PRTCL_DEBUG
+      boost::yap::print(std::cout, arg1);
+      display_cxx_type(arg1, std::cout);
+#endif
+      // create a temporary so that no expression template (from Eigen) is
+      // returned here, otherwise dangling references _will_ crash the program
+      scalar_type result = boost::yap::evaluate(arg1);
+      return result;
+    }
+
+    template <typename Arg> auto _eval(tag::vector, Arg &&arg) const {
+      auto arg1 = boost::yap::transform(
+          boost::yap::as_expr(std::forward<Arg>(arg)), *this);
+#ifdef PRTCL_DEBUG
+      boost::yap::print(std::cout, arg1);
+      display_cxx_type(arg1, std::cout);
+#endif
+      // create a temporary so that no expression template (from Eigen) is
+      // returned here, otherwise dangling references _will_ crash the program
+      vector_type result = boost::yap::evaluate(arg1);
+      return result;
     }
 
     template <typename Access, typename... Args>
@@ -364,9 +366,12 @@ private:
                     expr::field<KT, TT, tag::active, AT, V> const &field_,
                     RHS &&rhs) const {
 #ifdef PRTCL_DEBUG
-      std::cout << "setting " << _eval(std::forward<RHS>(rhs)) << "\n";
+      if constexpr (is_any_of_v<TT, tag::vector>) {
+        vector_type rhs_value = _eval(TT{}, std::forward<RHS>(rhs));
+        std::cout << "setting " << rhs_value << "\n";
+      }
 #endif
-      field_.value.set(ri_a, _eval(std::forward<RHS>(rhs)));
+      field_.value.set(ri_a, _eval(TT{}, std::forward<RHS>(rhs)));
     }
 
     template <typename KT, typename TT, typename AT, typename V, typename RHS>
@@ -374,7 +379,7 @@ private:
                     expr::field<KT, TT, tag::active, AT, V> const &field_,
                     RHS &&rhs) const {
       field_.value.set(ri_a, get(TT{}, field_.value, ri_a) +
-                                 _eval(std::forward<RHS>(rhs)));
+                                 _eval(TT{}, std::forward<RHS>(rhs)));
     }
 
     template <typename KT, typename TT, typename AT, typename V, typename RHS>
@@ -382,7 +387,7 @@ private:
                     expr::field<KT, TT, tag::active, AT, V> const &field_,
                     RHS &&rhs) const {
       field_.value.set(ri_a, get(TT{}, field_.value, ri_a) -
-                                 _eval(std::forward<RHS>(rhs)));
+                                 _eval(TT{}, std::forward<RHS>(rhs)));
     }
 
     template <typename KT, typename TT, typename AT, typename V>
@@ -400,169 +405,6 @@ private:
     }
 
     size_t ri_a, ri_p;
-  };
-
-  // }}}
-
-  // needs_neighbours_transform {{{
-
-private:
-  struct needs_neighbours_transform {
-    template <typename S, typename... Args>
-    constexpr bool operator()(boost::yap::expr_tag<boost::yap::expr_kind::call>,
-                              expr::loop<tag::passive, S>, Args &&...) const {
-      return true;
-    }
-
-    template <typename... Args>
-    constexpr bool
-    operator()(boost::yap::expr_tag<boost::yap::expr_kind::terminal>,
-               Args &&...) const {
-      return false;
-    }
-
-    template <boost::yap::expr_kind Kind, typename... Args>
-    constexpr bool operator()(boost::yap::expr_tag<Kind>,
-                              Args &&... args) const {
-      return (boost::yap::transform(
-                  boost::yap::as_expr(std::forward<Args>(args)), *this) ||
-              ...);
-    }
-  };
-
-  // }}}
-
-  // [inner,outer]_transform {{{
-
-private:
-  struct inner_transform {
-    template <boost::yap::expr_kind Kind, typename... Args>
-    void operator()(boost::yap::expr_tag<Kind>, Args &&... args) const {
-      boost::yap::transform(
-          boost::yap::transform(
-              boost::yap::make_expression<Kind>(std::forward<Args>(args)...),
-              data_transform{impl, gi_a, gi_a}),
-          eval_transform{ri_a, ri_a});
-
-      /*
-      auto e0 = boost::yap::make_expression<Kind>(std::forward<Args>(args)...);
-
-      // bind field names
-      auto e1 = boost::yap::transform(e0, data_transform{impl, gi_a, gi_a});
-
-      // evaluate the expression
-      boost::yap::transform(e1, eval_transform{ri_a, ri_a});
-      */
-
-#ifdef PRTCL_DEBUG
-      std::cout << "gi_a=" << gi_a << " ri_a=" << ri_a << "\n";
-      // boost::yap::print(std::cout, e1);
-#endif
-    }
-
-    template <typename S, typename... Args>
-    void operator()(boost::yap::expr_tag<boost::yap::expr_kind::call>,
-                    expr::loop<tag::passive, S> loop, Args &&... args) const {
-      for (size_t gi_p = 0; gi_p < neighbours.size(); ++gi_p) {
-        auto &gd_p = impl.get_group(gi_p);
-        if (!loop.select(gd_p))
-          continue;
-
-        /*
-        auto e0s = boost::hana::make_tuple(
-            boost::yap::as_expr(std::forward<Args>(args))...);
-
-        // bind field names
-        auto e1s = boost::hana::transform(e0s, [this, gi_p](auto &&e0) {
-          return boost::yap::transform(std::forward<decltype(e0)>(e0),
-                                       data_transform{impl, gi_a, gi_p});
-        });
-        */
-
-        for (size_t ri_p : neighbours[gi_p]) {
-          (boost::yap::transform(
-               boost::yap::transform(
-                   boost::yap::as_expr(std::forward<Args>(args)),
-                   data_transform{impl, gi_a, gi_p}),
-               eval_transform{ri_a, ri_p}),
-           ...);
-
-          /*
-          boost::hana::for_each(
-              e1s, [gi_a = gi_a, ri_a = ri_a, gi_p, ri_p](auto &&e1) {
-                // evaluate the expression
-                boost::yap::transform(std::forward<decltype(e1)>(e1),
-                                      eval_transform{ri_a, ri_p});
-
-  #ifdef PRTCL_DEBUG
-                std::cout << "gi_a=" << gi_a << " ri_a=" << ri_a
-                          << " gi_p=" << gi_p << " ri_p=" << ri_p << "\n";
-            // boost::yap::print(std::cout, std::forward<decltype(e1)>(e1));
-  #else
-                (void)(gi_a), (void)(gi_p);
-  #endif
-              });
-          */
-        }
-      }
-    }
-
-    impl_type &impl;
-    size_t gi_a, ri_a;
-    std::vector<std::vector<size_t>> &neighbours;
-  };
-
-  struct outer_transform {
-    template <typename S, typename... Args>
-    void operator()(boost::yap::expr_tag<boost::yap::expr_kind::call>,
-                    expr::loop<tag::active, S> loop, Args &&... args) const {
-      bool needs_neighbours =
-          (boost::yap::transform(boost::yap::as_expr(std::forward<Args>(args)),
-                                 needs_neighbours_transform{}) ||
-           ...);
-
-      std::vector<std::vector<size_t>> neighbours;
-#pragma omp parallel private(neighbours)
-      {
-        if (needs_neighbours) {
-          neighbours.resize(impl.get_group_count());
-        }
-
-        for (size_t gi_a = 0; gi_a < impl.get_group_count(); ++gi_a) {
-          auto &gd_a = impl.get_group(gi_a);
-          if (!loop.select(gd_a))
-            continue;
-
-#pragma omp for
-          for (size_t ri_a = 0; ri_a < gd_a.size(); ++ri_a) {
-            if (needs_neighbours) {
-              for (auto &n : neighbours)
-                n.clear();
-
-              impl._grid.neighbours(gi_a, ri_a, impl, [&neighbours](auto gr) {
-                neighbours[gr.get_group()].push_back(gr.get_index());
-              });
-              /*
-              // TODO: find neighbours, currently just all from the other group
-              // std::cout << "finding neighbours\n";
-              for (size_t gi_p = 0; gi_p < impl.get_group_count(); ++gi_p) {
-                auto &gd_p = impl.get_group(gi_p);
-                std::generate_n(std::back_inserter(neighbours[gi_p]),
-                                gd_p.size(), [n = 0]() mutable { return n++; });
-              }
-              */
-            }
-
-            (boost::yap::transform(
-                 boost::yap::as_expr(std::forward<Args>(args)),
-                 inner_transform{impl, gi_a, ri_a, neighbours}),
-             ...);
-          }
-        }
-      }
-    }
-
-    impl_type &impl;
   };
 
   // }}}
@@ -598,14 +440,13 @@ protected:
 
     // boost::yap::print(std::cout, e3);
 
-    /*
-    boost::yap::transform(e3, outer_transform{impl()});
-    */
-
     auto bound_exprs = boost::yap::transform(e3, split_transform{impl()});
     // display_cxx_type(bound_exprs, std::cout);
 
     std::vector<std::vector<size_t>> neighbours;
+
+    size_t total_paricles = 0;
+    size_t total_neighbours = 0;
 
 #pragma omp parallel private(neighbours)
     {
@@ -618,22 +459,36 @@ protected:
 
 #pragma omp for
         for (size_t ri_a = 0; ri_a < this->get_group(gi_a).size(); ++ri_a) {
+
+#ifdef PRTCL_DEBUG
           std::cout << "a(" << gi_a << ", " << ri_a << ")\n";
+#endif
+
+          if (gi_a == 0) {
+#pragma omp atomic
+            total_paricles += 1;
+          }
 
           // compute neighbours on demand
           bool has_neighbours = false;
 
           boost::hana::for_each(*bound_exprs[gi_a], [this, gi_a, ri_a,
+                                                     &total_neighbours,
                                                      &has_neighbours,
                                                      &neighbours](auto &&arg) {
             if constexpr (boost::yap::is_expr<
                               remove_cvref_t<decltype(arg)>>::value) {
+#ifdef PRTCL_DEBUG
               std::cout << " active only expr\n";
+#endif
               // active-only expression
-              boost::yap::transform(std::forward<decltype(arg)>(arg),
-                                    eval_transform{ri_a, ri_a});
+              boost::yap::transform(
+                  std::forward<decltype(arg)>(arg),
+                  eval_transform{ri_a, static_cast<size_t>(-1)});
             } else {
+#ifdef PRTCL_DEBUG
               std::cout << " passive loop\n";
+#endif
               for (size_t gi_p = 0; gi_p < this->get_group_count(); ++gi_p) {
                 // skip group if not selected
                 if (!arg[gi_p])
@@ -652,8 +507,15 @@ protected:
                   has_neighbours = true;
                 }
 
+                if (gi_a == 0) {
+#pragma omp atomic
+                  total_neighbours += neighbours[gi_p].size();
+                }
+
                 for (size_t ri_p : neighbours[gi_p]) {
+#ifdef PRTCL_DEBUG
                   std::cout << "  p(" << gi_p << ", " << ri_p << ")\n";
+#endif
 
                   boost::hana::for_each(*arg[gi_p], [ri_a, ri_p](auto &&arg) {
                     boost::yap::transform(std::forward<decltype(arg)>(arg),
@@ -667,43 +529,12 @@ protected:
       }
     }
 
-    /*
-    // pre-bind expressions
-    using bound_expr_type = remove_cvref_t<decltype(boost::yap::transform(
-        e3, split_transform{std::declval<host_scheme>().impl(), 0, 0}))>;
-    thread_local std::vector<std::vector<bound_expr_type>> bound_exprs(
-        this->get_group_count());
-
-    for (size_t gi_a = 0; gi_a < this->get_group_count(); ++gi_a) {
-      bound_exprs[gi_a].clear();
-
-      for (size_t gi_p = 0; gi_p < this->get_group_count(); ++gi_p) {
-        auto t0 =
-            boost::yap::transform(e3, split_transform{impl(), gi_a, gi_p});
-
-        std::cout << "a=" << gi_a << " p=" << gi_p << " " << (t0 ? "y" : "n")
-                  << "\n";
-
-        // if (t0) {
-        //  boost::hana::for_each(*t0, [](auto const &arg) {
-        //    if constexpr (boost::yap::is_expr<
-        //                      remove_cvref_t<decltype(arg)>>::value) {
-        //      boost::yap::print(std::cout, arg);
-        //    } else {
-        //      if (arg)
-        //        boost::hana::for_each(*arg, [](auto const &arg_arg) {
-        //          boost::yap::print(std::cout, arg_arg);
-        //        });
-        //    }
-        //  });
-        //}
-
-        // display_cxx_type(t0, std::cout);
-
-        bound_exprs[gi_a].push_back(std::move(t0));
-      }
-    }
-    */
+    std::cout << "total no. neighbours " << total_neighbours << "\n";
+    std::cout << "total no. particles " << total_paricles << "\n";
+    std::cout << "average no. neighbours "
+              << (static_cast<long double>(total_neighbours) /
+                  static_cast<long double>(total_paricles))
+              << "\n";
   }
 
   template <typename Select, typename... Exprs>
