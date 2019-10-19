@@ -45,8 +45,13 @@ public:
   size_t size() const { return data_[0].size(); }
 
   friend std::ostream &operator<<(std::ostream &s,
-                                  array_of_vectors_buffer const &) {
-    return s << "array_of_vectors_buffer";
+                                  array_of_vectors_buffer const &v) {
+    s << "array_of_vectors_buffer{";
+    s << &v.data_[0];
+    for (size_t n = 1; n < N; ++n)
+      s << ", " << &v.data_[n];
+    s << "}";
+    return s;
   }
 };
 
@@ -100,8 +105,13 @@ public:
   }
 
   friend std::ostream &operator<<(std::ostream &s,
-                                  array_of_vectors_access const &) {
-    return s << "array_of_vectors_access";
+                                  array_of_vectors_access const &v) {
+    s << "array_of_vectors_access{";
+    s << v.data_[0].data();
+    for (size_t n = 1; n < N; ++n)
+      s << ", " << v.data_[n].data();
+    s << "}";
+    return s;
   }
 };
 

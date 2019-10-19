@@ -65,7 +65,9 @@ public:
   size_t size() const { return data_.size(); }
 
 public:
-  value_type get(size_t pos) const { return data_[pos]; }
+  template <typename Value = value_type> Value get(size_t pos) const {
+    return data_[pos];
+  }
 
   template <typename U = T,
             typename = std::enable_if_t<!std::is_const<U>::value>>

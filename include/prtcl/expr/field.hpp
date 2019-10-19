@@ -27,6 +27,12 @@ struct field {
   using value_type = Value;
 
   Value value;
+
+  friend std::ostream &operator<<(std::ostream &s, field const &field_) {
+    return s << "field<" << kind_tag{} << ", " << type_tag{} << ", "
+             << group_tag{} << ", " << access_tag{} << ">{" << field_.value
+             << "}";
+  }
 };
 
 template <typename KT, typename TT, typename GT, typename AT, typename V>
