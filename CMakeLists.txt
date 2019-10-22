@@ -40,13 +40,22 @@ ExternalProject_Add(
     -DCMAKE_INSTALL_PREFIX=${triSYCL_PREFIX_DIR}
 )
 
+set( tracy_INLCUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/subprojects/tracy" )
+
 set( _SRC ${CMAKE_CURRENT_SOURCE_DIR}/sources )
 
 DE_Add_Catch2_Main( test_main )
 DE_LibCXX_Target( test_main )
+target_compile_definitions( test_main
+  PUBLIC
+    CATCH_CONFIG_ENABLE_BENCHMARKING
+)
 
 DE_Add_Catch2_Test(
   prtcl-tests test_main
+
+  ${tracy_INLCUDE_DIR}/TracyClient.cpp
+
   ${_SRC}/tests/prtcl/dummy.cpp
   # linear data / buffer / access
   ${_SRC}/tests/prtcl/data/host/host_linear_data.cpp
@@ -82,21 +91,33 @@ DE_Add_Catch2_Test(
   ${_SRC}/tests/prtcl/expr/text_transform.cpp
   # prtcl/scheme/...
   ${_SRC}/tests/prtcl/scheme/host_scheme.cpp
+
+  # prtcl/data/host/... uniform grid implementations
+  ${_SRC}/tests/prtcl/data/host/grouped_uniform_grid.cpp
+  ${_SRC}/tests/prtcl/data/host/compact_uniform_grid.cpp
 )
 
 DE_CXX17_Target( prtcl-tests )
 DE_Common_Diagnostics_CXX_Target( prtcl-tests )
 DE_LibCXX_Target( prtcl-tests )
 DE_Add_Our_Include_Directories( prtcl-tests include sources )
+target_compile_definitions(
+  prtcl-tests
+  PUBLIC
+    TRACY_ENABLE
+    CATCH_CONFIG_ENABLE_BENCHMARKING
+)
 target_include_directories(
   prtcl-tests
   PUBLIC
     ${triSYCL_INCLUDE_DIR}
+    ${tracy_INLCUDE_DIR}
 )
 target_link_libraries(
   prtcl-tests
   PUBLIC Threads::Threads
   PUBLIC OpenMP::OpenMP_CXX
+  PUBLIC ${CMAKE_DL_LIBS}
 )
 
 add_executable(

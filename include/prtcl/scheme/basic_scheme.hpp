@@ -169,10 +169,11 @@ private:
     for (size_t i_active = 0; i_active < n_active; ++i_active) {
       thread_local std::vector<size_t> neighbours;
       neighbours.clear();
-      grid_.neighbours(g_active, i_active, *this, [g_passive](auto i_gr) {
-        if (g_passive == i_gr.get_group())
-          neighbours.push_back(i_gr.get_index());
-      });
+      grid_.neighbours(g_active, i_active, *this,
+                       [g_passive](auto gi, auto ri) {
+                         if (g_passive == gi)
+                           neighbours.push_back(ri);
+                       });
       for (size_t i_passive : neighbours) {
         // std::cout << "    active index " << i_active << " passive index "
         //          << i_passive << std::endl;
@@ -291,9 +292,10 @@ public:
           for (auto &n : neighbours)
             n.clear();
 
-          grid_.neighbours(g_active, i_active, *this, [&neighbours](auto i_gr) {
-            neighbours[i_gr.get_group()].push_back(i_gr.get_index());
-          });
+          grid_.neighbours(g_active, i_active, *this,
+                           [&neighbours](auto gi, auto ri) {
+                             neighbours[gi].push_back(ri);
+                           });
 
           for (size_t g_passive = 0; g_passive < group_buffer_.size();
                ++g_passive) {

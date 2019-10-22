@@ -4,3 +4,6 @@
 [submodule "subprojects/triSYCL"]
 	path = subprojects/triSYCL
 	url = https://github.com/triSYCL/triSYCL.git
+[submodule "subprojects/tracy"]
+	path = subprojects/tracy
+	url = https://bitbucket.org/wolfpld/tracy.git

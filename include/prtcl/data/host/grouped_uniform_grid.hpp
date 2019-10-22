@@ -14,6 +14,7 @@
 #include <iterator>
 #include <utility>
 #include <vector>
+#include <functional>
 
 #include <cstddef>
 #include <cstdint>
@@ -420,12 +421,12 @@ public:
     potential_neighbours(
         group, index,
         [group, index, radius_squared, &fn, &x](raw_grouped_index const &i_gr) {
-          auto const distance = math_traits::norm(
+          auto const distance = math_traits::norm_squared(
               get_element_ref(get_group_ref(x, group), index) -
               get_element_ref(get_group_ref(x, i_gr.get_group()),
                               i_gr.get_index()));
           if (distance < radius_squared) {
-            fn(i_gr);
+            std::invoke(fn, i_gr.get_group(), i_gr.get_index());
           }
         });
   }

@@ -7,6 +7,7 @@
 #include <prtcl/scheme/host_scheme.hpp>
 
 #include <fstream>
+#include <iostream>
 #include <string>
 
 template <typename Group>
@@ -20,90 +21,74 @@ template <typename T, typename... Args> auto make_array(Args &&... args) {
       static_cast<T>(std::forward<Args>(args))...};
 }
 
-/*
-struct mock_settable_value {
-  int get(size_t index_) const {
-    this->get_index = index_;
-    return value;
-  }
-
-  void set(size_t index_, int value_) const {
-    this->set_index = index_;
-    this->value = value_;
-  }
-
-  std::string name;
-  mutable int value = 0;
-  mutable size_t set_index = 0;
-  mutable size_t get_index = 0;
-
-  friend std::ostream &operator<<(std::ostream &s,
-                                  mock_settable_value const &v) {
-    return s << v.name;
-  }
-};
-
-struct mock_gettable_value {
-  int get(size_t index_) const {
-    this->index = index_;
-    return this->value;
-  }
-
-  std::string name;
-  int value;
-  mutable size_t index = 0;
-
-  friend std::ostream &operator<<(std::ostream &s,
-                                  mock_gettable_value const &v) {
-    return s << v.name;
-  }
-};
-
-TEST_CASE("prtcl/scheme/host_scheme", "[prtcl][scheme][host_scheme]") {
+TEST_CASE("prtcl/scheme/host_scheme benchmarks",
+          "[prtcl][scheme][host_scheme]") {
   using namespace prtcl;
 
   using math_traits = prtcl::host_math_traits<float, 3>;
+  using scalar_type = typename math_traits::scalar_type;
+  using vector_type = typename math_traits::vector_type;
+  constexpr size_t vector_extent = math_traits::vector_extent;
 
   struct my_scheme : prtcl::host_scheme<my_scheme, math_traits> {
+    void prepare() { this->update_neighbourhoods(); }
+
     void execute() {
-      static auto const f = [](auto &g) { return g.has_flag("fluid"); };
-      static auto const b = [](auto &g) { return g.has_flag("boundary"); };
+      static auto const all = [](auto &) { return true; };
 
       static expr::active_group const a;
-      static expr::passive_group const p;
 
-      static expr::vscalar<mock_settable_value> const vsa{{"a"}};
-      static expr::vscalar<mock_gettable_value> const vsb{{"b", 56}};
-      static expr::vscalar<mock_gettable_value> const vsc{{"c", 78}};
+      static expr::vvector<std::string> const x{{"position"}};
+      static expr::vvector<std::string> const v{{"velocity"}};
+      static expr::vscalar<std::string> const s{{"scaler"}};
 
-      this->for_each(f, vsa[a] = vsb[a], vsa[a] += vsc[a]);
-
-      this->for_each(
-          f, vsa[a] += vsb[a],
-          this->for_each_neighbour(b, vsa[a] += vsb[p], vsa[a] += vsb[p]),
-          vsa[a] = vsc[a]);
+      this->for_each(all, x[a] += s[a] * v[a]);
     }
   };
 
-  my_scheme scheme;
+  SECTION("scheme") {
+    my_scheme scheme;
 
-  {
     auto gi = scheme.add_group();
     auto &gd = scheme.get_group(gi);
-    gd.resize(3);
-    gd.add_flag("fluid");
+    gd.add_varying_vector("position");
+    gd.add_varying_vector("velocity");
+    gd.add_varying_scalar("scaler");
+
+    SECTION("n = 100'000") {
+      gd.resize(100'000);
+
+      scheme.create_buffers();
+      scheme.prepare();
+      BENCHMARK("x += s * v") { scheme.execute(); };
+      scheme.destroy_buffers();
+    }
   }
 
-  {
-    auto gi = scheme.add_group();
-    auto &gd = scheme.get_group(gi);
-    gd.resize(4);
-    gd.add_flag("boundary");
-  }
+  SECTION("native with prtcl accessors") {
+    group_data<scalar_type, vector_extent> gd;
+    gd.add_varying_vector("position");
+    gd.add_varying_vector("velocity");
+    gd.add_varying_scalar("scaler");
 
-  scheme.execute();
+    SECTION("n = 100'000") {
+      gd.resize(100'000);
+      auto gb = get_buffer(gd, tag::host{});
+
+      auto x = get_rw_access(*gb.get_varying_vector("position"));
+      auto v = get_rw_access(*gb.get_varying_vector("velocity"));
+      auto s = get_rw_access(*gb.get_varying_scalar("scaler"));
+
+      BENCHMARK("x += s * v") {
+#pragma omp parallel for
+        for (size_t i = 0; i < gb.size(); ++i) {
+          x.set<vector_type>(i, x.get<vector_type>(i) +
+                                    s.get(i) * v.get<vector_type>(i));
+        }
+      };
+    }
+  }
 }
-*/
 
 TEST_CASE("prtcl/scheme/host_scheme sesph",
           "[prtcl][scheme][host_scheme][sesph]") {
@@ -151,6 +136,8 @@ TEST_CASE("prtcl/scheme/host_scheme sesph",
     }
 
     void prepare() {
+      ZoneScopedN("sesph_scheme::prepare");
+
       this->update_neighbourhoods();
 
       this->for_each(
@@ -162,6 +149,8 @@ TEST_CASE("prtcl/scheme/host_scheme sesph",
     }
 
     void execute() {
+      ZoneScopedN("sesph_scheme::execute");
+
       this->update_neighbourhoods();
 
       auto const h = this->get_smoothing_scale();
@@ -217,7 +206,7 @@ TEST_CASE("prtcl/scheme/host_scheme sesph",
   sesph_scheme scheme;
   scheme.set_smoothing_scale(0.025f);
 
-  size_t grid_size = 10;
+  size_t grid_size = 100; // 45;
 
   auto gi_fluid = scheme.add_group();
   {
@@ -253,15 +242,14 @@ TEST_CASE("prtcl/scheme/host_scheme sesph",
     us.set(n_dt, 0.00001f);
     us.set(n_rho0, 1000);
     us.set(n_kappa, 100'000'000);
-    us.set(n_nu, 0.1f);
+    us.set(n_nu, 0.01f);
     us.set(n_m, constpow(scheme.get_smoothing_scale(), N) * us.get(n_rho0));
 
     uv.set(n_g, {0, -10, 0});
 
-
     size_t i = 0;
     for (auto ix : x_grid) {
-      auto const h = scheme.get_smoothing_scale() * 0.5f;
+      auto const h = scheme.get_smoothing_scale();
       x.set(i, make_array<T>(h * ix[0], h * ix[1], h * ix[2]));
       v.set(i, make_array<T>(0, 0, 0));
       ++i;
@@ -314,7 +302,7 @@ TEST_CASE("prtcl/scheme/host_scheme sesph",
     dump_boundary_vtk("boundary", scheme.get_group(gi_boundary), f);
   }
 
-  size_t max_frame = 40;
+  size_t max_frame = 5;
   for (size_t frame = 0; frame <= max_frame; ++frame) {
     { // save fluid data
       std::fstream f{"fluid." + std::to_string(frame) + ".vtk",

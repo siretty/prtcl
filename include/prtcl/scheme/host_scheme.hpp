@@ -36,6 +36,9 @@ private:
   std::vector<group_data_type> group_data_;
   std::vector<group_buffer_type> group_buffer_;
 
+  using vectors_type = typename group_buffer_type::vectors_type;
+  std::vector<vectors_type> _positions;
+
 public:
   size_t add_group() {
     size_t index = group_data_.size();
@@ -62,21 +65,27 @@ public:
   }
 
   friend auto get_group_ref(scheme_data const &scheme, size_t index) {
-    auto x_access = get_ro_access(
-        *scheme.group_buffer_[index].get_varying_vector("position"));
+    auto x_access = get_ro_access(scheme._positions[index]);
     return host_scheme_group<vector_type, decltype(x_access)>{x_access};
   }
 
 public:
   void create_buffers() {
     group_buffer_.clear();
+    _positions.clear();
 
     // create a buffer object for each data object
-    for (auto &gd : group_data_)
-      group_buffer_.emplace_back(get_buffer(gd, tag::host{}));
+    for (auto &gd : group_data_) {
+      auto buf = get_buffer(gd, tag::host{});
+      _positions.emplace_back(*buf.get_varying_vector("position"));
+      group_buffer_.emplace_back(buf);
+    }
   }
 
-  void destroy_buffers() { group_buffer_.clear(); }
+  void destroy_buffers() {
+    group_buffer_.clear();
+    _positions.clear();
+  }
 };
 
 } // namespace prtcl
@@ -85,6 +94,7 @@ public:
 
 #include "../access/uniform.hpp"
 #include "../access/varying.hpp"
+#include "../data/host/compact_uniform_grid.hpp"
 #include "../data/host/grouped_uniform_grid.hpp"
 #include "../expr/call.hpp"
 #include "../expr/field.hpp"
@@ -108,6 +118,8 @@ public:
 #include <boost/yap/yap.hpp>
 
 #include <omp.h>
+
+#include <Tracy.hpp>
 
 namespace prtcl {
 
@@ -420,11 +432,17 @@ public:
   }
 
 protected:
-  void update_neighbourhoods() { _grid.update(*this); }
+  void update_neighbourhoods() {
+    ZoneScopedN("host_scheme::update_neighbourhoods");
+
+    _grid.update(*this);
+  }
 
 protected:
   template <typename Select, typename... Exprs>
   void for_each(Select &&select, Exprs &&... exprs) {
+    ZoneScopedN("host_scheme::for_each");
+
     // wrap the expressions into an active loop
     auto e0 = (expr::active_loop<remove_cvref_t<Select>>{
         {std::forward<Select>(select)}})(std::forward<Exprs>(exprs)...);
@@ -443,13 +461,18 @@ protected:
     auto bound_exprs = boost::yap::transform(e3, split_transform{impl()});
     // display_cxx_type(bound_exprs, std::cout);
 
-    std::vector<std::vector<size_t>> neighbours;
+    // std::vector<std::vector<size_t>> neighbours;
 
-    size_t total_paricles = 0;
-    size_t total_neighbours = 0;
+    //    size_t total_paricles = 0;
+    //    size_t total_neighbours = 0;
 
-#pragma omp parallel private(neighbours)
+#pragma omp parallel // private(neighbours)
     {
+#pragma omp single
+      _neighbours.resize(static_cast<size_t>(::omp_get_num_threads()));
+
+      auto &neighbours =
+          _neighbours[static_cast<size_t>(::omp_get_thread_num())];
       neighbours.resize(this->get_group_count());
 
       for (size_t gi_a = 0; gi_a < this->get_group_count(); ++gi_a) {
@@ -459,23 +482,20 @@ protected:
 
 #pragma omp for
         for (size_t ri_a = 0; ri_a < this->get_group(gi_a).size(); ++ri_a) {
+          bool has_neighbours = false;
 
 #ifdef PRTCL_DEBUG
           std::cout << "a(" << gi_a << ", " << ri_a << ")\n";
 #endif
 
-          if (gi_a == 0) {
-#pragma omp atomic
-            total_paricles += 1;
-          }
-
-          // compute neighbours on demand
-          bool has_neighbours = false;
+          //#pragma omp atomic
+          //          total_paricles += 1;
 
           boost::hana::for_each(*bound_exprs[gi_a], [this, gi_a, ri_a,
-                                                     &total_neighbours,
-                                                     &has_neighbours,
-                                                     &neighbours](auto &&arg) {
+                                                     //&total_neighbours,
+                                                     &neighbours,
+                                                     &has_neighbours](
+                                                        auto &&arg) {
             if constexpr (boost::yap::is_expr<
                               remove_cvref_t<decltype(arg)>>::value) {
 #ifdef PRTCL_DEBUG
@@ -489,28 +509,24 @@ protected:
 #ifdef PRTCL_DEBUG
               std::cout << " passive loop\n";
 #endif
+
+              if (!has_neighbours) {
+                for (auto &n : neighbours)
+                  n.clear();
+                this->_grid.neighbours(
+                    gi_a, ri_a, *this,
+                    [&neighbours /*, &total_neighbours*/](auto gi, auto ri) {
+                      neighbours[gi].push_back(ri);
+                      //#pragma omp atomic
+                      //                total_neighbours += 1;
+                    });
+                has_neighbours = true;
+              }
+
               for (size_t gi_p = 0; gi_p < this->get_group_count(); ++gi_p) {
                 // skip group if not selected
                 if (!arg[gi_p])
                   continue;
-
-                // compute neighbours on demand
-                if (!has_neighbours) {
-                  for (auto &n : neighbours)
-                    n.clear();
-
-                  this->_grid.neighbours(
-                      gi_a, ri_a, *this, [&neighbours](auto gr) {
-                        neighbours[gr.get_group()].push_back(gr.get_index());
-                      });
-
-                  has_neighbours = true;
-                }
-
-                if (gi_a == 0) {
-#pragma omp atomic
-                  total_neighbours += neighbours[gi_p].size();
-                }
 
                 for (size_t ri_p : neighbours[gi_p]) {
 #ifdef PRTCL_DEBUG
@@ -529,12 +545,15 @@ protected:
       }
     }
 
-    std::cout << "total no. neighbours " << total_neighbours << "\n";
-    std::cout << "total no. particles " << total_paricles << "\n";
-    std::cout << "average no. neighbours "
-              << (static_cast<long double>(total_neighbours) /
-                  static_cast<long double>(total_paricles))
-              << "\n";
+    //#ifdef PRTCL_DEBUG
+    //    std::cout << "total no. neighbours " << total_neighbours << "\n";
+    //    std::cout << "total no. particles " << total_paricles << "\n";
+    //    std::cout << "average no. neighbours "
+    //              << (static_cast<long double>(total_neighbours) /
+    //                  static_cast<long double>(total_paricles))
+    //              << "\n";
+    //    std::cout << "\n";
+    //#endif
   }
 
   template <typename Select, typename... Exprs>
@@ -603,6 +622,9 @@ private:
   kernel_type _kernel;
 
   grouped_uniform_grid<scalar_type, vector_extent> _grid;
+  // compact_uniform_grid<scalar_type, vector_extent> _grid;
+
+  std::vector<std::vector<std::vector<size_t>>> _neighbours;
 }; // namespace prtcl
 
 } // namespace prtcl

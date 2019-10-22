@@ -46,7 +46,7 @@ template <size_t N> struct integral_grid {
 
 public:
   size_t size() const {
-    return std::accumulate(extents.begin(), extents.end(), 1,
+    return std::accumulate(extents.begin(), extents.end(), size_t{1},
                            std::multiplies<>{});
   }
 
