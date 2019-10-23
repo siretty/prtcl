@@ -46,38 +46,30 @@ TEST_CASE("prtcl/scheme/host_scheme benchmarks",
     }
   };
 
-  SECTION("scheme") {
-    my_scheme scheme;
+  my_scheme scheme;
 
-    auto gi = scheme.add_group();
-    auto &gd = scheme.get_group(gi);
-    gd.add_varying_vector("position");
-    gd.add_varying_vector("velocity");
-    gd.add_varying_scalar("scaler");
+  auto gi = scheme.add_group();
+  auto &gd = scheme.get_group(gi);
+  gd.add_varying_vector("position");
+  gd.add_varying_vector("velocity");
+  gd.add_varying_scalar("scaler");
 
-    SECTION("n = 100'000") {
-      gd.resize(100'000);
+  SECTION("n = 10'000'000") {
+    gd.resize(10'000'000);
+    scheme.create_buffers();
 
-      scheme.create_buffers();
+    SECTION("scheme") {
       scheme.prepare();
       BENCHMARK("x += s * v") { scheme.execute(); };
-      scheme.destroy_buffers();
     }
-  }
 
-  SECTION("native with prtcl accessors") {
-    group_data<scalar_type, vector_extent> gd;
-    gd.add_varying_vector("position");
-    gd.add_varying_vector("velocity");
-    gd.add_varying_scalar("scaler");
-
-    SECTION("n = 100'000") {
-      gd.resize(100'000);
-      auto gb = get_buffer(gd, tag::host{});
+    SECTION("native with prtcl accessors") {
+      gd.resize(10'000'000);
+      auto gb = scheme.get_group_buffer(gi);
 
       auto x = get_rw_access(*gb.get_varying_vector("position"));
-      auto v = get_rw_access(*gb.get_varying_vector("velocity"));
-      auto s = get_rw_access(*gb.get_varying_scalar("scaler"));
+      auto v = get_ro_access(*gb.get_varying_vector("velocity"));
+      auto s = get_ro_access(*gb.get_varying_scalar("scaler"));
 
       BENCHMARK("x += s * v") {
 #pragma omp parallel for
@@ -87,6 +79,8 @@ TEST_CASE("prtcl/scheme/host_scheme benchmarks",
         }
       };
     }
+
+    scheme.destroy_buffers();
   }
 }
 
@@ -206,7 +200,7 @@ TEST_CASE("prtcl/scheme/host_scheme sesph",
   sesph_scheme scheme;
   scheme.set_smoothing_scale(0.025f);
 
-  size_t grid_size = 100; // 45;
+  size_t grid_size = 45;
 
   auto gi_fluid = scheme.add_group();
   {
