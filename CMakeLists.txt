@@ -29,17 +29,6 @@ add_subdirectory( ${CMAKE_CURRENT_SOURCE_DIR}/subprojects/catch2 )
 
 include( ExternalProject )
 
-set( triSYCL_PREFIX_DIR "${CMAKE_CURRENT_BINARY_DIR}/subprojects/triSYCL" )
-set( triSYCL_INCLUDE_DIR "${triSYCL_PREFIX_DIR}/include" )
-ExternalProject_Add(
-  triSYCL
-  PREFIX     ${CMAKE_CURRENT_BINARY_DIR}/subprojects/triSYCL.build
-  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/subprojects/triSYCL
-  CMAKE_ARGS
-    -DBUILD_TESTING=FALSE
-    -DCMAKE_INSTALL_PREFIX=${triSYCL_PREFIX_DIR}
-)
-
 set( tracy_INLCUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/subprojects/tracy" )
 
 set( _SRC ${CMAKE_CURRENT_SOURCE_DIR}/sources )
@@ -54,49 +43,25 @@ target_compile_definitions( test_main
 DE_Add_Catch2_Test(
   prtcl-tests test_main
 
+  # allow tests to be profiled with tracy
   ${tracy_INLCUDE_DIR}/TracyClient.cpp
 
+  # the dummy test
   ${_SRC}/tests/prtcl/dummy.cpp
-  # linear data / buffer / access
-  ${_SRC}/tests/prtcl/data/host/host_linear_data.cpp
-  ${_SRC}/tests/prtcl/data/host/host_linear_access.cpp
-  ${_SRC}/tests/prtcl/data/sycl/sycl_linear_buffer.cpp
-  ${_SRC}/tests/prtcl/data/sycl/sycl_linear_access.cpp
-  # scalar data / buffer / access
-  ${_SRC}/tests/prtcl/data/host/vector_of_scalars.cpp
-  ${_SRC}/tests/prtcl/data/sycl/vector_of_scalars.cpp
-  # array data / buffer / access
-  ${_SRC}/tests/prtcl/data/host/array_of_vectors.cpp
-  ${_SRC}/tests/prtcl/data/sycl/array_of_vectors.cpp
-  ${_SRC}/tests/prtcl/data/host/vector_of_arrays.cpp
-  ${_SRC}/tests/prtcl/data/sycl/vector_of_arrays.cpp
-  # group data
-  ${_SRC}/tests/prtcl/data/group_data.cpp
-  # tag types
-  ${_SRC}/tests/prtcl/tags.cpp
-  # expression types
-  ${_SRC}/tests/prtcl/expression/field_data.cpp
-  # schemes
-  ${_SRC}/tests/prtcl/scheme/basic_scheme.cpp
-  # math traits
-  ${_SRC}/tests/prtcl/math/traits/host_math_traits.cpp
-  ${_SRC}/tests/prtcl/math/traits/sycl_math_traits.cpp
-  # math kernel
-  ${_SRC}/tests/prtcl/math/kernel/cubic_spline_kernel.cpp
 
-  # prtcl/expr/... transforms
+  ${_SRC}/tests/prtcl/meta/get.cpp
+
+  ${_SRC}/tests/prtcl/data/tensors.cpp
+  ${_SRC}/tests/prtcl/data/openmp/tensors.cpp
+
+  ${_SRC}/tests/prtcl/data/uniforms.cpp
+  ${_SRC}/tests/prtcl/data/varyings.cpp
+  ${_SRC}/tests/prtcl/data/group.cpp
+  ${_SRC}/tests/prtcl/data/scheme.cpp
+
   ${_SRC}/tests/prtcl/expr/field_subscript_transform.cpp
-  #${_SRC}/tests/prtcl/expr/field_value_transform.cpp # not used / usable atm
-  #${_SRC}/tests/prtcl/expr/field_assign_transform.cpp # not used / usable atm
-  ${_SRC}/tests/prtcl/expr/text_transform.cpp
-  # prtcl/scheme/...
-  ${_SRC}/tests/prtcl/scheme/host_scheme.cpp
-
-  # prtcl/data/host/... uniform grid implementations
-  ${_SRC}/tests/prtcl/data/host/grouped_uniform_grid.cpp
-  ${_SRC}/tests/prtcl/data/host/compact_uniform_grid.cpp
+  ${_SRC}/tests/prtcl/expr/field_value_transform.cpp
 )
-
 DE_CXX17_Target( prtcl-tests )
 DE_Common_Diagnostics_CXX_Target( prtcl-tests )
 DE_LibCXX_Target( prtcl-tests )
@@ -110,7 +75,6 @@ target_compile_definitions(
 target_include_directories(
   prtcl-tests
   PUBLIC
-    ${triSYCL_INCLUDE_DIR}
     ${tracy_INLCUDE_DIR}
 )
 target_link_libraries(
@@ -118,24 +82,5 @@ target_link_libraries(
   PUBLIC Threads::Threads
   PUBLIC OpenMP::OpenMP_CXX
   PUBLIC ${CMAKE_DL_LIBS}
-)
-
-add_executable(
-  prtcl-tests-data-sycl-device-accessor
-  ${_SRC}/tests/prtcl/data/sycl/sycl_linear_access_device.cpp
-)
-DE_CXX17_Target( prtcl-tests-data-sycl-device-accessor )
-DE_Common_Diagnostics_CXX_Target( prtcl-tests-data-sycl-device-accessor )
-DE_LibCXX_Target( prtcl-tests-data-sycl-device-accessor )
-DE_Add_Our_Include_Directories( prtcl-tests-data-sycl-device-accessor include sources )
-target_include_directories(
-  prtcl-tests-data-sycl-device-accessor
-  PUBLIC
-    ${triSYCL_INCLUDE_DIR}
-)
-target_link_libraries(
-  prtcl-tests-data-sycl-device-accessor
-  PUBLIC Threads::Threads
-  PUBLIC OpenMP::OpenMP_CXX
 )
 

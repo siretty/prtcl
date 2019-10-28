@@ -9,8 +9,8 @@
 
 #include <boost/yap/yap.hpp>
 
-TEST_CASE("prtcl/expr/bind_subscript",
-          "[prtcl][expr][transform][bind_subscript]") {
+TEST_CASE("prtcl/expr/field_subscript_transform",
+          "[prtcl][expr][field_subscript_transform][transform]") {
   using namespace prtcl;
 
   expr::group_term<tag::active> a;

@@ -38,6 +38,8 @@ fi
 
 echo "${CMD[@]}"
 
+export LSAN_OPTIONS="suppressions=tools/lsan-tracy.supp"
+
 for iteration in $(seq 1 "${RUN_COUNT}") ; do
   if ! "${CMD[@]}" ; then
     print_error "TEST FAILED"
