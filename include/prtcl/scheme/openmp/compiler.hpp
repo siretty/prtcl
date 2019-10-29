@@ -79,12 +79,6 @@ private:
           if (loop_.select(data.get_group(gi_p))) {
             result.push_back(_collect(gi_p, std::forward<Args>(args_)...));
           }
-          /*
-          else {
-            // store nothing if the group was not selected
-            result.push_back(std::nullopt);
-          }
-          */
         }
         return std::move(result);
       }
@@ -118,12 +112,6 @@ private:
         if (loop_.select(data.get_group(gi_a))) {
           result.push_back(_call_inner(gi_a, std::forward<Args>(args_)...));
         }
-        /*
-        else {
-          // store nothing if the group was not selected
-          result.push_back(std::nullopt);
-        }
-        */
       }
       return std::move(result);
     }
