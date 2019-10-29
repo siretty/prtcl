@@ -55,12 +55,21 @@ DE_Add_Catch2_Test(
   ${_SRC}/tests/prtcl/data/openmp/tensors.cpp
 
   ${_SRC}/tests/prtcl/data/uniforms.cpp
+  ${_SRC}/tests/prtcl/data/openmp/uniforms.cpp
+
   ${_SRC}/tests/prtcl/data/varyings.cpp
+  ${_SRC}/tests/prtcl/data/openmp/varyings.cpp
+
   ${_SRC}/tests/prtcl/data/group.cpp
+  ${_SRC}/tests/prtcl/data/openmp/group.cpp
+  
   ${_SRC}/tests/prtcl/data/scheme.cpp
+  ${_SRC}/tests/prtcl/data/openmp/scheme.cpp
 
   ${_SRC}/tests/prtcl/expr/field_subscript_transform.cpp
   ${_SRC}/tests/prtcl/expr/field_value_transform.cpp
+
+  ${_SRC}/tests/prtcl/scheme/openmp/compiler.cpp
 )
 DE_CXX17_Target( prtcl-tests )
 DE_Common_Diagnostics_CXX_Target( prtcl-tests )
