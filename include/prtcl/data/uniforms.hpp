@@ -2,9 +2,20 @@
 
 #include <prtcl/data/tensors.hpp>
 
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
+
+namespace prtcl::detail {
+
+struct uniforms_access {
+  template <typename Self, typename... Args> static auto &i2d(Self &&self_) {
+    return std::forward<Self>(self_)._i2d;
+  }
+};
+
+} // namespace prtcl::detail
 
 namespace prtcl::data {
 
@@ -23,9 +34,18 @@ public:
     }
   }
 
+  std::optional<size_t> get_index(std::string name_) {
+    if (auto it = _n2i.find(name_); it != _n2i.end())
+      return it->second;
+    else
+      return std::nullopt;
+  }
+
 private:
   std::unordered_map<std::string, size_t> _n2i;
   data_type _i2d;
+
+  friend ::prtcl::detail::uniforms_access;
 };
 
 template <typename T, size_t... Ns>

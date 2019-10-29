@@ -44,6 +44,18 @@ template <typename KT, typename TT, typename GT, typename AT, typename V>
 struct is_field<field<KT, TT, GT, AT, V>> : std::true_type {};
 
 template <typename V>
+using gscalar =
+    field_term<tag::global, tag::scalar, tag::unspecified, tag::unspecified, V>;
+
+template <typename V>
+using gvector =
+    field_term<tag::global, tag::vector, tag::unspecified, tag::unspecified, V>;
+
+template <typename V>
+using gmatrix =
+    field_term<tag::global, tag::matrix, tag::unspecified, tag::unspecified, V>;
+
+template <typename V>
 using uscalar = field_term<tag::uniform, tag::scalar, tag::unspecified,
                            tag::unspecified, V>;
 
@@ -52,11 +64,19 @@ using uvector = field_term<tag::uniform, tag::vector, tag::unspecified,
                            tag::unspecified, V>;
 
 template <typename V>
+using umatrix = field_term<tag::uniform, tag::matrix, tag::unspecified,
+                           tag::unspecified, V>;
+
+template <typename V>
 using vscalar = field_term<tag::varying, tag::scalar, tag::unspecified,
                            tag::unspecified, V>;
 
 template <typename V>
 using vvector = field_term<tag::varying, tag::vector, tag::unspecified,
+                           tag::unspecified, V>;
+
+template <typename V>
+using vmatrix = field_term<tag::varying, tag::matrix, tag::unspecified,
                            tag::unspecified, V>;
 
 } // namespace prtcl::expr

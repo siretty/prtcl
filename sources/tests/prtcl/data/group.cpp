@@ -3,15 +3,20 @@
 #include <prtcl/data/group.hpp>
 
 TEST_CASE("prtcl/data/group", "[prtcl][data][group]") {
+  namespace tag = prtcl::tag;
+
   prtcl::data::group<float, 3> g;
 
   REQUIRE(0 == g.size());
   g.resize(10);
   REQUIRE(10 == g.size());
 
-  REQUIRE(!g.has_uniform_scalar("us"));
-  g.add_uniform_scalar("us");
-  REQUIRE(g.has_uniform_scalar("us"));
+  { // uniform scalar
+    auto &us = g.get(tag::uniform{}, tag::scalar{});
+    REQUIRE(!us.has("us"));
+    us.add("us");
+    REQUIRE(us.has("us"));
+  }
 
   REQUIRE(!g.has_uniform_vector("uv"));
   g.add_uniform_vector("uv");
@@ -32,7 +37,7 @@ TEST_CASE("prtcl/data/group", "[prtcl][data][group]") {
   REQUIRE(10 == vv.size());
 
   REQUIRE(!g.has_varying_matrix("vm"));
-  auto & vm = g.add_varying_matrix("vm");
+  auto &vm = g.add_varying_matrix("vm");
   REQUIRE(g.has_varying_matrix("vm"));
   REQUIRE(10 == vm.size());
 

@@ -26,9 +26,8 @@ public:
   tensors &operator=(tensors &&) = default;
 
   explicit tensors(::prtcl::data::tensors<Scalar, Shape> &from_)
-      : _data{}, _size{from_.size()}, _capacity{from_.capacity()} {
-    for (size_t n = 0; n < component_count(); ++n)
-      _data[n] = detail::component_data_access::component_data(from_, n);
+      : _compnent_stride{from_.capacity()}, _size{from_.size()}, _data{} {
+    _data = detail::component_data_access::component_data(from_, 0ul);
   }
 
 public:
@@ -43,7 +42,7 @@ public:
   }
 
 public:
-  size_t capacity() const { return _capacity; }
+  size_t capacity() const { return _compnent_stride; }
 
 public:
   size_t size() const { return _size; }
@@ -51,14 +50,15 @@ public:
 public:
   template <typename MultiIndex>
   scalar_type *component_data(MultiIndex &&mi_) const {
-    return _data[meta::linear_block_index(shape_type{},
-                                          std::forward<MultiIndex>(mi_))];
+    return _data + meta::linear_block_index(shape_type{},
+                                            std::forward<MultiIndex>(mi_)) *
+                       _compnent_stride;
   }
 
 private:
-  std::array<scalar_type *, component_count()> _data = {};
+  size_t _compnent_stride = 1;
   size_t _size = 0;
-  size_t _capacity = 0;
+  scalar_type *_data = nullptr;
 };
 
 template <typename Scalar, typename Shape>

@@ -54,40 +54,61 @@ public:
   }
 
 public:
-  size_t capacity() const { return _linear[0].capacity(); }
+  size_t capacity() const { return _component_stride; }
 
-  void reserve(size_t capacity_) {
-    for (auto &l : _linear)
-      l.reserve(capacity_);
+  void reserve(size_t new_capacity_) {
+    new_capacity_ = (0 == new_capacity_ ? 1 : new_capacity_);
+
+    // TODO: increase new_capacity to be divisible by some general alignment
+
+    if (_component_stride >= new_capacity_)
+      return;
+
+    // create new storage and copy all values
+    linear_storage new_linear(component_count() * new_capacity_);
+
+    // copy all old values into the new linear storage
+    if (0 < _linear.size()) {
+      for (size_t n = 0; n < component_count(); ++n) {
+        std::copy_n(_linear.data() + n * _component_stride, _size,
+                    new_linear.data() + n * new_capacity_);
+      }
+    }
+
+    _linear = std::move(new_linear);
+    _component_stride = new_capacity_;
   }
 
 public:
-  size_t size() const { return _linear[0].size(); }
+  size_t size() const { return _size; }
 
 private:
-  void resize(size_t size_) {
-    for (auto &l : _linear)
-      l.resize(size_);
+  void resize(size_t new_size_) {
+    // ensure that enough memory is available
+    this->reserve(new_size_);
+
+    _size = new_size_;
   }
 
-  void clear() {
-    for (auto &l : _linear)
-      l.clear();
-  }
+  void clear() { _size = 0; }
 
   friend ::prtcl::detail::resize_access;
 
 private:
-  scalar_type *component_data(size_t index_) { return _linear[index_].data(); }
+  scalar_type *component_data(size_t index_) {
+    return _linear.data() + index_ * _component_stride;
+  }
 
   scalar_type const *component_data(size_t index_) const {
-    return _linear[index_].data();
+    return _linear.data() + index_ * _component_stride;
   }
 
   friend ::prtcl::detail::component_data_access;
 
 private:
-  std::array<linear_storage, component_count()> _linear;
+  size_t _component_stride = 1;
+  size_t _size = 0;
+  linear_storage _linear;
 
   static_assert(0 <= rank() && rank() <= 2);
 };

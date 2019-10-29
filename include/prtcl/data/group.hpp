@@ -1,8 +1,40 @@
 #pragma once
 
-#include "prtcl/data/tensors.hpp"
 #include <prtcl/data/uniforms.hpp>
 #include <prtcl/data/varyings.hpp>
+#include <prtcl/tags.hpp>
+
+#include <unordered_set>
+
+namespace prtcl::detail {
+
+struct group_access {
+  template <typename Self, typename... Args> static auto &us(Self &&self_) {
+    return std::forward<Self>(self_)._us;
+  }
+
+  template <typename Self, typename... Args> static auto &uv(Self &&self_) {
+    return std::forward<Self>(self_)._uv;
+  }
+
+  template <typename Self, typename... Args> static auto &um(Self &&self_) {
+    return std::forward<Self>(self_)._um;
+  }
+
+  template <typename Self, typename... Args> static auto &vs(Self &&self_) {
+    return std::forward<Self>(self_)._vs;
+  }
+
+  template <typename Self, typename... Args> static auto &vv(Self &&self_) {
+    return std::forward<Self>(self_)._vv;
+  }
+
+  template <typename Self, typename... Args> static auto &vm(Self &&self_) {
+    return std::forward<Self>(self_)._vm;
+  }
+};
+
+} // namespace prtcl::detail
 
 namespace prtcl::data {
 
@@ -37,6 +69,37 @@ public:
   bool has_varying_matrix(std::string name_) const { return _vm.has(name_); }
   auto &add_varying_matrix(std::string name_) { return _vm.add(name_); }
 
+  // TODO: is this better than the individual methods above? rethink when used /
+  //       unused in expr transformations
+
+  // get(tag::[uniform,varying], tag::[scalar,vector,matrix]) [const] -> ... {{{
+
+  auto &get(tag::uniform, tag::scalar) { return _us; }
+  auto &get(tag::uniform, tag::scalar) const { return _us; }
+
+  auto &get(tag::uniform, tag::vector) { return _uv; }
+  auto &get(tag::uniform, tag::vector) const { return _uv; }
+
+  auto &get(tag::uniform, tag::matrix) { return _um; }
+  auto &get(tag::uniform, tag::matrix) const { return _um; }
+
+  auto &get(tag::varying, tag::scalar) { return _us; }
+  auto &get(tag::varying, tag::scalar) const { return _us; }
+
+  auto &get(tag::varying, tag::vector) { return _uv; }
+  auto &get(tag::varying, tag::vector) const { return _uv; }
+
+  auto &get(tag::varying, tag::matrix) { return _um; }
+  auto &get(tag::varying, tag::matrix) const { return _um; }
+
+  // }}}
+
+  void add_flag(std::string flag_) { _flags.insert(flag_); }
+
+  bool has_flag(std::string flag_) const {
+    return _flags.find(flag_) != _flags.end();
+  }
+
 private:
   size_t _size = 0;
 
@@ -47,6 +110,10 @@ private:
   varyings_t<Scalar> _vs;
   varyings_t<Scalar, N> _vv;
   varyings_t<Scalar, N, N> _vm;
+
+  std::unordered_set<std::string> _flags;
+
+  friend ::prtcl::detail::group_access;
 };
 
 } // namespace prtcl::data

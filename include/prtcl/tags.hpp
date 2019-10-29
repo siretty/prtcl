@@ -38,6 +38,10 @@ template <typename T> constexpr bool is_group_tag_v = is_group_tag<T>::value;
 
 // field kind
 
+struct global {
+  PRTCL_DEFINE_TAG_OSTREAM_LSHIFT(global)
+};
+
 struct uniform {
   PRTCL_DEFINE_TAG_OSTREAM_LSHIFT(uniform)
 };
@@ -47,7 +51,7 @@ struct varying {
 };
 
 template <typename T>
-struct is_kind_tag : is_any_of<remove_cvref_t<T>, uniform, varying> {};
+struct is_kind_tag : is_any_of<remove_cvref_t<T>, global, uniform, varying> {};
 
 template <typename T> constexpr bool is_kind_tag_v = is_kind_tag<T>::value;
 
@@ -61,8 +65,12 @@ struct vector {
   PRTCL_DEFINE_TAG_OSTREAM_LSHIFT(vector)
 };
 
+struct matrix {
+  PRTCL_DEFINE_TAG_OSTREAM_LSHIFT(matrix)
+};
+
 template <typename T>
-struct is_type_tag : is_any_of<remove_cvref_t<T>, scalar, vector> {};
+struct is_type_tag : is_any_of<remove_cvref_t<T>, scalar, vector, matrix> {};
 
 template <typename T> constexpr bool is_type_tag_v = is_type_tag<T>::value;
 

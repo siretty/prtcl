@@ -7,6 +7,16 @@
 #include <utility>
 #include <vector>
 
+namespace prtcl::detail {
+
+struct varyings_access {
+  template <typename Self, typename... Args> static auto &i2d(Self &&self_) {
+    return std::forward<Self>(self_)._i2d;
+  }
+};
+
+} // namespace prtcl::detail
+
 namespace prtcl::data {
 
 template <typename Scalar, typename Shape> class varyings {
@@ -46,10 +56,19 @@ public:
     return _i2d[it->second];
   }
 
+  std::optional<size_t> get_index(std::string name_) {
+    if (auto it = _n2i.find(name_); it != _n2i.end())
+      return it->second;
+    else
+      return std::nullopt;
+  }
+
 private:
   size_t _size = 0;
   std::unordered_map<std::string, size_t> _n2i;
   std::vector<data_type> _i2d;
+
+  friend ::prtcl::detail::varyings_access;
 };
 
 template <typename T, size_t... Ns>

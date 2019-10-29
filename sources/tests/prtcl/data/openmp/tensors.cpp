@@ -101,14 +101,35 @@ TEST_CASE("prtcl/data/openmp/tensors", "[prtcl][data][openmp][tensors]") {
       t_data.reserve(100);
       ::prtcl::detail::resize_access::resize(t_data, 10ul);
 
-      prtcl::data::openmp::tensors t{t_data};
-      REQUIRE(2 == t.rank());
-      REQUIRE(2 == t.component_count());
-      REQUIRE(100 <= t.capacity());
-      REQUIRE(10 == t.size());
+      {
+        prtcl::data::openmp::tensors t{t_data};
+        REQUIRE(2 == t.rank());
+        REQUIRE(2 == t.component_count());
+        REQUIRE(100 <= t.capacity());
+        REQUIRE(10 == t.size());
 
-      REQUIRE(nullptr != t.component_data(std::index_sequence<0, 0>{}));
-      REQUIRE(nullptr != t.component_data(std::index_sequence<1, 0>{}));
+        REQUIRE(nullptr != t.component_data(std::index_sequence<0, 0>{}));
+        REQUIRE(nullptr != t.component_data(std::index_sequence<1, 0>{}));
+
+        *t.component_data(std::index_sequence<0, 0>{}) = 1234;
+        *t.component_data(std::index_sequence<1, 0>{}) = 5678;
+      }
+
+      ::prtcl::detail::resize_access::resize(t_data, 1000ul);
+
+      {
+        prtcl::data::openmp::tensors t{t_data};
+        REQUIRE(2 == t.rank());
+        REQUIRE(2 == t.component_count());
+        REQUIRE(1000 <= t.capacity());
+        REQUIRE(1000 == t.size());
+
+        REQUIRE(nullptr != t.component_data(std::index_sequence<0, 0>{}));
+        REQUIRE(nullptr != t.component_data(std::index_sequence<1, 0>{}));
+
+        REQUIRE(1234 == *t.component_data(std::index_sequence<0, 0>{}));
+        REQUIRE(5678 == *t.component_data(std::index_sequence<1, 0>{}));
+      }
     }
 
     SECTION("Extents (2,2)") {
@@ -116,16 +137,43 @@ TEST_CASE("prtcl/data/openmp/tensors", "[prtcl][data][openmp][tensors]") {
       t_data.reserve(100);
       ::prtcl::detail::resize_access::resize(t_data, 10ul);
 
-      prtcl::data::openmp::tensors t{t_data};
-      REQUIRE(2 == t.rank());
-      REQUIRE(4 == t.component_count());
-      REQUIRE(100 <= t.capacity());
-      REQUIRE(10 == t.size());
+      {
+        prtcl::data::openmp::tensors t{t_data};
+        REQUIRE(2 == t.rank());
+        REQUIRE(4 == t.component_count());
+        REQUIRE(100 <= t.capacity());
+        REQUIRE(10 == t.size());
 
-      REQUIRE(nullptr != t.component_data(std::index_sequence<0, 0>{}));
-      REQUIRE(nullptr != t.component_data(std::index_sequence<0, 1>{}));
-      REQUIRE(nullptr != t.component_data(std::index_sequence<1, 0>{}));
-      REQUIRE(nullptr != t.component_data(std::index_sequence<1, 1>{}));
+        REQUIRE(nullptr != t.component_data(std::index_sequence<0, 0>{}));
+        REQUIRE(nullptr != t.component_data(std::index_sequence<0, 1>{}));
+        REQUIRE(nullptr != t.component_data(std::index_sequence<1, 0>{}));
+        REQUIRE(nullptr != t.component_data(std::index_sequence<1, 1>{}));
+
+        *t.component_data(std::index_sequence<0, 0>{}) = 1234;
+        *t.component_data(std::index_sequence<0, 1>{}) = 5678;
+        *t.component_data(std::index_sequence<1, 0>{}) = 9012;
+        *t.component_data(std::index_sequence<1, 1>{}) = 3456;
+      }
+
+      ::prtcl::detail::resize_access::resize(t_data, 1000ul);
+
+      {
+        prtcl::data::openmp::tensors t{t_data};
+        REQUIRE(2 == t.rank());
+        REQUIRE(4 == t.component_count());
+        REQUIRE(1000 <= t.capacity());
+        REQUIRE(1000 == t.size());
+
+        REQUIRE(nullptr != t.component_data(std::index_sequence<0, 0>{}));
+        REQUIRE(nullptr != t.component_data(std::index_sequence<0, 1>{}));
+        REQUIRE(nullptr != t.component_data(std::index_sequence<1, 0>{}));
+        REQUIRE(nullptr != t.component_data(std::index_sequence<1, 1>{}));
+
+        REQUIRE(1234 == *t.component_data(std::index_sequence<0, 0>{}));
+        REQUIRE(5678 == *t.component_data(std::index_sequence<0, 1>{}));
+        REQUIRE(9012 == *t.component_data(std::index_sequence<1, 0>{}));
+        REQUIRE(3456 == *t.component_data(std::index_sequence<1, 1>{}));
+      }
     }
   }
 }
