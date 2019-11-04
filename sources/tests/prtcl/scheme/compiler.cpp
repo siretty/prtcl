@@ -1,14 +1,16 @@
 #include <catch.hpp>
 
 #include <prtcl/data/scheme.hpp>
+#include <prtcl/expr/call.hpp>
 #include <prtcl/expr/field.hpp>
 #include <prtcl/expr/group.hpp>
 #include <prtcl/expr/loop.hpp>
-#include <prtcl/scheme/openmp/compiler.hpp>
+#include <prtcl/meta/overload.hpp>
+#include <prtcl/scheme/compiler.hpp>
 
 #include <string>
 
-TEST_CASE("prtcl/scheme/openmp/compiler", "[prtcl][scheme][openmp][compiler]") {
+TEST_CASE("prtcl/scheme/compiler", "[prtcl][scheme][compiler]") {
   namespace tag = prtcl::tag;
 
   prtcl::expr::active_group a;
@@ -60,10 +62,15 @@ TEST_CASE("prtcl/scheme/openmp/compiler", "[prtcl][scheme][openmp][compiler]") {
     gp.resize(2);
   }
 
-  prtcl::data::openmp::scheme openmp_scheme{scheme};
-
-  prtcl::scheme::openmp::compiler<float, 3> compile{scheme, openmp_scheme};
+  prtcl::scheme::compiler<float, 3> compile{scheme};
   auto func = compile(expr);
 
-  func();
+  auto func2 = func.transform([](auto &&arg) {
+    if constexpr (prtcl::scheme::is_loop_v<decltype(arg)>)
+      return "loop";
+    else
+      return "expr";
+  });
+
+  display_cxx_type(func2, std::cout);
 }

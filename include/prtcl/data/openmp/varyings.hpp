@@ -26,7 +26,7 @@ public:
     auto &from_i2d = ::prtcl::detail::varyings_access::i2d(from_);
     _i2d.reserve(from_i2d.size());
     for (size_t field = 0; field < from_i2d.size(); ++field)
-      _i2d.emplace_back(from_i2d[field]);
+      _i2d.emplace_back(*from_i2d[field]);
   }
 
 public:

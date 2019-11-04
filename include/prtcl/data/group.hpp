@@ -83,14 +83,14 @@ public:
   auto &get(tag::uniform, tag::matrix) { return _um; }
   auto &get(tag::uniform, tag::matrix) const { return _um; }
 
-  auto &get(tag::varying, tag::scalar) { return _us; }
-  auto &get(tag::varying, tag::scalar) const { return _us; }
+  auto &get(tag::varying, tag::scalar) { return _vs; }
+  auto &get(tag::varying, tag::scalar) const { return _vs; }
 
-  auto &get(tag::varying, tag::vector) { return _uv; }
-  auto &get(tag::varying, tag::vector) const { return _uv; }
+  auto &get(tag::varying, tag::vector) { return _vv; }
+  auto &get(tag::varying, tag::vector) const { return _vv; }
 
-  auto &get(tag::varying, tag::matrix) { return _um; }
-  auto &get(tag::varying, tag::matrix) const { return _um; }
+  auto &get(tag::varying, tag::matrix) { return _vm; }
+  auto &get(tag::varying, tag::matrix) const { return _vm; }
 
   // }}}
 

@@ -12,8 +12,9 @@ project(
 
 set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 
-find_package( Threads )
-find_package( OpenMP )
+find_package( Threads REQUIRED )
+find_package( OpenMP REQUIRED )
+find_package( Eigen3 REQUIRED )
 
 include( DECommonDiagnosticFlags )
 include( DELibCXXFlags )
@@ -69,6 +70,7 @@ DE_Add_Catch2_Test(
   ${_SRC}/tests/prtcl/expr/field_subscript_transform.cpp
   ${_SRC}/tests/prtcl/expr/field_value_transform.cpp
 
+  ${_SRC}/tests/prtcl/scheme/compiler.cpp
   ${_SRC}/tests/prtcl/scheme/openmp/compiler.cpp
 )
 DE_CXX17_Target( prtcl-tests )
@@ -90,6 +92,7 @@ target_link_libraries(
   prtcl-tests
   PUBLIC Threads::Threads
   PUBLIC OpenMP::OpenMP_CXX
+  PUBLIC Eigen3::Eigen
   PUBLIC ${CMAKE_DL_LIBS}
 )
 

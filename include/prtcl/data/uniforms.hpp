@@ -26,12 +26,13 @@ public:
 public:
   bool has(std::string name_) const { return _n2i.find(name_) != _n2i.end(); }
 
-  void add(std::string name_) {
+  decltype(auto) add(std::string name_) {
     size_t index = _i2d.size();
     auto [it, inserted] = _n2i.insert({name_, index});
     if (inserted) {
       ::prtcl::detail::resize_access::resize(_i2d, index + 1);
     }
+    return _i2d[it->second];
   }
 
   std::optional<size_t> get_index(std::string name_) {
@@ -40,6 +41,9 @@ public:
     else
       return std::nullopt;
   }
+
+public:
+  decltype(auto) operator[](size_t field_) const { return _i2d[field_]; }
 
 private:
   std::unordered_map<std::string, size_t> _n2i;

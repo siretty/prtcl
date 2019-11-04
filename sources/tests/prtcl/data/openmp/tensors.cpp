@@ -149,6 +149,11 @@ TEST_CASE("prtcl/data/openmp/tensors", "[prtcl][data][openmp][tensors]") {
         REQUIRE(nullptr != t.component_data(std::index_sequence<1, 0>{}));
         REQUIRE(nullptr != t.component_data(std::index_sequence<1, 1>{}));
 
+        t[1](0, 0) = 0;
+        t[1](1, 0) = 1;
+        t[1](0, 1) = 2;
+        t[1](1, 1) = 3;
+
         *t.component_data(std::index_sequence<0, 0>{}) = 1234;
         *t.component_data(std::index_sequence<0, 1>{}) = 5678;
         *t.component_data(std::index_sequence<1, 0>{}) = 9012;
@@ -168,6 +173,11 @@ TEST_CASE("prtcl/data/openmp/tensors", "[prtcl][data][openmp][tensors]") {
         REQUIRE(nullptr != t.component_data(std::index_sequence<0, 1>{}));
         REQUIRE(nullptr != t.component_data(std::index_sequence<1, 0>{}));
         REQUIRE(nullptr != t.component_data(std::index_sequence<1, 1>{}));
+
+        REQUIRE(0 == t[1](0, 0));
+        REQUIRE(1 == t[1](1, 0));
+        REQUIRE(2 == t[1](0, 1));
+        REQUIRE(3 == t[1](1, 1));
 
         REQUIRE(1234 == *t.component_data(std::index_sequence<0, 0>{}));
         REQUIRE(5678 == *t.component_data(std::index_sequence<0, 1>{}));

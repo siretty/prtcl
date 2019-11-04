@@ -19,8 +19,8 @@ public:
   uniforms(uniforms const &) = default;
   uniforms &operator=(uniforms const &) = default;
 
-  uniforms(uniforms &&) = default;
-  uniforms &operator=(uniforms &&) = default;
+  uniforms(uniforms &&) = delete;
+  uniforms &operator=(uniforms &&) = delete;
 
   explicit uniforms(::prtcl::data::uniforms<Scalar, Shape> &from_)
       : _i2d{::prtcl::detail::uniforms_access::i2d(from_)} {}
@@ -29,8 +29,7 @@ public:
   size_t field_count() const { return _i2d.size(); }
 
 public:
-  // TODO: INCORRECT
-  auto const &operator[](size_t /*field_*/) const { return _i2d; }
+  decltype(auto) operator[](size_t field_) const { return _i2d[field_]; }
 
 private:
   data_type _i2d;

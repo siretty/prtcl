@@ -3,6 +3,7 @@
 #include <prtcl/data/group.hpp>
 #include <prtcl/data/uniforms.hpp>
 
+#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -11,20 +12,8 @@
 namespace prtcl::detail {
 
 struct scheme_access {
-  template <typename Self, typename... Args> static auto &gs(Self &&self_) {
-    return std::forward<Self>(self_)._gs;
-  }
-
-  template <typename Self, typename... Args> static auto &gv(Self &&self_) {
-    return std::forward<Self>(self_)._gv;
-  }
-
-  template <typename Self, typename... Args> static auto &gm(Self &&self_) {
-    return std::forward<Self>(self_)._gm;
-  }
-
-  template <typename Self, typename... Args> static auto &i2d(Self &&self_) {
-    return std::forward<Self>(self_)._i2d;
+  template <typename Self, typename... Args> static auto &i2d(Self &self_) {
+    return self_._i2d;
   }
 };
 
@@ -66,8 +55,9 @@ public:
     auto [it, inserted] = _n2i.insert({name_, index});
     if (inserted) {
       _i2d.resize(index + 1);
+      _i2d[index] = std::make_unique<group<Scalar, N>>();
     }
-    return _i2d[it->second];
+    return *_i2d[it->second];
   }
 
   size_t get_group_count() const { return _i2d.size(); }
@@ -79,8 +69,8 @@ public:
       return std::nullopt;
   }
 
-  auto &get_group(size_t index_) { return _i2d[index_]; }
-  auto &get_group(size_t index_) const { return _i2d[index_]; }
+  auto &get_group(size_t index_) { return *_i2d[index_]; }
+  auto &get_group(size_t index_) const { return *_i2d[index_]; }
 
 private:
   uniforms_t<Scalar> _gs;
@@ -88,7 +78,7 @@ private:
   uniforms_t<Scalar, N, N> _gm;
 
   std::unordered_map<std::string, size_t> _n2i;
-  std::vector<group<Scalar, N>> _i2d;
+  std::vector<std::unique_ptr<group<Scalar, N>>> _i2d;
 
   friend ::prtcl::detail::scheme_access;
 };

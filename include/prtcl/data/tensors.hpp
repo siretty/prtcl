@@ -1,6 +1,7 @@
 #pragma once
 
 #include <prtcl/meta/unpack_integer_sequence.hpp>
+#include <prtcl/meta/get.hpp>
 
 #include <array>
 #include <utility>
@@ -8,13 +9,14 @@
 
 #include <cstddef>
 
+#include <Eigen/Eigen>
+
 namespace prtcl::detail {
 
 struct component_data_access {
   template <typename Self, typename... Args>
-  static auto component_data(Self &&self_, Args &&... args_) {
-    return std::forward<Self>(self_).component_data(
-        std::forward<Args>(args_)...);
+  static auto component_data(Self &self_, Args &&... args_) {
+    return self_.component_data(std::forward<Args>(args_)...);
   }
 };
 
@@ -106,7 +108,56 @@ private:
   friend ::prtcl::detail::component_data_access;
 
 private:
-  size_t _component_stride = 1;
+  template <typename S> struct eigen_matrix;
+
+  template <typename I, I Rows>
+  struct eigen_matrix<std::integer_sequence<I, Rows>> {
+    using type = Eigen::Matrix<scalar_type, static_cast<int>(Rows), 1>;
+  };
+
+  template <typename I, I Rows, I Cols>
+  struct eigen_matrix<std::integer_sequence<I, Rows, Cols>> {
+    using type = Eigen::Matrix<scalar_type, static_cast<int>(Rows),
+                               static_cast<int>(Cols)>;
+  };
+
+public:
+  decltype(auto) operator[](size_t index_) {
+    if constexpr (0 == rank())
+      return _linear[index_];
+    else {
+      // TODO: implement strides more generically (to allow for easier changes
+      //       in the tensor implementation wrt. C/Fortran ordering and storing
+      //       contiguous component vs. contiguous elements)
+      using eigen_map =
+          Eigen::Map<typename eigen_matrix<Shape>::type, 0,
+                     Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>;
+      if constexpr (1 == rank())
+        return eigen_map{_linear.data() + index_,
+                         Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>{
+                             static_cast<int>(_component_stride),
+                             static_cast<int>(_component_stride)}};
+      else if constexpr (2 == rank())
+        return eigen_map{_linear.data() + index_,
+                         Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>{
+                             static_cast<int>(meta::get<1>(shape_type{}) *
+                                              _component_stride),
+                             static_cast<int>(_component_stride)}};
+    }
+    throw "unsupported rank";
+  }
+
+public:
+  tensors() = default;
+
+  tensors(tensors const &) = delete;
+  tensors &operator=(tensors const &) = delete;
+
+  tensors(tensors &&other) = default;
+  tensors &operator=(tensors &&) = default;
+
+private:
+  size_t _component_stride = 0;
   size_t _size = 0;
   linear_storage _linear;
 

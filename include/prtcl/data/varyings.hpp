@@ -2,6 +2,7 @@
 
 #include <prtcl/data/tensors.hpp>
 
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -29,14 +30,14 @@ public:
 private:
   void resize(size_t new_size_) {
     for (auto &d : _i2d)
-      ::prtcl::detail::resize_access::resize(d, new_size_);
+      ::prtcl::detail::resize_access::resize(*d, new_size_);
 
     _size = new_size_;
   }
 
   void clear() {
     for (auto &d : _i2d)
-      ::prtcl::detail::resize_access::clear(d);
+      ::prtcl::detail::resize_access::clear(*d);
 
     _size = 0;
   }
@@ -51,9 +52,10 @@ public:
     auto [it, inserted] = _n2i.insert({name_, index});
     if (inserted) {
       _i2d.resize(index + 1);
-      ::prtcl::detail::resize_access::resize(_i2d[it->second], _size);
+      _i2d[it->second] = std::make_unique<data_type>();
+      ::prtcl::detail::resize_access::resize(*_i2d[it->second], _size);
     }
-    return _i2d[it->second];
+    return *_i2d[it->second];
   }
 
   std::optional<size_t> get_index(std::string name_) {
@@ -63,10 +65,13 @@ public:
       return std::nullopt;
   }
 
+public:
+  auto const &operator[](size_t field_) const { return *_i2d[field_]; }
+
 private:
   size_t _size = 0;
   std::unordered_map<std::string, size_t> _n2i;
-  std::vector<data_type> _i2d;
+  std::vector<std::unique_ptr<data_type>> _i2d;
 
   friend ::prtcl::detail::varyings_access;
 };
