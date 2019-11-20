@@ -6,7 +6,6 @@
 #include <prtcl/data/openmp/scheme.hpp>
 #include <prtcl/data/scheme.hpp>
 #include <prtcl/expr/call.hpp>
-#include <prtcl/expr/field_access_transform.hpp>
 #include <prtcl/expr/field_subscript_transform.hpp>
 #include <prtcl/expr/field_value_transform.hpp>
 #include <prtcl/expr/loop.hpp>
@@ -77,24 +76,22 @@ struct default_functions {
 template <typename Tuple> struct active_loop {
   struct eval_transform {
   public:
-    template <typename TT, typename AT, typename V>
+    template <typename TT, typename V>
     auto operator()(
         boost::yap::expr_tag<boost::yap::expr_kind::terminal>,
-        expr::field<tag::varying, TT, tag::active, AT, V> const &field_) const {
+        expr::field<tag::varying, TT, tag::active, V> const &field_) const {
       return boost::yap::as_expr(field_.value.first[field_.value.second][ri_a]);
     }
 
-    template <typename TT, typename GT, typename AT, typename V>
-    auto
-    operator()(boost::yap::expr_tag<boost::yap::expr_kind::terminal>,
-               expr::field<tag::global, TT, GT, AT, V> const &field_) const {
+    template <typename TT, typename GT, typename V>
+    auto operator()(boost::yap::expr_tag<boost::yap::expr_kind::terminal>,
+                    expr::field<tag::global, TT, GT, V> const &field_) const {
       return boost::yap::as_expr(field_.value.first[field_.value.second]);
     }
 
-    template <typename TT, typename GT, typename AT, typename V>
-    auto
-    operator()(boost::yap::expr_tag<boost::yap::expr_kind::terminal>,
-               expr::field<tag::uniform, TT, GT, AT, V> const &field_) const {
+    template <typename TT, typename GT, typename V>
+    auto operator()(boost::yap::expr_tag<boost::yap::expr_kind::terminal>,
+                    expr::field<tag::uniform, TT, GT, V> const &field_) const {
       return boost::yap::as_expr(field_.value.first[field_.value.second]);
     }
 
@@ -129,31 +126,29 @@ template <typename Tuple> struct active_loop {
 
 template <typename Tuple> struct passive_loop {
   struct eval_transform {
-    template <typename TT, typename AT, typename V>
+    template <typename TT, typename V>
     auto operator()(
         boost::yap::expr_tag<boost::yap::expr_kind::terminal>,
-        expr::field<tag::varying, TT, tag::active, AT, V> const &field_) const {
+        expr::field<tag::varying, TT, tag::active, V> const &field_) const {
       return boost::yap::as_expr(field_.value.first[field_.value.second][ri_a]);
     }
 
-    template <typename TT, typename AT, typename V>
-    auto operator()(boost::yap::expr_tag<boost::yap::expr_kind::terminal>,
-                    expr::field<tag::varying, TT, tag::passive, AT, V> const
-                        &field_) const {
+    template <typename TT, typename V>
+    auto operator()(
+        boost::yap::expr_tag<boost::yap::expr_kind::terminal>,
+        expr::field<tag::varying, TT, tag::passive, V> const &field_) const {
       return boost::yap::as_expr(field_.value.first[field_.value.second][ri_p]);
     }
 
-    template <typename TT, typename GT, typename AT, typename V>
-    auto
-    operator()(boost::yap::expr_tag<boost::yap::expr_kind::terminal>,
-               expr::field<tag::global, TT, GT, AT, V> const &field_) const {
+    template <typename TT, typename GT, typename V>
+    auto operator()(boost::yap::expr_tag<boost::yap::expr_kind::terminal>,
+                    expr::field<tag::global, TT, GT, V> const &field_) const {
       return boost::yap::as_expr(field_.value.first[field_.value.second]);
     }
 
-    template <typename TT, typename GT, typename AT, typename V>
-    auto
-    operator()(boost::yap::expr_tag<boost::yap::expr_kind::terminal>,
-               expr::field<tag::uniform, TT, GT, AT, V> const &field_) const {
+    template <typename TT, typename GT, typename V>
+    auto operator()(boost::yap::expr_tag<boost::yap::expr_kind::terminal>,
+                    expr::field<tag::uniform, TT, GT, V> const &field_) const {
       return boost::yap::as_expr(field_.value.first[field_.value.second]);
     }
 
@@ -190,25 +185,25 @@ private:
   // openmp-specific
   struct data_transform {
   public:
-    template <typename TT, typename GT, typename AT>
+    template <typename TT, typename GT>
     auto operator()(boost::yap::expr_tag<boost::yap::expr_kind::terminal>,
-                    expr::field<tag::global, TT, GT, AT, size_t> field_) const {
+                    expr::field<tag::global, TT, GT, size_t> field_) const {
       auto &field_data = openmp_data.get(tag::global{}, TT{});
       using value_type =
           std::pair<meta::remove_cvref_t<decltype(field_data)>, size_t>;
-      return expr::field_term<tag::global, TT, GT, AT, value_type>{
+      return expr::field_term<tag::global, TT, GT, value_type>{
           {{field_data, field_.value}}};
     }
 
-    template <typename KT, typename TT, typename GT, typename AT>
+    template <typename KT, typename TT, typename GT>
     auto operator()(
         boost::yap::expr_tag<boost::yap::expr_kind::terminal>,
-        expr::field<KT, TT, GT, AT, std::pair<size_t, size_t>> field_) const {
+        expr::field<KT, TT, GT, std::pair<size_t, size_t>> field_) const {
       auto &field_data =
           openmp_data.get_group(field_.value.first).get(KT{}, TT{});
       using value_type =
           std::pair<meta::remove_cvref_t<decltype(field_data)>, size_t>;
-      return expr::field_term<KT, TT, GT, AT, value_type>{
+      return expr::field_term<KT, TT, GT, value_type>{
           {{field_data, field_.value.second}}};
     }
 
@@ -218,20 +213,20 @@ private:
   // generic, not openmp-specific
   struct name_transform {
   public:
-    template <typename TT, typename GT, typename AT, typename V>
-    expr::field_term<tag::global, TT, GT, AT, size_t>
+    template <typename TT, typename GT, typename V>
+    expr::field_term<tag::global, TT, GT, size_t>
     operator()(boost::yap::expr_tag<boost::yap::expr_kind::terminal>,
-               expr::field<tag::global, TT, GT, AT, V> field_) const {
+               expr::field<tag::global, TT, GT, V> field_) const {
       if (auto index = data.get(tag::global{}, TT{}).get_index(field_.value))
         return {{*index}};
       else
         throw "unknown field name (" + field_.value + ")";
     }
 
-    template <typename KT, typename TT, typename AT, typename V>
-    expr::field_term<KT, TT, tag::active, AT, std::pair<size_t, size_t>>
+    template <typename KT, typename TT, typename V>
+    expr::field_term<KT, TT, tag::active, std::pair<size_t, size_t>>
     operator()(boost::yap::expr_tag<boost::yap::expr_kind::terminal>,
-               expr::field<KT, TT, tag::active, AT, V> field_) const {
+               expr::field<KT, TT, tag::active, V> field_) const {
       auto &group = data.get_group(gi_a);
       if (auto index = group.get(KT{}, TT{}).get_index(field_.value))
         return {{{gi_a, *index}}};
@@ -239,10 +234,10 @@ private:
         throw "unknown active field name (" + field_.value + ")";
     }
 
-    template <typename KT, typename TT, typename AT, typename V>
-    expr::field_term<KT, TT, tag::passive, AT, std::pair<size_t, size_t>>
+    template <typename KT, typename TT, typename V>
+    expr::field_term<KT, TT, tag::passive, std::pair<size_t, size_t>>
     operator()(boost::yap::expr_tag<boost::yap::expr_kind::terminal>,
-               expr::field<KT, TT, tag::passive, AT, V> field_) const {
+               expr::field<KT, TT, tag::passive, V> field_) const {
       auto &group = data.get_group(gi_p);
       if (auto index = group.get(KT{}, TT{}).get_index(field_.value))
         return {{{gi_p, *index}}};
@@ -278,9 +273,9 @@ private:
             _transform(gi_p, boost::yap::as_expr(args_))...);
       }
 
-      template <typename GT, typename Select, typename... Args>
+      template <typename Select, typename... Args>
       auto operator()(boost::yap::expr_tag<boost::yap::expr_kind::call>,
-                      expr::loop<GT, Select> loop_, Args &&... args_) const {
+                      expr::loop<Select> loop_, Args &&... args_) const {
         using tuple = decltype(_collect(0, std::forward<Args>(args_)...));
         passive_loop<tuple> result;
         for (size_t gi_p = 0; gi_p < data.get_group_count(); ++gi_p) {
@@ -314,9 +309,9 @@ private:
           boost::yap::as_expr(args_), inner{data, gi_a, openmp_data})...);
     }
 
-    template <typename GT, typename Select, typename... Args>
+    template <typename Select, typename... Args>
     auto operator()(boost::yap::expr_tag<boost::yap::expr_kind::call>,
-                    expr::loop<GT, Select> loop_, Args &&... args_) const {
+                    expr::loop<Select> loop_, Args &&... args_) const {
       using tuple = decltype(_call_inner(0, std::forward<Args>(args_)...));
       // result stores transformed sub-expressions of all selected groups
       active_loop<tuple> result;
@@ -356,18 +351,17 @@ public:
   template <typename E0> auto operator()(E0 &&e0) {
     // generic, not openmp-specific
     auto e1 = boost::yap::transform(e0, expr::field_subscript_transform{});
-    auto e2 = boost::yap::transform(e1, expr::field_access_transform{});
 
     // openmp-specific
-    auto e3 = boost::yap::transform(e2, call_transform<default_functions>{{}});
+    auto e2 = boost::yap::transform(e1, call_transform<default_functions>{{}});
 
     // partially not openmp-specific (generic: name_transform)
-    auto e4 = boost::yap::transform(e3, split_transform{_data, _openmp_data});
+    auto e3 = boost::yap::transform(e2, split_transform{_data, _openmp_data});
 
-    // display_cxx_type(e4, std::cout);
-    // boost::yap::print(std::cout, e4);
+    // display_cxx_type(e3, std::cout);
+    // boost::yap::print(std::cout, e3);
 
-    return std::move(e4);
+    return std::move(e3);
   }
 
 public:

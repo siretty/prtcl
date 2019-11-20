@@ -10,6 +10,17 @@
 
 #include <string>
 
+struct func_transform {
+  template <typename Arg> decltype(auto) operator()(Arg &&arg_) {
+    if constexpr (prtcl::scheme::is_loop_v<Arg>)
+      return std::forward<Arg>(arg_); // std::forward<Arg>(arg_).transform(*this);
+    else if constexpr (prtcl::scheme::is_block_v<Arg>)
+      return std::forward<Arg>(arg_); // std::forward<Arg>(arg_).transform(*this);
+    else
+      return std::string{"expr"};
+  }
+};
+
 TEST_CASE("prtcl/scheme/compiler", "[prtcl][scheme][compiler]") {
   namespace tag = prtcl::tag;
 
@@ -63,14 +74,11 @@ TEST_CASE("prtcl/scheme/compiler", "[prtcl][scheme][compiler]") {
   }
 
   prtcl::scheme::compiler<float, 3> compile{scheme};
-  auto func = compile(expr);
+  auto func1 = compile(expr);
 
-  auto func2 = func.transform([](auto &&arg) {
-    if constexpr (prtcl::scheme::is_loop_v<decltype(arg)>)
-      return "loop";
-    else
-      return "expr";
-  });
+  display_cxx_type(func1, std::cout);
+
+  auto func2 = func1.transform(func_transform{});
 
   display_cxx_type(func2, std::cout);
 }

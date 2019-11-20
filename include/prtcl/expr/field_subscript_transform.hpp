@@ -11,18 +11,18 @@
 namespace prtcl::expr {
 
 struct field_subscript_transform {
-  template <typename KT, typename TT, typename V, typename GT, typename AT>
-  field_term<KT, TT, GT, AT, V>
+  template <typename KT, typename TT, typename V, typename GT>
+  field_term<KT, TT, GT, V>
   operator()(boost::yap::expr_tag<boost::yap::expr_kind::subscript>,
-             field<KT, TT, tag::unspecified, AT, V> const &field_,
+             field<KT, TT, tag::unspecified, V> const &field_,
              group<GT>) const {
     return {{field_.value}};
   }
 
-  template <typename KT, typename TT, typename V, typename GT, typename AT>
-  field_term<KT, TT, GT, AT, V>
+  template <typename KT, typename TT, typename V, typename GT>
+  field_term<KT, TT, GT, V>
   operator()(boost::yap::expr_tag<boost::yap::expr_kind::subscript>,
-             field<KT, TT, tag::unspecified, AT, V> &&field_, group<GT>) const {
+             field<KT, TT, tag::unspecified, V> &&field_, group<GT>) const {
     return {{std::move(field_.value)}};
   }
 };
