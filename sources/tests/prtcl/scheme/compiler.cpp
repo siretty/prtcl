@@ -1,3 +1,4 @@
+#include "prtcl/scheme/compiler/eq.hpp"
 #include <catch.hpp>
 
 #include <prtcl/data/scheme.hpp>
@@ -9,17 +10,6 @@
 #include <prtcl/scheme/compiler.hpp>
 
 #include <string>
-
-struct func_transform {
-  template <typename Arg> decltype(auto) operator()(Arg &&arg_) {
-    if constexpr (prtcl::scheme::is_loop_v<Arg>)
-      return std::forward<Arg>(arg_); // std::forward<Arg>(arg_).transform(*this);
-    else if constexpr (prtcl::scheme::is_block_v<Arg>)
-      return std::forward<Arg>(arg_); // std::forward<Arg>(arg_).transform(*this);
-    else
-      return std::string{"expr"};
-  }
-};
 
 TEST_CASE("prtcl/scheme/compiler", "[prtcl][scheme][compiler]") {
   namespace tag = prtcl::tag;
@@ -48,7 +38,8 @@ TEST_CASE("prtcl/scheme/compiler", "[prtcl][scheme][compiler]") {
   auto expr = foreach_a(
       gs += dot(Eigen::Vector3f{1, 1, 1}, Eigen::Vector3f{-1, -2, 4}),
       vs[a] = gs,
-      foreach_p(r[a] += gs * (gv1 + gv2) + us[a] * uv[p] + vs[a] * vv[p]));
+      foreach_p(r[a] += gs * (gv1 + gv2) + us[a] * uv[p] + vs[a] * vv[p],
+                prtcl::scheme::make_min_reduce_eq(gs, us[a] + us[p] * vs[p])));
 
   prtcl::data::scheme<float, 3> scheme;
 
@@ -77,8 +68,4 @@ TEST_CASE("prtcl/scheme/compiler", "[prtcl][scheme][compiler]") {
   auto func1 = compile(expr);
 
   display_cxx_type(func1, std::cout);
-
-  auto func2 = func1.transform(func_transform{});
-
-  display_cxx_type(func2, std::cout);
 }
