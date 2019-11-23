@@ -6,6 +6,7 @@
 #include <prtcl/expr/field.hpp>
 #include <prtcl/expr/group.hpp>
 #include <prtcl/expr/loop.hpp>
+#include <prtcl/expr/reduction.hpp>
 #include <prtcl/meta/overload.hpp>
 #include <prtcl/scheme/compiler.hpp>
 
@@ -27,6 +28,8 @@ TEST_CASE("prtcl/scheme/compiler", "[prtcl][scheme][compiler]") {
 
   prtcl::expr::call_term<tag::dot> dot;
 
+  prtcl::expr::min_reduction reduce_min;
+
   prtcl::expr::vvector<std::string> r{{"r"}};
 
   auto foreach_a =
@@ -39,7 +42,7 @@ TEST_CASE("prtcl/scheme/compiler", "[prtcl][scheme][compiler]") {
       gs += dot(Eigen::Vector3f{1, 1, 1}, Eigen::Vector3f{-1, -2, 4}),
       vs[a] = gs,
       foreach_p(r[a] += gs * (gv1 + gv2) + us[a] * uv[p] + vs[a] * vv[p],
-                prtcl::scheme::make_min_reduce_eq(gs, us[a] + us[p] * vs[p])));
+                reduce_min(gs, us[a] + us[p] * vs[p])));
 
   prtcl::data::scheme<float, 3> scheme;
 

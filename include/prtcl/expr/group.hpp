@@ -15,6 +15,10 @@ template <typename GroupTag> struct group {
 template <typename GT>
 using group_term = boost::yap::terminal<boost::yap::expression, group<GT>>;
 
+template <typename GT> auto term(group<GT> group_) {
+  return group_term<GT>{group_};
+}
+
 using active_group = group_term<tag::active>;
 using passive_group = group_term<tag::passive>;
 

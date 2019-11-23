@@ -9,10 +9,13 @@
 #include <prtcl/expr/field.hpp>
 #include <prtcl/expr/field_subscript_transform.hpp>
 #include <prtcl/expr/loop.hpp>
+#include <prtcl/expr/reduction.hpp>
 #include <prtcl/meta/remove_cvref.hpp>
 #include <prtcl/scheme/compiler/block.hpp>
 #include <prtcl/scheme/compiler/eq.hpp>
 #include <prtcl/scheme/compiler/loop.hpp>
+#include <prtcl/scheme/compiler/stmt.hpp>
+#include <prtcl/scheme/compiler/unbound_loop.hpp>
 
 #include <prtcl/meta/format_cxx_type.hpp>
 
@@ -77,24 +80,34 @@ private:
     size_t gi_a, gi_p;
   };
 
+  struct stmt_transform {
+  private:
+    static constexpr auto allowed_kinds = boost::hana::make_tuple(
+        boost::yap::expr_kind::assign, boost::yap::expr_kind::plus_assign,
+        boost::yap::expr_kind::minus_assign);
+
+  public:
+    template <boost::yap::expr_kind Kind, typename TT, typename GT, typename V,
+              typename RHS,
+              typename = std::enable_if_t<boost::hana::in(Kind, allowed_kinds)>>
+    auto operator()(boost::yap::expr_tag<Kind>,
+                    prtcl::expr::field<tag::varying, TT, GT, V> lhs,
+                    RHS &&rhs) const {
+      using expr_type = decltype(
+          boost::yap::make_expression<Kind>(lhs, std::forward<RHS>(rhs)));
+      return stmt<expr_type>{
+          boost::yap::make_expression<Kind>(lhs, std::forward<RHS>(rhs))};
+    }
+  };
+
   struct eq_transform {
   public:
-    template <typename KT, typename TT, typename GT, typename V, typename RHS>
-    auto operator()(boost::yap::expr_tag<boost::yap::expr_kind::assign>,
-                    prtcl::expr::field<KT, TT, GT, V> lhs, RHS &&rhs) const {
-      return eq<eq_kind::normal, eq_operator::none, decltype(lhs),
-                meta::remove_cvref_t<RHS>>{lhs, std::forward<RHS>(rhs)};
-    }
-
-    template <typename KT, typename TT, typename GT, typename V, typename RHS>
-    auto operator()(boost::yap::expr_tag<boost::yap::expr_kind::plus_assign>,
-                    prtcl::expr::field<KT, TT, GT, V> lhs, RHS &&rhs) const {
-      if constexpr (meta::is_any_of_v<KT, tag::varying>)
-        return eq<eq_kind::normal, eq_operator::add, decltype(lhs),
-                  meta::remove_cvref_t<RHS>>{lhs, std::forward<RHS>(rhs)};
-      else
-        return eq<eq_kind::reduce, eq_operator::add, decltype(lhs),
-                  meta::remove_cvref_t<RHS>>{lhs, std::forward<RHS>(rhs)};
+    template <prtcl::expr::reduction_op Op, typename LHS, typename RHS>
+    auto operator()(boost::yap::expr_tag<boost::yap::expr_kind::call>,
+                    prtcl::expr::reduction<Op>, LHS &&lhs, RHS &&rhs) const {
+      return eq<eq_kind::reduce, eq_operator::max, meta::remove_cvref_t<LHS>,
+                meta::remove_cvref_t<RHS>>{std::forward<LHS>(lhs),
+                                           std::forward<RHS>(rhs)};
     }
   };
 
@@ -109,22 +122,21 @@ private:
 
       template <typename... Args>
       auto _collect(size_t gi_p, Args &&... args_) const {
-        return boost::hana::make_tuple(
-            _transform(gi_p, boost::yap::as_expr(args_))...);
+        return make_block(_transform(gi_p, boost::yap::as_expr(args_))...);
       }
 
       template <typename Select, typename... Args>
       auto operator()(boost::yap::expr_tag<boost::yap::expr_kind::call>,
                       prtcl::expr::loop<Select> loop_, Args &&... args_) const {
-        using tuple = decltype(_collect(0, std::forward<Args>(args_)...));
-        loop<block<tuple>> result;
+        using block_type = decltype(_collect(0, std::forward<Args>(args_)...));
+        loop<block_type> result;
         for (size_t gi_p = 0; gi_p < data.get_group_count(); ++gi_p) {
           // store only transformed sub-expressions if the group was selected
           auto &group = data.get_group(gi_p);
           if (loop_.select(group)) {
             result.groups.push_back(gi_p);
             result.instances.push_back(
-                block<tuple>{_collect(gi_p, std::forward<Args>(args_)...)});
+                _collect(0, std::forward<Args>(args_)...));
           }
         }
         return std::move(result);
@@ -142,16 +154,16 @@ private:
 
     template <typename... Args>
     auto _call_inner(size_t gi_a, Args &&... args_) const {
-      return boost::hana::make_tuple(boost::yap::transform(
-          boost::yap::as_expr(args_), inner{data, gi_a})...);
+      return make_block(boost::yap::transform(boost::yap::as_expr(args_),
+                                              inner{data, gi_a})...);
     }
 
     template <typename Select, typename... Args>
     auto operator()(boost::yap::expr_tag<boost::yap::expr_kind::call>,
                     prtcl::expr::loop<Select> loop_, Args &&... args_) const {
-      using tuple = decltype(_call_inner(0, std::forward<Args>(args_)...));
+      using block_type = decltype(_call_inner(0, std::forward<Args>(args_)...));
       // result stores transformed sub-expressions of all selected groups
-      loop<block<tuple>> result;
+      loop<block_type> result;
       // iterate over all (active) groups
       for (size_t gi_a = 0; gi_a < data.get_group_count(); ++gi_a) {
         // store only transformed sub-expressions if the group was selected
@@ -159,13 +171,54 @@ private:
         if (loop_.select(group)) {
           result.groups.push_back(gi_a);
           result.instances.push_back(
-              block<tuple>{_call_inner(gi_a, std::forward<Args>(args_)...)});
+              _call_inner(0, std::forward<Args>(args_)...));
         }
       }
       return std::move(result);
     }
 
     scheme_data &data;
+  };
+
+  struct block_transform {
+    struct inner_block_transform {
+      template <typename Arg> auto _transform(Arg &&arg_) const {
+        return boost::yap::transform(std::forward<Arg>(arg_), stmt_transform{},
+                                     eq_transform{});
+      }
+
+      template <typename... Args> auto _collect(Args &&... args_) const {
+        return make_block(_transform(boost::yap::as_expr(args_))...);
+      }
+
+      template <typename Select, typename... Args>
+      auto operator()(boost::yap::expr_tag<boost::yap::expr_kind::call>,
+                      prtcl::expr::loop<Select> loop_, Args &&... args_) const {
+        using block_type = decltype(_collect(std::forward<Args>(args_)...));
+        return unbound_loop<Select, block_type>{
+            loop_.select, _collect(std::forward<Args>(args_)...)};
+      }
+
+      template <boost::yap::expr_kind Kind, typename... Args>
+      auto operator()(boost::yap::expr_tag<Kind>, Args &&... args_) const {
+        return _transform(
+            boost::yap::make_expression<Kind>(std::forward<Args>(args_)...));
+      }
+    };
+
+    template <typename... Args> auto _collect(Args &&... args_) const {
+      return make_block(boost::yap::transform(boost::yap::as_expr(args_),
+                                              inner_block_transform{})...);
+    }
+
+    template <typename Select, typename... Args>
+    auto operator()(boost::yap::expr_tag<boost::yap::expr_kind::call>,
+                    prtcl::expr::loop<Select> loop_, Args &&... args_) const {
+      using block_type = decltype(_collect(std::forward<Args>(args_)...));
+      // result stores transformed sub-expressions of all selected groups
+      return unbound_loop<Select, block_type>{
+          loop_.select, _collect(std::forward<Args>(args_)...)};
+    }
   };
 
 public:
@@ -176,7 +229,7 @@ public:
     display_cxx_type(e1, std::cout);
     boost::yap::print(std::cout, e1);
 
-    auto e2 = boost::yap::transform(e1, split_transform{_data});
+    auto e2 = boost::yap::transform(e1, block_transform{});
 
     display_cxx_type(e2, std::cout);
     // boost::yap::print(std::cout, e2);

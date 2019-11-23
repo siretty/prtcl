@@ -147,6 +147,12 @@ struct is_function_tag
 template <typename T>
 constexpr bool is_function_tag_v = is_function_tag<T>::value;
 
+template <typename T>
+struct is_reduction_tag : is_any_of<remove_cvref_t<T>, min, max> {};
+
+template <typename T>
+constexpr bool is_reduction_tag_v = is_reduction_tag<T>::value;
+
 } // namespace tag
 } // namespace prtcl
 

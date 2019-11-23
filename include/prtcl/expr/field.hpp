@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../tags.hpp"
+#include <prtcl/meta/remove_cvref.hpp>
 
 #include <type_traits>
 
@@ -23,6 +24,13 @@ struct field {
 
   Value value;
 
+  template <typename NewGT>
+  field<KindTag, TypeTag, meta::remove_cvref_t<NewGT>, Value>
+  with_group(NewGT) const {
+    static_assert(tag::is_group_tag_v<NewGT>);
+    return {value};
+  }
+
   friend std::ostream &operator<<(std::ostream &s, field const &field_) {
     return s << "field<" << kind_tag{} << ", " << type_tag{} << ", "
              << group_tag{} << ">{" << field_.value << "}";
@@ -32,6 +40,11 @@ struct field {
 template <typename KT, typename TT, typename GT, typename V>
 using field_term =
     boost::yap::terminal<boost::yap::expression, field<KT, TT, GT, V>>;
+
+template <typename KT, typename TT, typename GT, typename V>
+auto term(field<KT, TT, GT, V> field_) {
+  return field_term<KT, TT, GT, V>{field_};
+}
 
 template <typename> struct is_field : std::false_type {};
 template <typename KT, typename TT, typename GT, typename V>

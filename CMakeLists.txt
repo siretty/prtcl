@@ -67,7 +67,7 @@ DE_Add_Catch2_Test(
   ${_SRC}/tests/prtcl/data/scheme.cpp
   ${_SRC}/tests/prtcl/data/openmp/scheme.cpp
 
-  ${_SRC}/tests/prtcl/expr/field_subscript_transform.cpp
+  ${_SRC}/tests/prtcl/expr/transform/field_subscript_transform.cpp
   ${_SRC}/tests/prtcl/expr/field_value_transform.cpp
 
   ${_SRC}/tests/prtcl/scheme/compiler.cpp

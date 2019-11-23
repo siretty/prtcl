@@ -1,6 +1,8 @@
 #pragma once
 
 #include "prtcl/meta/remove_cvref.hpp"
+#include <prtcl/expr/reduction.hpp>
+
 #include <ostream>
 #include <utility>
 
@@ -8,7 +10,7 @@ namespace prtcl::scheme {
 
 enum class eq_kind { normal, reduce };
 
-std::ostream &operator<<(std::ostream &s, eq_kind kind) {
+inline std::ostream &operator<<(std::ostream &s, eq_kind kind) {
   switch (kind) {
   case eq_kind::normal:
     s << "prtcl::scheme::eq_kind::normal";
@@ -23,40 +25,10 @@ std::ostream &operator<<(std::ostream &s, eq_kind kind) {
   return s;
 }
 
-enum class eq_operator { none, add, sub, mul, div, max, min };
-
-std::ostream &operator<<(std::ostream &s, eq_operator op) {
-  switch (op) {
-  case eq_operator::none:
-    s << "prtcl::scheme::eq_operator::none";
-    break;
-  case eq_operator::add:
-    s << "prtcl::scheme::eq_operator::add";
-    break;
-  case eq_operator::sub:
-    s << "prtcl::scheme::eq_operator::sub";
-    break;
-  case eq_operator::mul:
-    s << "prtcl::scheme::eq_operator::mul";
-    break;
-  case eq_operator::div:
-    s << "prtcl::scheme::eq_operator::div";
-    break;
-  case eq_operator::max:
-    s << "prtcl::scheme::eq_operator::max";
-    break;
-  case eq_operator::min:
-    s << "prtcl::scheme::eq_operator::min";
-    break;
-  default:
-    s << "prtcl::scheme::eq_operator(" << static_cast<int>(op) << ")";
-    break;
-  }
-  return s;
-}
+using eq_operator = prtcl::expr::reduction_op;
 
 template <eq_kind Kind, eq_operator Op, typename LHS, typename RHS> struct eq {
-  static_assert(Kind == eq_kind::normal or Op != eq_operator::none);
+  //static_assert(Kind == eq_kind::normal or Op != eq_operator::none);
 
   template <typename Transform> auto transform(Transform &&transform) const {
     // find the type of the tuple of transformed expressions
