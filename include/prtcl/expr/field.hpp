@@ -1,82 +1,76 @@
 #pragma once
 
-#include "../tags.hpp"
+#include <prtcl/expr/field_base.hpp>
 #include <prtcl/meta/remove_cvref.hpp>
 
 #include <type_traits>
 
+#include <boost/yap/user_macros.hpp>
 #include <boost/yap/yap.hpp>
 
 namespace prtcl::expr {
 
-template <typename KindTag, typename TypeTag, typename GroupTag, typename Value>
-struct field {
-  static_assert(tag::is_kind_tag_v<KindTag>, "KindTag is invalid");
-  static_assert(tag::is_type_tag_v<TypeTag>, "TypeTag is invalid");
-  static_assert(tag::is_group_tag_v<GroupTag> or
-                    tag::is_unspecified_tag_v<GroupTag>,
-                "GroupTag is invalid");
-
-  using kind_tag = KindTag;
-  using type_tag = TypeTag;
-  using group_tag = GroupTag;
-  using value_type = Value;
-
-  Value value;
-
-  template <typename NewGT>
-  field<KindTag, TypeTag, meta::remove_cvref_t<NewGT>, Value>
-  with_group(NewGT) const {
-    static_assert(tag::is_group_tag_v<NewGT>);
-    return {value};
-  }
-
-  friend std::ostream &operator<<(std::ostream &s, field const &field_) {
-    return s << "field<" << kind_tag{} << ", " << type_tag{} << ", "
-             << group_tag{} << ">{" << field_.value << "}";
+template <typename KT, typename TT>
+struct field : field_base<KT, TT, std::string> {
+  friend std::ostream &operator<<(std::ostream &s, field const &f) {
+    return s << f.value;
   }
 };
 
-template <typename KT, typename TT, typename GT, typename V>
-using field_term =
-    boost::yap::terminal<boost::yap::expression, field<KT, TT, GT, V>>;
-
-template <typename KT, typename TT, typename GT, typename V>
-auto term(field<KT, TT, GT, V> field_) {
-  return field_term<KT, TT, GT, V>{field_};
-}
+// recognition type trait
 
 template <typename> struct is_field : std::false_type {};
-template <typename KT, typename TT, typename GT, typename V>
-struct is_field<field<KT, TT, GT, V>> : std::true_type {};
+template <typename KT, typename TT>
+struct is_field<field<KT, TT>> : std::true_type {};
 
-template <typename T> constexpr bool is_field_v = is_field<T>::value;
+template <typename T>
+constexpr bool is_field_v = is_field<meta::remove_cvref_t<T>>::value;
 
-template <typename V>
-using gscalar = field_term<tag::global, tag::scalar, tag::unspecified, V>;
+// Boost.YAP operators
 
-template <typename V>
-using gvector = field_term<tag::global, tag::vector, tag::unspecified, V>;
+#define PRTCL_YAP_UDT_ANY_BOPS(ExprTemplate, Trait)                            \
+  BOOST_YAP_USER_UDT_ANY_BINARY_OPERATOR(plus, ExprTemplate, Trait)            \
+  BOOST_YAP_USER_UDT_ANY_BINARY_OPERATOR(minus, ExprTemplate, Trait)           \
+  BOOST_YAP_USER_UDT_ANY_BINARY_OPERATOR(multiplies, ExprTemplate, Trait)      \
+  BOOST_YAP_USER_UDT_ANY_BINARY_OPERATOR(divides, ExprTemplate, Trait)
 
-template <typename V>
-using gmatrix = field_term<tag::global, tag::matrix, tag::unspecified, V>;
+PRTCL_YAP_UDT_ANY_BOPS(::boost::yap::expression, ::prtcl::expr::is_field)
 
-template <typename V>
-using uscalar = field_term<tag::uniform, tag::scalar, tag::unspecified, V>;
-
-template <typename V>
-using uvector = field_term<tag::uniform, tag::vector, tag::unspecified, V>;
-
-template <typename V>
-using umatrix = field_term<tag::uniform, tag::matrix, tag::unspecified, V>;
-
-template <typename V>
-using vscalar = field_term<tag::varying, tag::scalar, tag::unspecified, V>;
-
-template <typename V>
-using vvector = field_term<tag::varying, tag::vector, tag::unspecified, V>;
-
-template <typename V>
-using vmatrix = field_term<tag::varying, tag::matrix, tag::unspecified, V>;
+#undef PRTCL_YAP_UDT_ANY_BOPS
 
 } // namespace prtcl::expr
+
+// user defined literals
+
+#define PRTCL_DEFINE_FIELD_ALIASES(Name, KindTag, TypeTag)                     \
+  namespace prtcl::expr {                                                      \
+  using Name##_field = ::prtcl::expr::field<::prtcl::tag::kind::KindTag,       \
+                                            ::prtcl::tag::type::TypeTag>;      \
+  } /* namespace prtcl::expr */                                                \
+  namespace prtcl::expr_literals {                                             \
+  inline auto operator""_##Name##f(char const *ptr, size_t len) {              \
+    return ::prtcl::expr::field<::prtcl::tag::kind::KindTag,                   \
+                                ::prtcl::tag::type::TypeTag>{                  \
+        {std::string{ptr, len}}};                                              \
+  }                                                                            \
+  inline auto operator""_##Name(char const *ptr, size_t len) {                 \
+    return ::boost::yap::make_terminal(                                        \
+        ::prtcl::expr::field<::prtcl::tag::kind::KindTag,                      \
+                             ::prtcl::tag::type::TypeTag>{                     \
+            {std::string{ptr, len}}});                                         \
+  }                                                                            \
+  } /* namespace prtcl::expr_literals */
+
+PRTCL_DEFINE_FIELD_ALIASES(gs, global, scalar)
+PRTCL_DEFINE_FIELD_ALIASES(gv, global, vector)
+PRTCL_DEFINE_FIELD_ALIASES(gm, global, matrix)
+
+PRTCL_DEFINE_FIELD_ALIASES(us, uniform, scalar)
+PRTCL_DEFINE_FIELD_ALIASES(uv, uniform, vector)
+PRTCL_DEFINE_FIELD_ALIASES(um, uniform, matrix)
+
+PRTCL_DEFINE_FIELD_ALIASES(vs, varying, scalar)
+PRTCL_DEFINE_FIELD_ALIASES(vv, varying, vector)
+PRTCL_DEFINE_FIELD_ALIASES(vm, varying, matrix)
+
+#undef PRTCL_DEFINE_FIELD_ALIASES

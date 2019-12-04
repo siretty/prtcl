@@ -1,13 +1,21 @@
 #pragma once
 
+#include <prtcl/meta/overload.hpp>
+
 #include <algorithm>
+#include <iostream>
 #include <iterator>
 #include <sstream>
 #include <string>
 
-#include <boost/type_index.hpp>
-
 #include <iostream>
+
+#include <boost/spirit/include/qi.hpp>
+#include <boost/type_index.hpp>
+#include <boost/yap/print.hpp>
+#include <boost/yap/yap.hpp>
+
+namespace prtcl::meta {
 
 template <typename E, typename S>
 void display_cxx_type(E const &, S &out, char indent_marker = '|') {
@@ -31,6 +39,24 @@ void display_cxx_type(E const &, S &out, char indent_marker = '|') {
     out << boost::typeindex::type_id<E>().name()
         << " [type demangling failed]\n";
     return;
+  }
+
+  { // make expr_kind readable
+    namespace qi = boost::spirit::qi;
+
+    std::ostringstream ss;
+
+    auto capture_expr_kind = [&ss](unsigned long k) {
+      ss << boost::yap::op_string(static_cast<boost::yap::expr_kind>(k));
+    };
+    auto capture = [&ss](auto v) { ss << v; };
+
+    qi::parse(type.begin(), type.end(),
+              *((qi::lit("(boost::yap::expr_kind)") >>
+                 qi::ulong_[capture_expr_kind] >> &qi::char_(',')) |
+                qi::char_[capture]));
+
+    type = ss.str();
   }
 
   auto putter = std::ostreambuf_iterator<char>{out};
@@ -76,3 +102,8 @@ std::string format_cxx_type(E const &e, char indent_marker = '|') {
   display_cxx_type(e, out, indent_marker);
   return out.str();
 }
+
+} // namespace prtcl::meta
+
+using prtcl::meta::display_cxx_type;
+using prtcl::meta::format_cxx_type;

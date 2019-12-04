@@ -20,16 +20,9 @@ case $1 in
       local _CMAKE_FLAGS=( -DCMAKE_MODULE_PATH="/home/daned/.local/share/cmake" -DFORCE_COLORED_DIAGNOSTICS=TRUE -DENABLE_LIBCXX=TRUE )
 
       CC=${_CC} CXX=${_CXX} cmake -GNinja -S. -Bbld/dbg/${_CC}    "${_CMAKE_FLAGS[@]}" -DCMAKE_BUILD_TYPE=Debug
-      ninja -C bld/dbg/${_CC} triSYCL
-
       CC=${_CC} CXX=${_CXX} cmake -GNinja -S. -Bbld/rel/${_CC}    "${_CMAKE_FLAGS[@]}" -DCMAKE_BUILD_TYPE=Release
-      ninja -C bld/rel/${_CC} triSYCL
-
       CC=${_CC} CXX=${_CXX} cmake -GNinja -S. -Bbld/reldbg/${_CC} "${_CMAKE_FLAGS[@]}" -DCMAKE_BUILD_TYPE=RelWithDebInfo
-      ninja -C bld/reldbg/${_CC} triSYCL
-
       CC=${_CC} CXX=${_CXX} cmake -GNinja -S. -Bbld/asan/${_CC}   "${_CMAKE_FLAGS[@]}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_FLAGS="-fsanitize=address"
-      ninja -C bld/asan/${_CC} triSYCL
     }
     ;;
 
