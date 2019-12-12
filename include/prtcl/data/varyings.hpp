@@ -8,11 +8,17 @@
 #include <utility>
 #include <vector>
 
+#include <boost/range/adaptor/transformed.hpp>
+
 namespace prtcl::detail {
 
 struct varyings_access {
   template <typename Self, typename... Args> static auto &i2d(Self &&self_) {
     return std::forward<Self>(self_)._i2d;
+  }
+
+  template <typename Self, typename... Args> static auto &n2i(Self &&self_) {
+    return std::forward<Self>(self_)._n2i;
   }
 };
 
@@ -58,7 +64,7 @@ public:
     return *_i2d[it->second];
   }
 
-  std::optional<size_t> get_index(std::string name_) {
+  std::optional<size_t> get_index(std::string name_) const {
     if (auto it = _n2i.find(name_); it != _n2i.end())
       return it->second;
     else
@@ -66,7 +72,17 @@ public:
   }
 
 public:
-  auto const &operator[](size_t field_) const { return *_i2d[field_]; }
+  auto names() const {
+    return boost::adaptors::transform(
+        _n2i, [](auto &&kv) { return std::forward<decltype(kv)>(kv).first; });
+  }
+
+public:
+  auto &operator[](size_t field_) const { return *_i2d[field_]; }
+
+  auto &operator[](std::string name_) const {
+    return (*this)[get_index(name_).value()];
+  }
 
 private:
   size_t _size = 0;

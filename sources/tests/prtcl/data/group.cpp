@@ -1,3 +1,4 @@
+#include "prtcl/tag/kind.hpp"
 #include <catch.hpp>
 
 #include <prtcl/data/group.hpp>
@@ -12,38 +13,52 @@ TEST_CASE("prtcl/data/group", "[prtcl][data][group]") {
   REQUIRE(10 == g.size());
 
   { // uniform scalar
-    auto &us = g.get(tag::uniform{}, tag::scalar{});
-    REQUIRE(!us.has("us"));
-    us.add("us");
-    REQUIRE(us.has("us"));
+    auto &uss = g.get(tag::kind::uniform{}, tag::type::scalar{});
+    REQUIRE(!uss.has("us"));
+    uss.add("us");
+    REQUIRE(uss.has("us"));
   }
 
-  REQUIRE(!g.has_uniform_vector("uv"));
-  g.add_uniform_vector("uv");
-  REQUIRE(g.has_uniform_vector("uv"));
+  { // uniform vector
+    auto &uvs = g.get(tag::kind::uniform{}, tag::type::vector{});
+    REQUIRE(!uvs.has("uv"));
+    uvs.add("uv");
+    REQUIRE(uvs.has("uv"));
+  }
 
-  REQUIRE(!g.has_uniform_matrix("um"));
-  g.add_uniform_matrix("um");
-  REQUIRE(g.has_uniform_matrix("um"));
+  { // uniform matrix
+    auto &ums = g.get(tag::kind::uniform{}, tag::type::matrix{});
+    REQUIRE(!ums.has("um"));
+    ums.add("um");
+    REQUIRE(ums.has("um"));
+  }
 
-  REQUIRE(!g.has_varying_scalar("vs"));
-  auto &vs = g.add_varying_scalar("vs");
-  REQUIRE(g.has_varying_scalar("vs"));
-  REQUIRE(10 == vs.size());
+  SECTION("resizing affects varyings") {
+    // varying scalar
+    auto &vss = g.get(tag::kind::varying{}, tag::type::scalar{});
+    REQUIRE(!vss.has("vs"));
+    auto &vs = vss.add("vs");
+    REQUIRE(vss.has("vs"));
+    REQUIRE(10 == vs.size());
 
-  REQUIRE(!g.has_varying_vector("vv"));
-  auto &vv = g.add_varying_vector("vv");
-  REQUIRE(g.has_varying_vector("vv"));
-  REQUIRE(10 == vv.size());
+    // varying vector
+    auto &vvs = g.get(tag::kind::varying{}, tag::type::vector{});
+    REQUIRE(!vvs.has("vv"));
+    auto &vv = vvs.add("vv");
+    REQUIRE(vvs.has("vv"));
+    REQUIRE(10 == vv.size());
 
-  REQUIRE(!g.has_varying_matrix("vm"));
-  auto &vm = g.add_varying_matrix("vm");
-  REQUIRE(g.has_varying_matrix("vm"));
-  REQUIRE(10 == vm.size());
+    // varying matrix
+    auto &vms = g.get(tag::kind::varying{}, tag::type::matrix{});
+    REQUIRE(!vms.has("vm"));
+    auto &vm = vms.add("vm");
+    REQUIRE(vms.has("vm"));
+    REQUIRE(10 == vm.size());
 
-  g.resize(20);
-  REQUIRE(20 == g.size());
-  REQUIRE(20 == vs.size());
-  REQUIRE(20 == vv.size());
-  REQUIRE(20 == vm.size());
+    g.resize(20);
+    REQUIRE(20 == g.size());
+    REQUIRE(20 == vs.size());
+    REQUIRE(20 == vv.size());
+    REQUIRE(20 == vm.size());
+  }
 }

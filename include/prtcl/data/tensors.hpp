@@ -1,7 +1,7 @@
 #pragma once
 
-#include <prtcl/meta/unpack_integer_sequence.hpp>
 #include <prtcl/meta/get.hpp>
+#include <prtcl/meta/unpack_integer_sequence.hpp>
 
 #include <array>
 #include <utility>

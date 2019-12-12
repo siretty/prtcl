@@ -4,6 +4,7 @@
 #include <prtcl/meta/remove_cvref.hpp>
 
 #include <type_traits>
+#include <variant>
 
 #include <boost/yap/user_macros.hpp>
 #include <boost/yap/yap.hpp>
@@ -74,3 +75,11 @@ PRTCL_DEFINE_FIELD_ALIASES(vv, varying, vector)
 PRTCL_DEFINE_FIELD_ALIASES(vm, varying, matrix)
 
 #undef PRTCL_DEFINE_FIELD_ALIASES
+
+namespace prtcl::expr {
+
+using any_global_field = std::variant<gs_field, gv_field, gm_field>;
+using any_uniform_field = std::variant<us_field, uv_field, um_field>;
+using any_varying_field = std::variant<vs_field, vv_field, vm_field>;
+
+} // namespace prtcl::expr

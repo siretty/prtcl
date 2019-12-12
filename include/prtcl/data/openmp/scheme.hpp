@@ -19,10 +19,7 @@ public:
   scheme &operator=(scheme &&) = default;
 
   explicit scheme(::prtcl::data::scheme<Scalar, N> &from_)
-      : _gs{from_.get(tag::global{}, tag::scalar{})},
-        _gv{from_.get(tag::global{}, tag::vector{})}, _gm{from_.get(
-                                                          tag::global{},
-                                                          tag::matrix{})} {
+      : _fields{_make_field_map(from_)} {
     auto &from_i2d = ::prtcl::detail::scheme_access::i2d(from_);
     _i2d.reserve(from_i2d.size());
     for (size_t group = 0; group < from_i2d.size(); ++group)
@@ -30,24 +27,20 @@ public:
   }
 
 public:
-  size_t get_global_scalar_count() const { return _gs.field_count(); }
-  size_t get_global_vector_count() const { return _gv.field_count(); }
-  size_t get_global_matrix_count() const { return _gm.field_count(); }
+  // get(tag::type::...) [const] -> ... {{{
 
-  auto const &get_global_scalar(size_t field_) const { return _gs[field_]; }
-  auto const &get_global_vector(size_t field_) const { return _gv[field_]; }
-  auto const &get_global_matrix(size_t field_) const { return _gm[field_]; }
+  template <typename TT, typename = std::enable_if_t<tag::is_type_v<TT>>>
+  auto &get(TT &&) {
+    return _fields[boost::hana::type_c<meta::remove_cvref_t<TT>>];
+  }
 
-  // get(tag::global, tag::[scalar,vector,matrix]) [const] -> ... {{{
+  template <typename TT, typename = std::enable_if_t<tag::is_type_v<TT>>>
+  auto &get(TT &&) const {
+    return _fields[boost::hana::type_c<meta::remove_cvref_t<TT>>];
+  }
 
-  auto &get(tag::global, tag::scalar) { return _gs; }
-  auto &get(tag::global, tag::scalar) const { return _gs; }
-
-  auto &get(tag::global, tag::vector) { return _gv; }
-  auto &get(tag::global, tag::vector) const { return _gv; }
-
-  auto &get(tag::global, tag::matrix) { return _gm; }
-  auto &get(tag::global, tag::matrix) const { return _gm; }
+  // TODO: or is a "consistent" interface between group and scheme better?
+  //       ie. include tag::kind::group as an unused first argument?
 
   // }}}
 
@@ -57,14 +50,43 @@ public:
   auto const &get_group(size_t group_) const { return _i2d[group_]; }
 
 private:
-  uniforms_t<Scalar> _gs;
-  uniforms_t<Scalar, N> _gv;
-  uniforms_t<Scalar, N, N> _gm;
+  // {{{ _make_field_map(data::scheme &) -> ...
+
+  static auto _make_field_map(::prtcl::data::scheme<Scalar, N> &scheme_) {
+    using boost::hana::type_c, boost::hana::make_pair;
+    return boost::hana::make_map(
+        make_pair(type_c<tag::type::scalar>,
+                  uniforms_t<Scalar>{scheme_.get(tag::type::scalar{})}),
+        make_pair(type_c<tag::type::vector>,
+                  uniforms_t<Scalar, N>{scheme_.get(tag::type::vector{})}),
+        make_pair(type_c<tag::type::matrix>,
+                  uniforms_t<Scalar, N, N>{scheme_.get(tag::type::matrix{})}));
+  }
+
+  // }}}
+
+  using field_map_type = decltype(
+      _make_field_map(std::declval<::prtcl::data::scheme<Scalar, N> &>()));
+
+private:
+  field_map_type _fields;
 
   std::vector<group<Scalar, N>> _i2d;
 };
 
 template <typename Scalar, size_t N>
 scheme(::prtcl::data::scheme<Scalar, N> &)->scheme<Scalar, N>;
+
+// make compatible with ..._uniform_grid (this is a bit hacky)
+
+template <typename Scalar, size_t N>
+auto get_group_count(scheme<Scalar, N> const &scheme_) {
+  return scheme_.get_group_count();
+}
+
+template <typename Scalar, size_t N>
+auto const &get_group_ref(scheme<Scalar, N> const &scheme_, size_t group_) {
+  return scheme_.get_group(group_);
+}
 
 } // namespace prtcl::data::openmp

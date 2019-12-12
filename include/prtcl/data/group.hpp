@@ -1,119 +1,94 @@
 #pragma once
 
+#include <prtcl/data/group_base.hpp>
 #include <prtcl/data/uniforms.hpp>
 #include <prtcl/data/varyings.hpp>
-#include <prtcl/tags.hpp>
+#include <prtcl/meta/remove_cvref.hpp>
+#include <prtcl/tag/kind.hpp>
+#include <prtcl/tag/type.hpp>
 
+#include <type_traits>
 #include <unordered_set>
 
-namespace prtcl::detail {
-
-struct group_access {
-  template <typename Self, typename... Args> static auto &us(Self &&self_) {
-    return std::forward<Self>(self_)._us;
-  }
-
-  template <typename Self, typename... Args> static auto &uv(Self &&self_) {
-    return std::forward<Self>(self_)._uv;
-  }
-
-  template <typename Self, typename... Args> static auto &um(Self &&self_) {
-    return std::forward<Self>(self_)._um;
-  }
-
-  template <typename Self, typename... Args> static auto &vs(Self &&self_) {
-    return std::forward<Self>(self_)._vs;
-  }
-
-  template <typename Self, typename... Args> static auto &vv(Self &&self_) {
-    return std::forward<Self>(self_)._vv;
-  }
-
-  template <typename Self, typename... Args> static auto &vm(Self &&self_) {
-    return std::forward<Self>(self_)._vm;
-  }
-};
-
-} // namespace prtcl::detail
+#include <boost/hana.hpp>
 
 namespace prtcl::data {
 
-template <typename Scalar, size_t N> class group {
+template <typename Scalar, size_t N> class group : public group_base {
 public:
   size_t size() const { return _size; }
 
   void resize(size_t new_size_) {
-    ::prtcl::detail::resize_access::resize(_vs, new_size_);
-    ::prtcl::detail::resize_access::resize(_vv, new_size_);
-    ::prtcl::detail::resize_access::resize(_vm, new_size_);
+    ::prtcl::detail::resize_access::resize(
+        get(tag::kind::varying{}, tag::type::scalar{}), new_size_);
+    ::prtcl::detail::resize_access::resize(
+        get(tag::kind::varying{}, tag::type::vector{}), new_size_);
+    ::prtcl::detail::resize_access::resize(
+        get(tag::kind::varying{}, tag::type::matrix{}), new_size_);
 
     _size = new_size_;
   }
 
 public:
-  bool has_uniform_scalar(std::string name_) const { return _us.has(name_); }
-  void add_uniform_scalar(std::string name_) { _us.add(name_); }
+  // get(tag::kind::..., tag::type::...) [const] -> ... {{{
 
-  bool has_uniform_vector(std::string name_) const { return _uv.has(name_); }
-  void add_uniform_vector(std::string name_) { _uv.add(name_); }
+  template <
+      typename KT, typename TT,
+      typename = std::enable_if_t<tag::is_kind_v<KT> and tag::is_type_v<TT>>>
+  auto &get(KT &&, TT &&) {
+    return _fields[boost::hana::type_c<meta::remove_cvref_t<KT>>]
+                  [boost::hana::type_c<meta::remove_cvref_t<TT>>];
+  }
 
-  bool has_uniform_matrix(std::string name_) const { return _um.has(name_); }
-  void add_uniform_matrix(std::string name_) { _um.add(name_); }
-
-  bool has_varying_scalar(std::string name_) const { return _vs.has(name_); }
-  auto &add_varying_scalar(std::string name_) { return _vs.add(name_); }
-
-  bool has_varying_vector(std::string name_) const { return _vv.has(name_); }
-  auto &add_varying_vector(std::string name_) { return _vv.add(name_); }
-
-  bool has_varying_matrix(std::string name_) const { return _vm.has(name_); }
-  auto &add_varying_matrix(std::string name_) { return _vm.add(name_); }
-
-  // TODO: is this better than the individual methods above? rethink when used /
-  //       unused in expr transformations
-
-  // get(tag::[uniform,varying], tag::[scalar,vector,matrix]) [const] -> ... {{{
-
-  auto &get(tag::uniform, tag::scalar) { return _us; }
-  auto &get(tag::uniform, tag::scalar) const { return _us; }
-
-  auto &get(tag::uniform, tag::vector) { return _uv; }
-  auto &get(tag::uniform, tag::vector) const { return _uv; }
-
-  auto &get(tag::uniform, tag::matrix) { return _um; }
-  auto &get(tag::uniform, tag::matrix) const { return _um; }
-
-  auto &get(tag::varying, tag::scalar) { return _vs; }
-  auto &get(tag::varying, tag::scalar) const { return _vs; }
-
-  auto &get(tag::varying, tag::vector) { return _vv; }
-  auto &get(tag::varying, tag::vector) const { return _vv; }
-
-  auto &get(tag::varying, tag::matrix) { return _vm; }
-  auto &get(tag::varying, tag::matrix) const { return _vm; }
+  template <
+      typename KT, typename TT,
+      typename = std::enable_if_t<tag::is_kind_v<KT> and tag::is_type_v<TT>>>
+  auto &get(KT &&, TT &&) const {
+    return _fields[boost::hana::type_c<meta::remove_cvref_t<KT>>]
+                  [boost::hana::type_c<meta::remove_cvref_t<TT>>];
+  }
 
   // }}}
 
-  void add_flag(std::string flag_) { _flags.insert(flag_); }
+  auto &add_flag(std::string flag_) {
+    _flags.insert(flag_);
+    return *this;
+  }
 
   bool has_flag(std::string flag_) const {
     return _flags.find(flag_) != _flags.end();
   }
 
 private:
+  // {{{ _make_field_map() -> ...
+
+  static auto _make_field_map() {
+    using boost::hana::make_pair;
+    using boost::hana::type_c;
+    constexpr auto scalar_c = type_c<tag::type::scalar>;
+    constexpr auto vector_c = type_c<tag::type::vector>;
+    constexpr auto matrix_c = type_c<tag::type::matrix>;
+    return boost::hana::make_map(
+        make_pair(type_c<tag::kind::uniform>,
+                  boost::hana::make_map(
+                      make_pair(scalar_c, uniforms_t<Scalar>{}),
+                      make_pair(vector_c, uniforms_t<Scalar, N>{}),
+                      make_pair(matrix_c, uniforms_t<Scalar, N, N>{}))),
+        make_pair(type_c<tag::kind::varying>,
+                  boost::hana::make_map(
+                      make_pair(scalar_c, varyings_t<Scalar>{}),
+                      make_pair(vector_c, varyings_t<Scalar, N>{}),
+                      make_pair(matrix_c, varyings_t<Scalar, N, N>{}))));
+  }
+
+  // }}}
+
+  using field_map_type = decltype(_make_field_map());
+
+private:
   size_t _size = 0;
-
-  uniforms_t<Scalar> _us;
-  uniforms_t<Scalar, N> _uv;
-  uniforms_t<Scalar, N, N> _um;
-
-  varyings_t<Scalar> _vs;
-  varyings_t<Scalar, N> _vv;
-  varyings_t<Scalar, N, N> _vm;
-
+  field_map_type _fields = _make_field_map();
   std::unordered_set<std::string> _flags;
-
-  friend ::prtcl::detail::group_access;
 };
 
 } // namespace prtcl::data

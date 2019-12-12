@@ -1,45 +1,13 @@
 #include <catch.hpp>
 
 #include <prtcl/data/scheme.hpp>
-#include <prtcl/expr/print.hpp>
+#include <prtcl/expr/openmp/prepared_loop.hpp>
 #include <prtcl/expr/scheme_requirements.hpp>
+#include <prtcl/meta/format_cxx_type.hpp>
 #include <prtcl/scheme/sesph.hpp>
 
-TEST_CASE("prtcl/scheme/sesph", "[prtcl][scheme][sesph]") {
+TEST_CASE("prtcl/expr/openmp/prepared_loop", "[prtcl][expr][openmp][prepared_loop]") {
   auto const sesph_density_pressure = prtcl::scheme::sesph_density_pressure();
-  auto const sesph_acceleration = prtcl::scheme::sesph_acceleration();
-  auto const sesph_symplectic_euler = prtcl::scheme::sesph_symplectic_euler();
-
-  std::cerr << "<prtcl>" << std::endl;
-  prtcl::expr::print(std::cerr, sesph_density_pressure);
-  prtcl::expr::print(std::cerr, sesph_acceleration);
-  prtcl::expr::print(std::cerr, sesph_symplectic_euler);
-  std::cerr << "</prtcl>" << std::endl;
-
-  auto print_required_fields = [](auto &stream_, auto &&s) {
-    auto print_field = [&stream_](auto const &f) {
-      stream_ << "    " << f.kind_tag << " " << f.type_tag << " " << f.value
-              << std::endl;
-    };
-    stream_ << "required fields:" << std::endl;
-    auto const reqs =
-        prtcl::expr::collect_scheme_requirements(std::forward<decltype(s)>(s));
-    stream_ << "  globals:" << std::endl;
-    for (auto const &fvar : reqs.globals)
-      std::visit(print_field, fvar);
-    stream_ << "  uniforms:" << std::endl;
-    for (auto const &[_, fvar] : reqs.uniforms)
-      std::visit(print_field, fvar);
-    stream_ << "  varyings:" << std::endl;
-    for (auto const &[_, fvar] : reqs.varyings)
-      std::visit(print_field, fvar);
-  };
-
-  std::cerr << "<!--" << std::endl;
-  print_required_fields(std::cerr, sesph_density_pressure);
-  print_required_fields(std::cerr, sesph_acceleration);
-  print_required_fields(std::cerr, sesph_symplectic_euler);
-  std::cerr << "-->" << std::endl;
 
   prtcl::data::scheme<float, 3> scheme;
   scheme.add_group("other").add_flag("other");
@@ -50,10 +18,6 @@ TEST_CASE("prtcl/scheme/sesph", "[prtcl][scheme][sesph]") {
 
   scheme.fullfill_requirements(
       prtcl::expr::collect_scheme_requirements(sesph_density_pressure));
-  scheme.fullfill_requirements(
-      prtcl::expr::collect_scheme_requirements(sesph_acceleration));
-  scheme.fullfill_requirements(
-      prtcl::expr::collect_scheme_requirements(sesph_symplectic_euler));
 
   std::cerr << "<!--" << std::endl;
   {
@@ -83,5 +47,13 @@ TEST_CASE("prtcl/scheme/sesph", "[prtcl][scheme][sesph]") {
         std::cerr << "  varying matrix: " << name << std::endl;
     }
   }
+  std::cerr << "-->" << std::endl;
+
+  auto e = boost::yap::transform(
+      sesph_density_pressure,
+      prtcl::expr::openmp::prepared_particle_loop_xform<float, 3>{scheme});
+
+  std::cerr << "<!--" << std::endl;
+  display_cxx_type(e, std::cerr);
   std::cerr << "-->" << std::endl;
 }

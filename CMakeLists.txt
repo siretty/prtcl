@@ -51,31 +51,30 @@ DE_Add_Catch2_Test(
   ${_SRC}/tests/prtcl/dummy.cpp
 
   ${_SRC}/tests/prtcl/expr/field.cpp
-  #${_SRC}/tests/prtcl/expr/gfield.cpp
-  #${_SRC}/tests/prtcl/expr/ufield.cpp
-  #${_SRC}/tests/prtcl/expr/vfield.cpp
 
   ${_SRC}/tests/prtcl/expr/eq.cpp
   ${_SRC}/tests/prtcl/expr/rd.cpp
   ${_SRC}/tests/prtcl/expr/loop.cpp
   ${_SRC}/tests/prtcl/expr/section.cpp
 
+  ${_SRC}/tests/prtcl/expr/openmp/prepared_loop.cpp
+
   #${_SRC}/tests/prtcl/meta/get.cpp
 
   ${_SRC}/tests/prtcl/data/tensors.cpp
   ${_SRC}/tests/prtcl/data/openmp/tensors.cpp
 
-  #${_SRC}/tests/prtcl/data/uniforms.cpp
-  #${_SRC}/tests/prtcl/data/openmp/uniforms.cpp
+  ${_SRC}/tests/prtcl/data/uniforms.cpp
+  ${_SRC}/tests/prtcl/data/openmp/uniforms.cpp
 
-  #${_SRC}/tests/prtcl/data/varyings.cpp
-  #${_SRC}/tests/prtcl/data/openmp/varyings.cpp
+  ${_SRC}/tests/prtcl/data/varyings.cpp
+  ${_SRC}/tests/prtcl/data/openmp/varyings.cpp
 
-  #${_SRC}/tests/prtcl/data/group.cpp
-  #${_SRC}/tests/prtcl/data/openmp/group.cpp
-  #
-  #${_SRC}/tests/prtcl/data/scheme.cpp
-  #${_SRC}/tests/prtcl/data/openmp/scheme.cpp
+  ${_SRC}/tests/prtcl/data/group.cpp
+  ${_SRC}/tests/prtcl/data/openmp/group.cpp
+  
+  ${_SRC}/tests/prtcl/data/scheme.cpp
+  ${_SRC}/tests/prtcl/data/openmp/scheme.cpp
 
   #${_SRC}/tests/prtcl/expr/transform/field_subscript_transform.cpp
   #${_SRC}/tests/prtcl/expr/field_value_transform.cpp
@@ -84,6 +83,10 @@ DE_Add_Catch2_Test(
   #${_SRC}/tests/prtcl/scheme/openmp/compiler.cpp
 
   ${_SRC}/tests/prtcl/scheme/sesph.cpp
+
+  ${_SRC}/tests/prtcl/expr/openmp/bound_section.cpp
+
+  ${_SRC}/tests/prtcl/scheme/openmp_scheme.cpp
 )
 DE_CXX17_Target( prtcl-tests )
 DE_Common_Diagnostics_CXX_Target( prtcl-tests )

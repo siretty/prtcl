@@ -23,7 +23,8 @@ public:
   uniforms &operator=(uniforms &&) = delete;
 
   explicit uniforms(::prtcl::data::uniforms<Scalar, Shape> &from_)
-      : _i2d{::prtcl::detail::uniforms_access::i2d(from_)} {}
+      : _n2i{::prtcl::detail::uniforms_access::n2i(from_)},
+        _i2d{::prtcl::detail::uniforms_access::i2d(from_)} {}
 
 public:
   size_t field_count() const { return _i2d.size(); }
@@ -31,7 +32,15 @@ public:
 public:
   decltype(auto) operator[](size_t field_) const { return _i2d[field_]; }
 
+  size_t get_index(std::string name_) const {
+    if (auto it = _n2i.find(name_); it != _n2i.end())
+      return it->second;
+    else
+      throw "unknown uniform";
+  }
+
 private:
+  std::unordered_map<std::string, size_t> _n2i;
   data_type _i2d;
 };
 
