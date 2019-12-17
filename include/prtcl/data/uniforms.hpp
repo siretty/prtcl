@@ -1,6 +1,6 @@
 #pragma once
 
-#include <prtcl/data/tensors.hpp>
+#include <prtcl/data/ndfield.hpp>
 
 #include <memory>
 #include <optional>
@@ -28,7 +28,7 @@ namespace prtcl::data {
 
 template <typename Scalar, typename Shape> class uniforms {
 public:
-  using data_type = ::prtcl::data::tensors<Scalar, Shape>;
+  using data_type = ::prtcl::data::ndfield<Scalar, Shape>;
 
 public:
   bool has(std::string name_) const { return _n2i.find(name_) != _n2i.end(); }
@@ -37,7 +37,7 @@ public:
     size_t index = _i2d->size();
     auto [it, inserted] = _n2i.insert({name_, index});
     if (inserted) {
-      ::prtcl::detail::resize_access::resize(*_i2d, index + 1);
+      _i2d->resize(index + 1);
     }
     return (*_i2d)[it->second];
   }
@@ -56,9 +56,11 @@ public:
   }
 
 public:
-  decltype(auto) operator[](size_t field_) const { return (*_i2d)[field_]; }
+  auto operator[](size_t field_) const {
+    return ndfield_ref<Scalar, Shape>{1, (*_i2d).data() + field_};
+  }
 
-  decltype(auto) operator[](std::string name_) const {
+  auto operator[](std::string name_) const {
     return (*this)[get_index(name_).value()];
   }
 

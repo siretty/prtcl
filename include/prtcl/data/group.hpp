@@ -3,6 +3,7 @@
 #include <prtcl/data/group_base.hpp>
 #include <prtcl/data/uniforms.hpp>
 #include <prtcl/data/varyings.hpp>
+#include <prtcl/expr/field.hpp>
 #include <prtcl/meta/remove_cvref.hpp>
 #include <prtcl/tag/kind.hpp>
 #include <prtcl/tag/type.hpp>
@@ -19,12 +20,9 @@ public:
   size_t size() const { return _size; }
 
   void resize(size_t new_size_) {
-    ::prtcl::detail::resize_access::resize(
-        get(tag::kind::varying{}, tag::type::scalar{}), new_size_);
-    ::prtcl::detail::resize_access::resize(
-        get(tag::kind::varying{}, tag::type::vector{}), new_size_);
-    ::prtcl::detail::resize_access::resize(
-        get(tag::kind::varying{}, tag::type::matrix{}), new_size_);
+    get(tag::kind::varying{}, tag::type::scalar{}).resize(new_size_);
+    get(tag::kind::varying{}, tag::type::vector{}).resize(new_size_);
+    get(tag::kind::varying{}, tag::type::matrix{}).resize(new_size_);
 
     _size = new_size_;
   }
@@ -48,16 +46,35 @@ public:
                   [boost::hana::type_c<meta::remove_cvref_t<TT>>];
   }
 
+  template <typename KT, typename TT>
+  decltype(auto) get(::prtcl::expr::field<KT, TT> const &field_) {
+    return get(field_.kind_tag, field_.type_tag)[field_.value];
+  }
+
+  template <typename KT, typename TT>
+  decltype(auto) get(::prtcl::expr::field<KT, TT> const &field_) const {
+    return get(field_.kind_tag, field_.type_tag)[field_.value];
+  }
+
   // }}}
 
-  auto &add_flag(std::string flag_) {
-    _flags.insert(flag_);
+public:
+  // add(expr::field<...> const &) -> ... {{{
+
+  template <typename KT, typename TT>
+  decltype(auto) add(::prtcl::expr::field<KT, TT> const &field_) {
+    return get(field_.kind_tag, field_.type_tag).add(field_.value);
+  }
+
+  // }}}
+
+public:
+  auto &set_type(std::string type_) {
+    _type = type_;
     return *this;
   }
 
-  bool has_flag(std::string flag_) const {
-    return _flags.find(flag_) != _flags.end();
-  }
+  std::string get_type() const override { return _type; }
 
 private:
   // {{{ _make_field_map() -> ...
@@ -88,6 +105,9 @@ private:
 private:
   size_t _size = 0;
   field_map_type _fields = _make_field_map();
+  std::string _type;
+
+  // deprecate
   std::unordered_set<std::string> _flags;
 };
 

@@ -5,6 +5,7 @@
 #include <prtcl/expr/transform/xform_helper.hpp>
 #include <prtcl/meta/remove_cvref.hpp>
 
+#include <string>
 #include <utility>
 
 #include <boost/hana/fwd/integral_constant.hpp>
@@ -15,7 +16,9 @@ namespace prtcl::expr {
 struct particle_loop {};
 struct neighbour_loop {};
 
-template <typename F> struct selector { F select; };
+struct selector {
+  std::string type;
+};
 
 struct foreach_particle_identity_xform : private xform_helper {
   template <typename... Es>
@@ -32,9 +35,8 @@ struct foreach_neighbour_identity_xform : private xform_helper {
 };
 
 struct foreach_particle_selector_identity_xform : private xform_helper {
-  template <typename F, typename... Es>
-  decltype(auto)
-  operator()(call_expr<term<selector<F>>, Es...> sel_expr) const {
+  template <typename... Es>
+  decltype(auto) operator()(call_expr<term<selector>, Es...> sel_expr) const {
     /*
     std::cout << "# ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ #"
               << "\n";
@@ -89,9 +91,8 @@ struct foreach_particle_selector_identity_xform : private xform_helper {
 };
 
 struct foreach_neighbour_selector_identity_xform : private xform_helper {
-  template <typename F, typename... Es>
-  decltype(auto)
-  operator()(call_expr<term<selector<F>>, Es...> sel_expr) const {
+  template <typename... Es>
+  decltype(auto) operator()(call_expr<term<selector>, Es...> sel_expr) const {
     /*
     std::cout << "# ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ ∨ #"
               << "\n";
@@ -147,11 +148,9 @@ struct foreach_neighbour_selector_identity_xform : private xform_helper {
   }
 };
 
-template <typename Select> auto only(Select &&select_) {
-  using selector_type = selector<meta::remove_cvref_t<Select>>;
+inline auto only(std::string type_) {
   return boost::yap::expression<boost::yap::expr_kind::terminal,
-                                boost::hana::tuple<selector_type>>{
-      selector_type{std::forward<Select>(select_)}};
+                                boost::hana::tuple<selector>>{selector{type_}};
 }
 
 template <typename... SExprs> auto foreach_particle(SExprs &&... sexprs_) {

@@ -108,7 +108,7 @@ private:
   friend ::prtcl::detail::component_data_access;
 
 private:
-  template <typename S> struct eigen_matrix;
+  template <typename S> struct eigen_matrix { using type = scalar_type; };
 
   template <typename I, I Rows>
   struct eigen_matrix<std::integer_sequence<I, Rows>> {
@@ -120,6 +120,11 @@ private:
     using type = Eigen::Matrix<scalar_type, static_cast<int>(Rows),
                                static_cast<int>(Cols)>;
   };
+
+  template <typename S> using value_type_t = typename eigen_matrix<S>::type;
+
+public:
+  using value_type = value_type_t<shape_type>;
 
 public:
   decltype(auto) operator[](size_t index_) {

@@ -88,8 +88,8 @@ class neighbour_loop_scheme_requirements_xform : xform_helper {
   using group_predicate = scheme_requirements::group_predicate;
 
 public:
-  template <typename F, typename... Exprs>
-  void operator()(call_expr<term<selector<F>>, Exprs...> call_) {
+  template <typename... Exprs>
+  void operator()(call_expr<term<selector>, Exprs...> call_) {
     using namespace boost::hana::literals;
     _nl_pred = group_predicate{call_.elements[0_c].value().select};
     boost::hana::for_each(
@@ -138,8 +138,8 @@ class particle_loop_scheme_requirements_xform : xform_helper {
   using group_predicate = scheme_requirements::group_predicate;
 
 public:
-  template <typename F, typename... Exprs>
-  void operator()(call_expr<term<selector<F>>, Exprs...> call_) {
+  template <typename... Exprs>
+  void operator()(call_expr<term<selector>, Exprs...> call_) {
     using namespace boost::hana::literals;
     _pl_pred = group_predicate{call_.elements[0_c].value().select};
     boost::hana::for_each(
@@ -161,12 +161,12 @@ public:
     boost::yap::transform(
         boost::yap::make_terminal(term_.value().lhs),
         global_scheme_requirements_expr_xform{_reqs},
-        selected_scheme_requirements_expr_xform<tag::group::active>{_reqs,
-                                                                    _pl_pred.value()});
+        selected_scheme_requirements_expr_xform<tag::group::active>{
+            _reqs, _pl_pred.value()});
     boost::yap::transform(
         term_.value().rhs, global_scheme_requirements_expr_xform{_reqs},
-        selected_scheme_requirements_expr_xform<tag::group::active>{_reqs,
-                                                                    _pl_pred.value()});
+        selected_scheme_requirements_expr_xform<tag::group::active>{
+            _reqs, _pl_pred.value()});
   }
 
   template <typename... Exprs>

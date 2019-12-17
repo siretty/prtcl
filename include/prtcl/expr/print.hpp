@@ -209,8 +209,8 @@ public:
     _printer.indent() << "</rd>" << nl();
   }
 
-  template <typename F, typename... Exprs>
-  void operator()(call_expr<term<selector<F>>, Exprs...> expr) const {
+  template <typename... Exprs>
+  void operator()(call_expr<term<selector>, Exprs...> expr) const {
     _printer.indent() << "<selector>" << nl();
     boost::hana::for_each(
         boost::hana::slice_c<1, boost::hana::length(expr.elements)>(

@@ -2,6 +2,7 @@
 
 #include <prtcl/data/group.hpp>
 #include <prtcl/data/uniforms.hpp>
+#include <prtcl/expr/field.hpp>
 #include <prtcl/expr/scheme_requirements.hpp>
 #include <prtcl/tag/kind.hpp>
 #include <prtcl/tag/type.hpp>
@@ -14,6 +15,7 @@
 
 #include <boost/bimap.hpp>
 #include <boost/hana.hpp>
+#include <boost/range/adaptor/transformed.hpp>
 
 namespace prtcl::detail {
 
@@ -41,8 +43,31 @@ public:
     return _fields[boost::hana::type_c<meta::remove_cvref_t<TT>>];
   }
 
+  template <typename TT>
+  decltype(auto)
+  get(::prtcl::expr::field<tag::kind::global, TT> const &field_) {
+    return get(field_.type_tag)[field_.value];
+  }
+
+  template <typename TT>
+  decltype(auto)
+  get(::prtcl::expr::field<tag::kind::global, TT> const &field_) const {
+    return get(field_.type_tag)[field_.value];
+  }
+
   // TODO: or is a "consistent" interface between group and scheme better?
   //       ie. include tag::kind::group as an unused first argument?
+
+  // }}}
+
+public:
+  // add(expr::field<...> const &) -> ... {{{
+
+  template <typename TT>
+  decltype(auto)
+  add(::prtcl::expr::field<tag::kind::global, TT> const &field_) {
+    return get(field_.type_tag).add(field_.value);
+  }
 
   // }}}
 
@@ -84,6 +109,17 @@ public:
     return get_group(get_group_index(name_));
   }
 
+  auto groups() const {
+    return boost::adaptors::transform(
+        _i2d, [](auto &ptr_) -> auto & {
+          if (!ptr_)
+            throw "invalid group";
+          return *ptr_;
+        });
+  }
+
+  // fullfill_requirements(...) {{{
+
   void fullfill_requirements(expr::scheme_requirements const &reqs_) {
     // TODO: potentially rename globals into scheme_fields (maybe in conjunction
     //       with the consistent interface for scheme.get(...))
@@ -113,7 +149,10 @@ public:
     }
   }
 
+  // }}}
+
 private:
+  // _make_field_map() -> ... {{{
   static auto _make_field_map() {
     using boost::hana::type_c, boost::hana::make_pair;
     return boost::hana::make_map(
@@ -121,6 +160,7 @@ private:
         make_pair(type_c<tag::type::vector>, uniforms_t<Scalar, N>{}),
         make_pair(type_c<tag::type::matrix>, uniforms_t<Scalar, N, N>{}));
   }
+  // }}}
 
   using field_map_type = decltype(_make_field_map());
 
@@ -128,7 +168,6 @@ private:
   field_map_type _fields;
 
   boost::bimap<std::string, size_t> _n2i;
-  // std::unordered_map<std::string, size_t> _n2i;
   std::vector<std::unique_ptr<group<Scalar, N>>> _i2d;
 
   friend ::prtcl::detail::scheme_access;

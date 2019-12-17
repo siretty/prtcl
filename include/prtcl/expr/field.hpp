@@ -3,6 +3,7 @@
 #include <prtcl/expr/field_base.hpp>
 #include <prtcl/meta/remove_cvref.hpp>
 
+#include <regex>
 #include <type_traits>
 #include <variant>
 
@@ -13,6 +14,30 @@ namespace prtcl::expr {
 
 template <typename KT, typename TT>
 struct field : field_base<KT, TT, std::string> {
+  field() = delete;
+
+  field(field const &) = default;
+  field &operator=(field const &) = default;
+
+  explicit field(std::string value_) : field_base<KT, TT, std::string>{value_} {
+    static std::regex valid_name{"[a-zA-Z]+[a-zA-Z0-9_]*",
+                                 std::regex::extended | std::regex::nosubs |
+                                     std::regex::optimize};
+    if (!std::regex_match(value_, valid_name))
+      throw "invalid name";
+  }
+
+  template <typename RKT, typename RTT>
+  bool operator==(field<RKT, RTT> rhs) const {
+    return this->kind_tag == rhs.kind_tag && this->type_tag == rhs.type_tag &&
+           this->value == rhs.value;
+  }
+
+  template <typename RKT, typename RTT>
+  bool operator!=(field<RKT, RTT> rhs) const {
+    return !(*this == rhs);
+  }
+
   friend std::ostream &operator<<(std::ostream &s, field const &f) {
     return s << f.value;
   }

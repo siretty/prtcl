@@ -107,4 +107,7 @@ private:
 template <typename Scalar, typename Shape>
 tensors(::prtcl::data::tensors<Scalar, Shape> &)->tensors<Scalar, Shape>;
 
+template <typename T, size_t... Ns>
+using tensors_t = tensors<T, std::index_sequence<Ns...>>;
+
 } // namespace prtcl::data::openmp
