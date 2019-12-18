@@ -104,6 +104,19 @@ public:
   explicit ndfield_ref(ndfield<element, shape_type> &owner_)
       : _size{owner_.size()}, _data{owner_.data()} {}
 
+public:
+  template <typename Range> static value_type from_range(Range range_) {
+    if constexpr (0 < shape_type::size()) {
+      value_type result;
+      Eigen::Index index = 0;
+      auto last = range_.end();
+      for (auto it = range_.begin(); it != last; ++it, ++index)
+        result[index] = static_cast<element>(*it);
+      return result;
+    } else
+      return *range_.begin();
+  }
+
 private:
   size_t _size = 0;
   value_type *_data = nullptr;

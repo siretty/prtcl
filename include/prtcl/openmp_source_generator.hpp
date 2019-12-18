@@ -559,8 +559,12 @@ void generate_openmp_source(std::ostream &stream_, std::string name_,
                                    [](std::monostate) {}};
   };
 
-  // generate: struct { ... } g; {{{
-  printer.indent() << "struct {" << '\n';
+  // generate: struct global_data { ... } g; {{{
+  printer.decrease_indent();
+  printer.indent() << "private:" << '\n';
+  printer.increase_indent();
+
+  printer.indent() << "struct scheme_data { // {{{" << '\n';
   printer.increase_indent();
 
   // generate code for the group types
@@ -625,8 +629,97 @@ void generate_openmp_source(std::ostream &stream_, std::string name_,
   // }}}
 
   printer.decrease_indent();
-  printer.indent() << "} g;" << '\n';
+  printer.indent() << "};" << '\n';
+  printer.indent() << "// }}}" << '\n';
   // }}}
+
+  printer << '\n';
+
+  for (auto [name, fields] : reqs.group_fields) {
+    // generate: struct: ..._group_data {{{
+    printer.decrease_indent();
+    printer.indent() << "private:" << '\n';
+    printer.increase_indent();
+
+    printer.indent() << "struct " << name << "_group_data { // {{{" << '\n';
+    printer.increase_indent();
+
+    // generate code for the group types
+    for (auto f_var : fields)
+      std::visit(make_field_handler([&printer](auto f) {
+                   auto &s = printer.indent();
+                   if (f.type_tag == tag::type::scalar{})
+                     s << "ndfield_ref_t<T>";
+                   if (f.type_tag == tag::type::vector{})
+                     s << "ndfield_ref_t<T, N>";
+                   if (f.type_tag == tag::type::matrix{})
+                     s << "ndfield_ref_t<T, N, N>";
+                   s << " " << f.value << ";" << '\n';
+                 }),
+                 f_var);
+
+    printer << '\n';
+    printer.indent() << "size_t _size;" << '\n';
+
+    printer << '\n';
+    // generate: static: require(...) {{{
+    printer.decrease_indent();
+    printer.indent() << "public:" << '\n';
+    printer.increase_indent();
+
+    printer.indent() << "static void require(group_t<T, N> &g_) {" << '\n';
+    printer.increase_indent();
+
+    printer.indent() << "using namespace ::prtcl::expr_literals;" << '\n';
+    for (auto f_var : fields)
+      std::visit(make_field_handler([&printer](auto f) {
+                   printer.indent()
+                       << "g_.add(\"" << f.value << "\"_"
+                       << boost::lexical_cast<std::string>(f.kind_tag)[0]
+                       << boost::lexical_cast<std::string>(f.type_tag)[0]
+                       << "f);" << '\n';
+                 }),
+                 f_var);
+
+    printer.decrease_indent();
+    printer.indent() << "}" << '\n';
+    // }}}
+
+    printer << '\n';
+    // generate: member: load(...) {{{
+    printer.decrease_indent();
+    printer.indent() << "public:" << '\n';
+    printer.increase_indent();
+
+    printer.indent() << "void load(group_t<T, N> &g_) {" << '\n';
+    printer.increase_indent();
+
+    printer.indent() << "using namespace ::prtcl::expr_literals;" << '\n';
+    for (auto f_var : fields)
+      std::visit(make_field_handler([&printer](auto f) {
+                   printer.indent()
+                       << f.value << " = "
+                       << "g_.get(\"" << f.value << "\"_"
+                       << boost::lexical_cast<std::string>(f.kind_tag)[0]
+                       << boost::lexical_cast<std::string>(f.type_tag)[0]
+                       << "f);" << '\n';
+                 }),
+                 f_var);
+
+    printer << '\n';
+    printer.indent() << "_size = g_.size();" << '\n';
+
+    printer.decrease_indent();
+    printer.indent() << "}" << '\n';
+    // }}}
+
+    printer.decrease_indent();
+    printer.indent() << "};" << '\n';
+    printer.indent() << "// }}}" << '\n';
+    // }}}
+
+    printer << '\n';
+  }
 
   printer << '\n';
 
@@ -728,6 +821,7 @@ void generate_openmp_source(std::ostream &stream_, std::string name_,
   // }}}
 
   printer << '\n';
+
   // generate: static: require(...) { ... } {{{
 
   printer.decrease_indent();
@@ -765,6 +859,7 @@ void generate_openmp_source(std::ostream &stream_, std::string name_,
   // }}}
 
   printer << '\n';
+
   // generate: member: load(...) { ... } {{{
 
   printer.decrease_indent();
@@ -816,7 +911,9 @@ void generate_openmp_source(std::ostream &stream_, std::string name_,
   printer.increase_indent();
 
   printer.indent() << "return R\"prtcl(" << '\n';
+  printer << "<prtcl>" << '\n';
   expr::print(printer.stream(), std::forward<Expr>(expr_));
+  printer << "</prtcl>" << '\n';
   printer << ")prtcl\";" << '\n';
 
   printer.decrease_indent();

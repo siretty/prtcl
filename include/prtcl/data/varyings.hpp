@@ -51,7 +51,7 @@ public:
 public:
   bool has(std::string name_) const { return _n2i.find(name_) != _n2i.end(); }
 
-  auto &add(std::string name_) {
+  auto add(std::string name_) {
     size_t index = _i2d.size();
     auto [it, inserted] = _n2i.insert({name_, index});
     if (inserted) {
@@ -59,7 +59,7 @@ public:
       _i2d[it->second] = std::make_unique<data_type>();
       _i2d[it->second]->resize(_size);
     }
-    return *_i2d[it->second];
+    return ndfield_ref<Scalar, Shape>{*_i2d[it->second]};
   }
 
   std::optional<size_t> get_index(std::string name_) const {

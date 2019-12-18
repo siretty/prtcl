@@ -57,6 +57,7 @@ DE_Add_Catch2_Test(
   ${_SRC}/tests/prtcl/openmp_source_generator.cpp
 
   ${_SRC}/tests/prtcl/scheme/test.cpp
+  ${_SRC}/tests/prtcl/openmp_neighbourhood.cpp
 
   #${_SRC}/tests/prtcl/expr/eq.cpp
   #${_SRC}/tests/prtcl/expr/rd.cpp

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/range/range_fwd.hpp>
 #include <prtcl/data/group.hpp>
 #include <prtcl/data/uniforms.hpp>
 #include <prtcl/expr/field.hpp>
@@ -16,6 +17,7 @@
 #include <boost/bimap.hpp>
 #include <boost/hana.hpp>
 #include <boost/range/adaptor/transformed.hpp>
+#include <boost/range/irange.hpp>
 
 namespace prtcl::detail {
 
@@ -116,6 +118,14 @@ public:
             throw "invalid group";
           return *ptr_;
         });
+  }
+
+  auto enumerate_groups() const {
+    return boost::irange<size_t>(0, _i2d.size()) |
+           boost::adaptors::transformed([this](auto i_) {
+             return std::tuple<size_t, std::string, group<Scalar, N> const &>{
+                 i_, this->get_group_name(i_).value(), this->get_group(i_)};
+           });
   }
 
   // fullfill_requirements(...) {{{

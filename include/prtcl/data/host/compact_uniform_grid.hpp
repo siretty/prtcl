@@ -24,8 +24,12 @@ namespace prtcl {
 
 template <typename T, size_t N> class compact_uniform_grid {
   using math_traits = host_math_traits<T, N>;
-  using scalar_type = typename math_traits::scalar_type;
 
+public:
+  using scalar_type = typename math_traits::scalar_type;
+  static constexpr size_t vector_extent = N;
+
+private:
   using index_type = int32_t;
   using index_vector_type = std::array<index_type, N>;
 
@@ -47,6 +51,8 @@ public:
   void set_radius(scalar_type const radius_) { _radius = radius_; }
 
 public:
+  // initialize(GroupedVectorData) {{{
+
   template <typename GroupedVectorData>
   void initialize(GroupedVectorData const &x) {
     _cell_count = 0;
@@ -97,6 +103,10 @@ public:
 
     _initialized = true;
   }
+
+  // }}}
+
+  // update(GroupedVectorData) {{{
 
   template <typename GroupedVectorData>
   void update(GroupedVectorData const &x) {
@@ -182,6 +192,8 @@ public:
       }
     }
   }
+
+  // }}}
 
 public:
   template <typename OutputIt>
