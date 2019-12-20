@@ -1,5 +1,6 @@
 #pragma once
 
+#include "prtcl/expr/loop.hpp"
 #include <prtcl/expr.hpp>
 #include <prtcl/expr/transform/xform_helper.hpp>
 #include <prtcl/meta/is_any_of.hpp>
@@ -15,6 +16,7 @@
 #include <variant>
 #include <vector>
 
+#include <boost/hana.hpp>
 #include <boost/lexical_cast.hpp>
 
 namespace prtcl {
@@ -24,19 +26,19 @@ namespace n_openmp {
 // class requirements {{{
 
 struct requirements {
-  using scheme_field =
-      std::variant<std::monostate,
-                   ::prtcl::expr::field<tag::kind::global, tag::type::scalar>,
-                   ::prtcl::expr::field<tag::kind::global, tag::type::vector>,
-                   ::prtcl::expr::field<tag::kind::global, tag::type::matrix>>;
-  using group_field =
-      std::variant<std::monostate,
-                   ::prtcl::expr::field<tag::kind::uniform, tag::type::scalar>,
-                   ::prtcl::expr::field<tag::kind::uniform, tag::type::vector>,
-                   ::prtcl::expr::field<tag::kind::uniform, tag::type::matrix>,
-                   ::prtcl::expr::field<tag::kind::varying, tag::type::scalar>,
-                   ::prtcl::expr::field<tag::kind::varying, tag::type::vector>,
-                   ::prtcl::expr::field<tag::kind::varying, tag::type::matrix>>;
+  using scheme_field = std::variant<
+      std::monostate,
+      ::prtcl::expr::field<tag::kind::global, tag::type::scalar>,
+      ::prtcl::expr::field<tag::kind::global, tag::type::vector>,
+      ::prtcl::expr::field<tag::kind::global, tag::type::matrix>>;
+  using group_field = std::variant<
+      std::monostate,
+      ::prtcl::expr::field<tag::kind::uniform, tag::type::scalar>,
+      ::prtcl::expr::field<tag::kind::uniform, tag::type::vector>,
+      ::prtcl::expr::field<tag::kind::uniform, tag::type::matrix>,
+      ::prtcl::expr::field<tag::kind::varying, tag::type::scalar>,
+      ::prtcl::expr::field<tag::kind::varying, tag::type::vector>,
+      ::prtcl::expr::field<tag::kind::varying, tag::type::matrix>>;
 
   std::vector<scheme_field> scheme_fields;
   std::unordered_map<std::string, std::vector<group_field>> group_fields;
@@ -134,20 +136,19 @@ private:
 
 template <typename Expr>
 static void extract_requirements(requirements &reqs_, Expr &&expr_) {
-  boost::yap::transform(std::forward<Expr>(expr_),
-                        extract_requirements_xform{reqs_});
+  boost::yap::transform(
+      std::forward<Expr>(expr_), extract_requirements_xform{reqs_});
 
   // uniquify(...) {{{
   auto uniquify = [](auto &fields_) {
     std::sort(fields_.begin(), fields_.end(), [](auto lhs_var_, auto rhs_var_) {
       return std::visit(
           [](auto lhs_, auto rhs_) -> bool {
-            if constexpr (meta::is_any_of_v<
-                              meta::remove_cvref_t<decltype(lhs_)>,
-                              std::monostate> or
-                          meta::is_any_of_v<
-                              meta::remove_cvref_t<decltype(rhs_)>,
-                              std::monostate>)
+            if constexpr (
+                meta::is_any_of_v<
+                    meta::remove_cvref_t<decltype(lhs_)>, std::monostate> or
+                meta::is_any_of_v<
+                    meta::remove_cvref_t<decltype(rhs_)>, std::monostate>)
               throw "empty variant";
             else {
               auto tuplify = [](auto f_) {
@@ -169,6 +170,21 @@ static void extract_requirements(requirements &reqs_, Expr &&expr_) {
   for (auto &pair : reqs_.group_fields)
     uniquify(pair.second);
 }
+
+// }}}
+
+// class extract_selector_types_xform {{{
+
+class extract_selector_types_xform : ::prtcl::expr::xform_helper {
+public:
+  template <typename... Exprs>
+  void operator()(call_expr<term<::prtcl::expr::selector>, Exprs...> expr) {
+    using namespace ::boost::hana::literals;
+    types.insert(expr.elements[0_c].value().type);
+  }
+
+  std::set<std::string> types;
+};
 
 // }}}
 
@@ -202,7 +218,11 @@ public:
 public:
   void increase_indent() { ++_indent; }
 
-  void decrease_indent() { --_indent; }
+  void decrease_indent() {
+    if (0 == _indent)
+      throw "cannot decrease zero indentation";
+    --_indent;
+  }
 
   auto indented() const {
     return cxx_printer{
@@ -227,32 +247,36 @@ public:
 
   /// Generate access to uniform field of the active group.
   template <typename TT>
-  void operator()(subs<term<::prtcl::expr::field<tag::kind::uniform, TT>>,
-                       term<tag::group::active>>
+  void operator()(subs<
+                  term<::prtcl::expr::field<tag::kind::uniform, TT>>,
+                  term<tag::group::active>>
                       expr_) const {
     _printer << "p." << expr_.left().value().value << "[0]";
   }
 
   /// Generate access to uniform field of the passive group.
   template <typename TT>
-  void operator()(subs<term<::prtcl::expr::field<tag::kind::uniform, TT>>,
-                       term<tag::group::passive>>
+  void operator()(subs<
+                  term<::prtcl::expr::field<tag::kind::uniform, TT>>,
+                  term<tag::group::passive>>
                       expr_) const {
     _printer << "n." << expr_.left().value().value << "[0]";
   }
 
   /// Generate access to varying field of the active group.
   template <typename TT>
-  void operator()(subs<term<::prtcl::expr::field<tag::kind::varying, TT>>,
-                       term<tag::group::active>>
+  void operator()(subs<
+                  term<::prtcl::expr::field<tag::kind::varying, TT>>,
+                  term<tag::group::active>>
                       expr_) const {
     _printer << "p." << expr_.left().value().value << "[i]";
   }
 
   /// Generate access to varying field of the passive group.
   template <typename TT>
-  void operator()(subs<term<::prtcl::expr::field<tag::kind::varying, TT>>,
-                       term<tag::group::passive>>
+  void operator()(subs<
+                  term<::prtcl::expr::field<tag::kind::varying, TT>>,
+                  term<tag::group::passive>>
                       expr_) const {
     _printer << "n." << expr_.left().value().value << "[j]";
   }
@@ -286,9 +310,9 @@ public:
     auto xform_arg = [this](bool leading_comma, auto &&e) {
       if (leading_comma)
         _printer << ", ";
-      boost::yap::transform_strict(std::forward<decltype(e)>(e),
-                                   math_leaf_xform{_printer},
-                                   math_expr_xform{_printer});
+      boost::yap::transform_strict(
+          std::forward<decltype(e)>(e), math_leaf_xform{_printer},
+          math_expr_xform{_printer});
     };
     // the first argument has no leading comma
     if constexpr (1 < sizeof...(Args))
@@ -304,26 +328,28 @@ public:
   }
 
   /// Generate unary operator.
-  template <expr_kind K, typename Expr,
-            typename = std::enable_if_t<is_uop_v<K>>>
+  template <
+      expr_kind K, typename Expr, typename = std::enable_if_t<is_uop_v<K>>>
   void operator()(expr<K, Expr> const &expr_) const {
     using namespace boost::hana::literals;
     _printer << "( " << boost::yap::op_string(K);
-    boost::yap::transform_strict(expr_.elements[0_c], math_leaf_xform{_printer},
-                                 math_expr_xform{_printer});
+    boost::yap::transform_strict(
+        expr_.elements[0_c], math_leaf_xform{_printer},
+        math_expr_xform{_printer});
     _printer << " )";
   }
 
   /// Generate binary operator.
-  template <expr_kind K, typename LHS, typename RHS,
-            typename = std::enable_if_t<is_bop_v<K>>>
+  template <
+      expr_kind K, typename LHS, typename RHS,
+      typename = std::enable_if_t<is_bop_v<K>>>
   void operator()(expr<K, LHS, RHS> const &expr_) const {
     _printer << "( ";
-    boost::yap::transform_strict(expr_.left(), math_leaf_xform{_printer},
-                                 math_expr_xform{_printer});
+    boost::yap::transform_strict(
+        expr_.left(), math_leaf_xform{_printer}, math_expr_xform{_printer});
     _printer << " " << boost::yap::op_string(K) << " ";
-    boost::yap::transform_strict(expr_.right(), math_leaf_xform{_printer},
-                                 math_expr_xform{_printer});
+    boost::yap::transform_strict(
+        expr_.right(), math_leaf_xform{_printer}, math_expr_xform{_printer});
     _printer << " )";
   }
 
@@ -332,19 +358,20 @@ public:
   void operator()(expr<expr_kind::assign, LHS, RHS> const &expr_) const {
     boost::yap::transform_strict(expr_.left(), math_leaf_xform{_printer});
     _printer << " = ";
-    boost::yap::transform_strict(expr_.right(), math_leaf_xform{_printer},
-                                 math_expr_xform{_printer});
+    boost::yap::transform_strict(
+        expr_.right(), math_leaf_xform{_printer}, math_expr_xform{_printer});
     _printer << ";\n";
   }
 
   /// Generate operator-assignment (+=, ...).
-  template <expr_kind K, typename LHS, typename RHS, typename = void,
-            typename = std::enable_if_t<is_opassign_v<K>>>
+  template <
+      expr_kind K, typename LHS, typename RHS, typename = void,
+      typename = std::enable_if_t<is_opassign_v<K>>>
   void operator()(expr<K, LHS, RHS> const &expr_) const {
     boost::yap::transform_strict(expr_.left(), math_leaf_xform{_printer});
     _printer << ' ' << boost::yap::op_string(K) << ' ';
-    boost::yap::transform_strict(expr_.right(), math_leaf_xform{_printer},
-                                 math_expr_xform{_printer});
+    boost::yap::transform_strict(
+        expr_.right(), math_leaf_xform{_printer}, math_expr_xform{_printer});
     _printer << ";\n";
   }
 
@@ -364,8 +391,8 @@ public:
   template <typename E>
   void operator()(term<::prtcl::expr::eq<E>> expr_) const {
     _printer.indent();
-    boost::yap::transform_strict(expr_.value().expression,
-                                 math_expr_xform{_printer.indented()});
+    boost::yap::transform_strict(
+        expr_.value().expression, math_expr_xform{_printer.indented()});
   }
 
   template <typename RT, typename LHS, typename RHS>
@@ -374,9 +401,9 @@ public:
     // of the particle loop, one called whereever the reduction is happening
     // and one at the end of the particle loop
     _printer.indent();
-    boost::yap::transform_strict(expr_.value().rhs,
-                                 math_leaf_xform{_printer.indented()},
-                                 math_expr_xform{_printer.indented()});
+    boost::yap::transform_strict(
+        expr_.value().rhs, math_leaf_xform{_printer.indented()},
+        math_expr_xform{_printer.indented()});
   }
 
 public:
@@ -388,6 +415,7 @@ private:
 
 // }}}
 
+/*
 // class neighbour_loop_xform {{{
 
 class neighbour_loop_xform : ::prtcl::expr::xform_helper {
@@ -436,53 +464,233 @@ private:
 };
 
 // }}}
+*/
 
-// class particle_loop_xform {{{
+// class neighbour_loop_xform {{{
 
-class particle_loop_xform : ::prtcl::expr::xform_helper {
+class neighbour_loop_xform : ::prtcl::expr::xform_helper {
+
 public:
   template <typename... Exprs>
   void
-  operator()(call_expr<term<::prtcl::expr::particle_loop>, Exprs...> expr) {
-    _printer << "#pragma omp parallel" << '\n';
-    _printer.indent() << "{" << '\n';
-    _printer.increase_indent();
+  operator()(call_expr<term<::prtcl::expr::neighbour_loop>, Exprs...> expr) {
+    // extract all selected types
+    extract_selector_types_xform extractor;
     boost::hana::for_each(
         boost::hana::slice_c<1, boost::hana::length(expr.elements)>(
             expr.elements),
-        [this](auto &&e) {
-          boost::yap::transform_strict(std::forward<decltype(e)>(e), *this);
+        [&extractor](auto &&e) {
+          boost::yap::transform_strict(std::forward<decltype(e)>(e), extractor);
         });
+
+    _printer.indent() << "if (!has_neighbours) {" << '\n';
+    _printer.increase_indent();
+
+    _printer.indent()
+        << "nhood_.neighbours(p_index, i, [&neighbours](auto n_index, auto j) {"
+        << '\n';
+    _printer.increase_indent();
+
+    _printer.indent() << "neighbours[n_index].push_back(j);" << '\n';
+
     _printer.decrease_indent();
-    _printer.indent() << "}\n";
+    _printer.indent() << "});" << '\n';
+
+    _printer.decrease_indent();
+    _printer.indent() << "}" << '\n';
+
+    _printer << '\n';
+
+    // loop over all group indices
+    _printer.indent()
+        << "for (size_t n_index = 0; n_index < _groups.size(); ++n_index) {"
+        << '\n';
+    _printer.increase_indent();
+
+    _printer.indent() << "std::visit(::prtcl::meta::overload{" << '\n';
+    _printer.increase_indent();
+
+    for (auto type : extractor.types) {
+      // execute for particles of a specific type
+      _printer.indent() << "[&g, &p, i, &neighbours, n_index, this](" << type
+                        << "_group_data &n) {" << '\n';
+      _printer.increase_indent();
+
+      // loop over neighbour indices
+      _printer.indent() << "for (size_t j : neighbours[n_index]) {" << '\n';
+      _printer.increase_indent();
+
+      // generate code for the selectors
+      boost::hana::for_each(
+          boost::hana::slice_c<1, boost::hana::length(expr.elements)>(
+              expr.elements),
+          [this, &type](auto &&e) {
+            using namespace boost::hana::literals;
+            auto selector = std::forward<decltype(e)>(e).elements[0_c].value();
+            if (type == selector.type)
+              boost::yap::transform_strict(std::forward<decltype(e)>(e), *this);
+          });
+
+      // close loop over particle indices
+      _printer.decrease_indent();
+      _printer.indent() << "}" << '\n';
+
+      // close execution for particles of a specific type
+      _printer.decrease_indent();
+      _printer.indent() << "}," << '\n';
+    }
+
+    _printer.indent() << "[](auto &&) {}" << '\n';
+    _printer.decrease_indent();
+    _printer.indent() << "}, _groups[n_index]);" << '\n';
+
+    // close the loop over the group indices
+    _printer.decrease_indent();
+    _printer.indent() << "}" << '\n';
   }
 
   template <typename... Exprs>
   void operator()(call_expr<term<::prtcl::expr::selector>, Exprs...> expr) {
     using namespace boost::hana::literals;
-    auto &selector = expr.elements[0_c].value();
-    // loop over the selected groups
-    _printer.indent() << "for (auto &p : _groups." << selector.type << ") {"
-                      << '\n';
-    _printer.increase_indent();
-    // loop over the particle indices in the selected group
-    _printer << "#pragma omp for" << '\n';
-    _printer.indent() << "for (size_t i = 0; i < p._size; ++i) {" << '\n';
     // generate code for the loop body
     boost::hana::for_each(
         boost::hana::slice_c<1, boost::hana::length(expr.elements)>(
             expr.elements),
         [this](auto &&e) {
           boost::yap::transform_strict(
-              std::forward<decltype(e)>(e),
-              statement_xform{_printer.indented()},
-              neighbour_loop_xform{_printer.indented()});
+              std::forward<decltype(e)>(e), statement_xform{_printer});
         });
-    // close the loop over the particle indices
-    _printer.indent() << "}" << '\n';
-    // close the loop over the groups
+  }
+
+public:
+  explicit neighbour_loop_xform(cxx_printer printer_) : _printer{printer_} {}
+
+private:
+  cxx_printer _printer;
+};
+
+// }}}
+
+// class particle_loop_xform {{{
+
+class particle_loop_xform : ::prtcl::expr::xform_helper {
+
+public:
+  template <typename... Exprs>
+  void
+  operator()(call_expr<term<::prtcl::expr::particle_loop>, Exprs...> expr) {
+    // extract all selected types
+    extract_selector_types_xform extractor;
+    boost::hana::for_each(
+        boost::hana::slice_c<1, boost::hana::length(expr.elements)>(
+            expr.elements),
+        [&extractor](auto &&e) {
+          boost::yap::transform_strict(std::forward<decltype(e)>(e), extractor);
+        });
+
+    // start a parallel region
+    _printer.indent() << "#pragma omp parallel" << '\n';
+    _printer.indent() << "{" << '\n';
+    _printer.increase_indent();
+
+    _printer.indent() << "#pragma omp single" << '\n';
+    _printer.indent() << "{" << '\n';
+
+    _printer.increase_indent();
+    _printer.indent() << "_per_thread_neighbours.resize(" << '\n';
+    _printer.increase_indent();
+    _printer.indent() << "static_cast<size_t>(omp_get_num_"
+                         "threads()));"
+                      << '\n';
+    _printer.decrease_indent();
+
     _printer.decrease_indent();
     _printer.indent() << "}" << '\n';
+
+    _printer << '\n';
+
+    _printer.indent()
+        << "auto &neighbours = "
+           "_per_thread_neighbours[static_cast<size_t>(omp_get_thread_num())];"
+        << '\n';
+    _printer.indent() << "neighbours.resize(_groups.size());" << '\n';
+
+    _printer << '\n';
+
+    // loop over all group indices
+    _printer.indent()
+        << "for (size_t p_index = 0; p_index < _groups.size(); ++p_index) {"
+        << '\n';
+    _printer.increase_indent();
+
+    _printer.indent() << "std::visit(::prtcl::meta::overload{" << '\n';
+    _printer.increase_indent();
+
+    for (auto type : extractor.types) {
+      // execute for particles of a specific type
+      _printer.indent() << "[&g, &nhood_, &neighbours, p_index, this](" << type
+                        << "_group_data &p) {" << '\n';
+      _printer.increase_indent();
+
+      // loop over particle indices
+      _printer.indent() << "#pragma omp for" << '\n';
+      _printer.indent() << "for (size_t i = 0; i < p._size; ++i) {" << '\n';
+      _printer.increase_indent();
+
+      _printer.indent() << "bool has_neighbours = false;" << '\n';
+      _printer.indent() << "for (auto &pgn : neighbours) {" << '\n';
+      _printer.increase_indent();
+      _printer.indent() << "pgn.clear();" << '\n';
+      _printer.indent() << "pgn.reserve(100);" << '\n';
+      _printer.decrease_indent();
+      _printer.indent() << "}" << '\n';
+
+      // generate code for the selectors
+      boost::hana::for_each(
+          boost::hana::slice_c<1, boost::hana::length(expr.elements)>(
+              expr.elements),
+          [this, &type](auto &&e) {
+            using namespace boost::hana::literals;
+            auto selector = std::forward<decltype(e)>(e).elements[0_c].value();
+            if (type == selector.type)
+              boost::yap::transform_strict(std::forward<decltype(e)>(e), *this);
+          });
+
+      // close loop over particle indices
+      _printer.decrease_indent();
+      _printer.indent() << "}" << '\n';
+
+      // close execution for particles of a specific type
+      _printer.decrease_indent();
+      _printer.indent() << "}," << '\n';
+    }
+
+    _printer.indent() << "[](auto &&) {}" << '\n';
+    _printer.decrease_indent();
+    _printer.indent() << "}, _groups[p_index]);" << '\n';
+
+    // close the loop over the group indices
+    _printer.decrease_indent();
+    _printer.indent() << "}" << '\n';
+
+    // close the parallel region
+    _printer.decrease_indent();
+    _printer.indent() << "}" << '\n';
+  }
+
+  template <typename... Exprs>
+  void operator()(call_expr<term<::prtcl::expr::selector>, Exprs...> expr) {
+    using namespace boost::hana::literals;
+    // generate code for the loop body
+    boost::hana::for_each(
+        boost::hana::slice_c<1, boost::hana::length(expr.elements)>(
+            expr.elements),
+        [this](auto &&e) {
+          _printer << '\n';
+          boost::yap::transform_strict(
+              std::forward<decltype(e)>(e), statement_xform{_printer},
+              neighbour_loop_xform{_printer});
+        });
   }
 
 public:
@@ -499,19 +707,25 @@ private:
 class section_xform : ::prtcl::expr::xform_helper {
 public:
   template <typename... Exprs>
-  void
-  operator()(call_expr<term<::prtcl::expr::section>, Exprs...> expr) const {
+  void operator()(call_expr<term<::prtcl::expr::section>, Exprs...> expr) {
     using namespace boost::hana::literals;
-    _printer.indent() << "void " << expr.elements[0_c].value().name << "() {\n";
+    _printer.indent() << "template <typename NHood>" << '\n';
+    _printer.indent() << "void " << expr.elements[0_c].value().name
+                      << "(NHood const &nhood_) {\n";
+    _printer.increase_indent();
+
+    _printer.indent() << "auto &g = _global;" << '\n';
+
     boost::hana::for_each(
         boost::hana::slice_c<1, boost::hana::length(expr.elements)>(
             expr.elements),
         [this](auto &&e) {
+          _printer << '\n';
           boost::yap::transform_strict(
-              std::forward<decltype(e)>(e),
-              statement_xform{_printer.indented()},
-              particle_loop_xform{_printer.indented()});
+              std::forward<decltype(e)>(e), statement_xform{_printer},
+              particle_loop_xform{_printer});
         });
+    _printer.decrease_indent();
     _printer.indent() << "}\n";
   }
 
@@ -526,13 +740,19 @@ private:
 
 } // namespace n_openmp
 
-template <typename Expr>
-void generate_openmp_source(std::ostream &stream_, std::string name_,
-                            Expr &&expr_) {
+template <typename... Exprs>
+void generate_openmp_source(
+    std::ostream &stream_, std::string name_, Exprs &&... exprs_) {
   namespace omp = ::prtcl::n_openmp;
   omp::requirements reqs;
-  // extract all requirements of the sections on the groups
-  omp::extract_requirements(reqs, std::forward<Expr>(expr_));
+
+  boost::hana::for_each(
+      boost::hana::make_tuple(std::forward<Exprs>(exprs_)...),
+      [&reqs](auto &&expr_) {
+        // extract all requirements of the sections on the
+        // groups
+        omp::extract_requirements(reqs, std::forward<decltype(expr_)>(expr_));
+      });
 
   omp::cxx_printer printer{stream_};
 
@@ -542,6 +762,7 @@ void generate_openmp_source(std::ostream &stream_, std::string name_,
   printer << "#include <prtcl/model_base.hpp>" << '\n';
   printer << '\n';
   printer << "#include <string_view>" << '\n';
+  printer << "#include <variant>" << '\n';
   printer << "#include <vector>" << '\n';
   printer << '\n';
   printer << "#include <cstddef>" << '\n';
@@ -559,27 +780,28 @@ void generate_openmp_source(std::ostream &stream_, std::string name_,
                                    [](std::monostate) {}};
   };
 
-  // generate: struct global_data { ... } g; {{{
+  // generate: struct global_data { ... }; {{{
   printer.decrease_indent();
   printer.indent() << "private:" << '\n';
   printer.increase_indent();
 
-  printer.indent() << "struct scheme_data { // {{{" << '\n';
+  printer.indent() << "struct global_data { // {{{" << '\n';
   printer.increase_indent();
 
   // generate code for the group types
   for (auto f_var : reqs.scheme_fields)
-    std::visit(make_field_handler([&printer](auto f) {
-                 auto &s = printer.indent();
-                 if (f.type_tag == tag::type::scalar{})
-                   s << "ndfield_ref_t<T>";
-                 if (f.type_tag == tag::type::vector{})
-                   s << "ndfield_ref_t<T, N>";
-                 if (f.type_tag == tag::type::matrix{})
-                   s << "ndfield_ref_t<T, N, N>";
-                 s << " " << f.value << ";" << '\n';
-               }),
-               f_var);
+    std::visit(
+        make_field_handler([&printer](auto f) {
+          auto &s = printer.indent();
+          if (f.type_tag == tag::type::scalar{})
+            s << "ndfield_ref_t<T>";
+          if (f.type_tag == tag::type::vector{})
+            s << "ndfield_ref_t<T, N>";
+          if (f.type_tag == tag::type::matrix{})
+            s << "ndfield_ref_t<T, N, N>";
+          s << " " << f.value << ";" << '\n';
+        }),
+        f_var);
 
   printer << '\n';
   // generate: static: require(...) {{{
@@ -592,13 +814,13 @@ void generate_openmp_source(std::ostream &stream_, std::string name_,
 
   printer.indent() << "using namespace ::prtcl::expr_literals;" << '\n';
   for (auto f_var : reqs.scheme_fields)
-    std::visit(make_field_handler([&printer](auto f) {
-                 printer.indent()
-                     << "s_.add(\"" << f.value << "\"_g"
-                     << boost::lexical_cast<std::string>(f.type_tag)[0] << "f);"
-                     << '\n';
-               }),
-               f_var);
+    std::visit(
+        make_field_handler([&printer](auto f) {
+          printer.indent() << "s_.add(\"" << f.value << "\"_g"
+                           << boost::lexical_cast<std::string>(f.type_tag)[0]
+                           << "f);" << '\n';
+        }),
+        f_var);
 
   printer.decrease_indent();
   printer.indent() << "}" << '\n';
@@ -610,19 +832,19 @@ void generate_openmp_source(std::ostream &stream_, std::string name_,
   printer.indent() << "public:" << '\n';
   printer.increase_indent();
 
-  printer.indent() << "void load(scheme_t<T, N> &s_) {" << '\n';
+  printer.indent() << "void load(scheme_t<T, N> const &s_) {" << '\n';
   printer.increase_indent();
 
   printer.indent() << "using namespace ::prtcl::expr_literals;" << '\n';
   for (auto f_var : reqs.scheme_fields)
-    std::visit(make_field_handler([&printer](auto f) {
-                 printer.indent()
-                     << f.value << " = "
-                     << "s_.get(\"" << f.value << "\"_g"
-                     << boost::lexical_cast<std::string>(f.type_tag)[0] << "f);"
-                     << '\n';
-               }),
-               f_var);
+    std::visit(
+        make_field_handler([&printer](auto f) {
+          printer.indent() << f.value << " = "
+                           << "s_.get(\"" << f.value << "\"_g"
+                           << boost::lexical_cast<std::string>(f.type_tag)[0]
+                           << "f);" << '\n';
+        }),
+        f_var);
 
   printer.decrease_indent();
   printer.indent() << "}" << '\n';
@@ -646,17 +868,18 @@ void generate_openmp_source(std::ostream &stream_, std::string name_,
 
     // generate code for the group types
     for (auto f_var : fields)
-      std::visit(make_field_handler([&printer](auto f) {
-                   auto &s = printer.indent();
-                   if (f.type_tag == tag::type::scalar{})
-                     s << "ndfield_ref_t<T>";
-                   if (f.type_tag == tag::type::vector{})
-                     s << "ndfield_ref_t<T, N>";
-                   if (f.type_tag == tag::type::matrix{})
-                     s << "ndfield_ref_t<T, N, N>";
-                   s << " " << f.value << ";" << '\n';
-                 }),
-                 f_var);
+      std::visit(
+          make_field_handler([&printer](auto f) {
+            auto &s = printer.indent();
+            if (f.type_tag == tag::type::scalar{})
+              s << "ndfield_ref_t<T>";
+            if (f.type_tag == tag::type::vector{})
+              s << "ndfield_ref_t<T, N>";
+            if (f.type_tag == tag::type::matrix{})
+              s << "ndfield_ref_t<T, N, N>";
+            s << " " << f.value << ";" << '\n';
+          }),
+          f_var);
 
     printer << '\n';
     printer.indent() << "size_t _size;" << '\n';
@@ -672,14 +895,14 @@ void generate_openmp_source(std::ostream &stream_, std::string name_,
 
     printer.indent() << "using namespace ::prtcl::expr_literals;" << '\n';
     for (auto f_var : fields)
-      std::visit(make_field_handler([&printer](auto f) {
-                   printer.indent()
-                       << "g_.add(\"" << f.value << "\"_"
-                       << boost::lexical_cast<std::string>(f.kind_tag)[0]
-                       << boost::lexical_cast<std::string>(f.type_tag)[0]
-                       << "f);" << '\n';
-                 }),
-                 f_var);
+      std::visit(
+          make_field_handler([&printer](auto f) {
+            printer.indent() << "g_.add(\"" << f.value << "\"_"
+                             << boost::lexical_cast<std::string>(f.kind_tag)[0]
+                             << boost::lexical_cast<std::string>(f.type_tag)[0]
+                             << "f);" << '\n';
+          }),
+          f_var);
 
     printer.decrease_indent();
     printer.indent() << "}" << '\n';
@@ -691,20 +914,20 @@ void generate_openmp_source(std::ostream &stream_, std::string name_,
     printer.indent() << "public:" << '\n';
     printer.increase_indent();
 
-    printer.indent() << "void load(group_t<T, N> &g_) {" << '\n';
+    printer.indent() << "void load(group_t<T, N> const &g_) {" << '\n';
     printer.increase_indent();
 
     printer.indent() << "using namespace ::prtcl::expr_literals;" << '\n';
     for (auto f_var : fields)
-      std::visit(make_field_handler([&printer](auto f) {
-                   printer.indent()
-                       << f.value << " = "
-                       << "g_.get(\"" << f.value << "\"_"
-                       << boost::lexical_cast<std::string>(f.kind_tag)[0]
-                       << boost::lexical_cast<std::string>(f.type_tag)[0]
-                       << "f);" << '\n';
-                 }),
-                 f_var);
+      std::visit(
+          make_field_handler([&printer](auto f) {
+            printer.indent() << f.value << " = "
+                             << "g_.get(\"" << f.value << "\"_"
+                             << boost::lexical_cast<std::string>(f.kind_tag)[0]
+                             << boost::lexical_cast<std::string>(f.type_tag)[0]
+                             << "f);" << '\n';
+          }),
+          f_var);
 
     printer << '\n';
     printer.indent() << "_size = g_.size();" << '\n';
@@ -721,103 +944,27 @@ void generate_openmp_source(std::ostream &stream_, std::string name_,
     printer << '\n';
   }
 
+  // generate: using group_data = ... {{{
+  printer.indent() << "using group_data = std::variant<std::monostate";
+  for (auto [name, fields] : reqs.group_fields) {
+    (void)(fields);
+    printer << ", " << name << "_group_data";
+  }
+  printer << ">;" << '\n';
+  // }}}
+
   printer << '\n';
 
-  // generate: struct { ... } _groups; {{{
+  // generate: member variables {{{
   printer.decrease_indent();
-  printer.indent() << "public:" << '\n';
+  printer.indent() << "private:" << '\n';
   printer.increase_indent();
 
-  printer.indent() << "struct {" << '\n';
-  printer.increase_indent();
-
-  for (auto [name, fields] : reqs.group_fields) {
-    // generate: struct: ..._group_type {{{
-    printer.indent() << "struct " << name << "_group_type {" << '\n';
-    printer.increase_indent();
-
-    // generate code for the group types
-    for (auto f_var : fields)
-      std::visit(make_field_handler([&printer](auto f) {
-                   auto &s = printer.indent();
-                   if (f.type_tag == tag::type::scalar{})
-                     s << "ndfield_ref_t<T>";
-                   if (f.type_tag == tag::type::vector{})
-                     s << "ndfield_ref_t<T, N>";
-                   if (f.type_tag == tag::type::matrix{})
-                     s << "ndfield_ref_t<T, N, N>";
-                   s << " " << f.value << ";" << '\n';
-                 }),
-                 f_var);
-
-    printer << '\n';
-    printer.indent() << "size_t _size;" << '\n';
-
-    printer << '\n';
-    // generate: static: require(...) {{{
-    printer.decrease_indent();
-    printer.indent() << "public:" << '\n';
-    printer.increase_indent();
-
-    printer.indent() << "static void require(group_t<T, N> &g_) {" << '\n';
-    printer.increase_indent();
-
-    printer.indent() << "using namespace ::prtcl::expr_literals;" << '\n';
-    for (auto f_var : fields)
-      std::visit(make_field_handler([&printer](auto f) {
-                   printer.indent()
-                       << "g_.add(\"" << f.value << "\"_"
-                       << boost::lexical_cast<std::string>(f.kind_tag)[0]
-                       << boost::lexical_cast<std::string>(f.type_tag)[0]
-                       << "f);" << '\n';
-                 }),
-                 f_var);
-
-    printer.decrease_indent();
-    printer.indent() << "}" << '\n';
-    // }}}
-
-    printer << '\n';
-    // generate: member: load(...) {{{
-    printer.decrease_indent();
-    printer.indent() << "public:" << '\n';
-    printer.increase_indent();
-
-    printer.indent() << "void load(group_t<T, N> &g_) {" << '\n';
-    printer.increase_indent();
-
-    printer.indent() << "using namespace ::prtcl::expr_literals;" << '\n';
-    for (auto f_var : fields)
-      std::visit(make_field_handler([&printer](auto f) {
-                   printer.indent()
-                       << f.value << " = "
-                       << "g_.get(\"" << f.value << "\"_"
-                       << boost::lexical_cast<std::string>(f.kind_tag)[0]
-                       << boost::lexical_cast<std::string>(f.type_tag)[0]
-                       << "f);" << '\n';
-                 }),
-                 f_var);
-
-    printer << '\n';
-    printer.indent() << "_size = g_.size();" << '\n';
-
-    printer.decrease_indent();
-    printer.indent() << "}" << '\n';
-    // }}}
-
-    printer.decrease_indent();
-    printer.indent() << "};" << '\n';
-    // }}}
-
-    printer << '\n';
-    printer.indent() << "std::vector<" << name << "_group_type> " << name << ";"
-                     << '\n';
-
-    printer << '\n';
-  }
-
-  printer.decrease_indent();
-  printer.indent() << "} _groups;" << '\n';
+  printer.indent() << "global_data _global;" << '\n';
+  printer.indent() << "std::vector<group_data> _groups;" << '\n';
+  printer.indent()
+      << "std::vector<std::vector<std::vector<size_t>>> _per_thread_neighbours;"
+      << '\n';
   // }}}
 
   printer << '\n';
@@ -828,33 +975,31 @@ void generate_openmp_source(std::ostream &stream_, std::string name_,
   printer.indent() << "public:" << '\n';
   printer.increase_indent();
 
-  printer.indent() << "static void require(scheme_t<T, N> &s_) {" << '\n';
+  printer.indent() << "static void require(scheme_t<T, N> &s_) { // {{{"
+                   << '\n';
   printer.increase_indent();
 
-  printer.indent() << "decltype(g)::require(s_);" << '\n';
+  printer.indent() << "global_data::require(s_);" << '\n';
+  printer.indent() << '\n';
+
+  printer.indent() << "for (auto &group : s_.groups()) {" << '\n';
+  printer.increase_indent();
 
   for (auto [name, fields] : reqs.group_fields) {
     (void)(fields);
-    printer.indent() << '\n';
 
-    printer.indent() << "for (auto &group : s_.groups()) {" << '\n';
+    printer.indent() << "if (group.get_type() == \"" << name << "\")" << '\n';
     printer.increase_indent();
-
-    printer.indent() << "if (group.get_type() == \"" << name << "\") {" << '\n';
-    printer.increase_indent();
-
-    printer.indent() << "decltype(_groups)::" << name
-                     << "_group_type::require(group);" << '\n';
-
+    printer.indent() << name << "_group_data::require(group);" << '\n';
     printer.decrease_indent();
-    printer.indent() << "}" << '\n';
-
-    printer.decrease_indent();
-    printer.indent() << "}" << '\n';
   }
 
   printer.decrease_indent();
   printer.indent() << "}" << '\n';
+
+  printer.decrease_indent();
+  printer.indent() << "}" << '\n';
+  printer.indent() << "// }}}" << '\n';
 
   // }}}
 
@@ -866,58 +1011,83 @@ void generate_openmp_source(std::ostream &stream_, std::string name_,
   printer.indent() << "public:" << '\n';
   printer.increase_indent();
 
-  printer.indent() << "void load(scheme_t<T, N> &s_) {" << '\n';
+  printer.indent() << "void load(scheme_t<T, N> const &s_) { // {{{" << '\n';
   printer.increase_indent();
 
-  printer.indent() << "g.load(s_);" << '\n';
+  printer.indent() << "_global.load(s_);" << '\n';
+
+  printer << '\n';
+
+  printer.indent() << "_groups.resize(s_.get_group_count());" << '\n';
+  printer.indent() << "for (auto [i, n, group] : s_.enumerate_groups()) {"
+                   << '\n';
+  printer.increase_indent();
 
   for (auto [name, fields] : reqs.group_fields) {
     (void)(fields);
-    printer.indent() << '\n';
 
-    printer.indent() << "_groups." << name << ".clear();" << '\n';
-
-    printer.indent() << "for (auto &group : s_.groups()) {" << '\n';
+    printer.indent() << "if (group.get_type() == \"" << name << "\")" << '\n';
     printer.increase_indent();
-
-    printer.indent() << "if (group.get_type() == \"" << name << "\") {" << '\n';
+    printer.indent() << "std::visit(::prtcl::meta::overload{" << '\n';
     printer.increase_indent();
-
-    printer.indent() << "_groups." << name << ".emplace_back().load(group);"
+    printer.indent() << "[](std::monostate) {}," << '\n';
+    printer.indent() << "[&group = group](auto &data) { data.load(group); }"
                      << '\n';
-
     printer.decrease_indent();
-    printer.indent() << "}" << '\n';
-
+    printer.indent() << "}, _groups[i] = " << name << "_group_data{});" << '\n';
     printer.decrease_indent();
-    printer.indent() << "}" << '\n';
   }
 
   printer.decrease_indent();
   printer.indent() << "}" << '\n';
 
+  printer.decrease_indent();
+  printer.indent() << "}" << '\n';
+
+  printer.indent() << "// }}}" << '\n';
+
   // }}}
 
-  printer << '\n';
+  boost::hana::for_each(
+      boost::hana::make_tuple(std::forward<Exprs>(exprs_)...),
+      [&printer](auto &&expr_) {
+        printer << '\n';
 
-  // generate code for all sections
-  boost::yap::transform_strict(std::forward<Expr>(expr_),
-                               omp::section_xform{printer});
+        printer.decrease_indent();
+        printer.indent() << "public:" << '\n';
+        printer.increase_indent();
+
+        // generate code for all sections
+        boost::yap::transform_strict(
+            std::forward<decltype(expr_)>(expr_), omp::section_xform{printer});
+      });
 
   printer << '\n';
 
   // generate: static: xml() {{{
-  printer.indent() << "static std::string_view xml() {" << '\n';
+  printer.decrease_indent();
+  printer.indent() << "public:" << '\n';
+  printer.increase_indent();
+
+  printer.indent() << "static std::string_view xml() { // {{{" << '\n';
   printer.increase_indent();
 
   printer.indent() << "return R\"prtcl(" << '\n';
   printer << "<prtcl>" << '\n';
-  expr::print(printer.stream(), std::forward<Expr>(expr_));
+
+  boost::hana::for_each(
+      boost::hana::make_tuple(std::forward<Exprs>(exprs_)...),
+      [&printer](auto &&expr_) {
+        ::prtcl::expr::print(
+            printer.stream(), std::forward<decltype(expr_)>(expr_));
+      });
+
   printer << "</prtcl>" << '\n';
   printer << ")prtcl\";" << '\n';
 
   printer.decrease_indent();
   printer.indent() << "}" << '\n';
+  printer.indent() << "// }}}" << '\n';
   // }}}
 
   printer.decrease_indent();
