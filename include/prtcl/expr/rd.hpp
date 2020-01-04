@@ -19,7 +19,8 @@ namespace prtcl::expr {
 
 template <typename RT, typename LHS, typename RHS> struct rd {
   static_assert(tag::is_reduce_v<RT>);
-  static_assert(is_field_v<LHS>);
+  static_assert(::boost::yap::is_expr<LHS>::value);
+  static_assert(::boost::yap::is_expr<RHS>::value);
 
   using reduce_tag_type = RT;
   static constexpr reduce_tag_type reduce_tag = {};
@@ -44,15 +45,15 @@ protected:
   template <typename RT, typename LHS, typename RHS>
   decltype(auto) rd_transform(RT &&rt, LHS &&lhs, RHS &&rhs) {
     static_assert(tag::is_reduce_v<meta::remove_cvref_t<RT>>);
-    return _callable(std::forward<RT>(rt), std::forward<LHS>(lhs),
-                     std::forward<RHS>(rhs));
+    return _callable(
+        std::forward<RT>(rt), std::forward<LHS>(lhs), std::forward<RHS>(rhs));
   }
 
   template <typename RT, typename LHS, typename RHS>
   decltype(auto) rd_transform(RT &&rt, LHS &&lhs, RHS &&rhs) const {
     static_assert(tag::is_reduce_v<meta::remove_cvref_t<RT>>);
-    return _callable(std::forward<RT>(rt), std::forward<LHS>(lhs),
-                     std::forward<RHS>(rhs));
+    return _callable(
+        std::forward<RT>(rt), std::forward<LHS>(lhs), std::forward<RHS>(rhs));
   }
 
 private:
@@ -99,23 +100,25 @@ constexpr make_reduce_tag_t<K> make_reduce_tag_v = {};
 
 template <typename F>
 struct grd_xform : private xform_helper, public rd_xform_base<F> {
-  template <expr_kind K, typename TT, typename RHS,
-            typename = std::enable_if_t<is_opassign_v<K>>>
+  template <
+      expr_kind K, typename TT, typename RHS,
+      typename = std::enable_if_t<is_opassign_v<K>>>
   decltype(auto)
   operator()(expr<K, term<field<tag::kind::global, TT>>, RHS> expr) const {
-    return this->rd_transform(make_reduce_tag_v<K>, expr.left().value(),
-                              expr.right());
+    return this->rd_transform(make_reduce_tag_v<K>, expr.left(), expr.right());
   }
 
-  template <typename TT, typename RT, typename RHS,
-            typename = std::enable_if_t<tag::is_reduce_v<RT>>>
+  template <
+      typename TT, typename RT, typename RHS,
+      typename = std::enable_if_t<tag::is_reduce_v<RT>>>
   decltype(auto)
-  operator()(expr<expr_kind::assign, term<field<tag::kind::global, TT>>,
-                  call_expr<term<RT>, RHS>>
+  operator()(expr<
+             expr_kind::assign, term<field<tag::kind::global, TT>>,
+             call_expr<term<RT>, RHS>>
                  expr) const {
     using namespace boost::hana::literals;
-    return this->rd_transform(meta::remove_cvref_t<RT>{}, expr.left().value(),
-                              expr.right().elements[1_c]);
+    return this->rd_transform(
+        meta::remove_cvref_t<RT>{}, expr.left(), expr.right().elements[1_c]);
   }
 
   using rd_xform_base<F>::rd_xform_base;
@@ -123,44 +126,48 @@ struct grd_xform : private xform_helper, public rd_xform_base<F> {
 
 template <typename F>
 struct urd_xform : private xform_helper, public rd_xform_base<F> {
-  template <expr_kind K, typename TT, typename RHS,
-            typename = std::enable_if_t<is_opassign_v<K>>>
+  template <
+      expr_kind K, typename TT, typename RHS,
+      typename = std::enable_if_t<is_opassign_v<K>>>
   decltype(auto) operator()(
-      expr<K,
-           subs<term<field<tag::kind::uniform, TT>>, term<tag::group::active>>,
-           RHS>
+      expr<
+          K,
+          subs<term<field<tag::kind::uniform, TT>>, term<tag::group::active>>,
+          RHS>
           expr) const {
-    return this->rd_transform(make_reduce_tag_v<K>, expr.left().left().value(),
-                              expr.right());
+    return this->rd_transform(
+        make_reduce_tag_v<K>, expr.left().left(), expr.right());
   }
 
-  template <typename TT, typename RT, typename RHS,
-            typename = std::enable_if_t<tag::is_reduce_v<RT>>>
+  template <
+      typename TT, typename RT, typename RHS,
+      typename = std::enable_if_t<tag::is_reduce_v<RT>>>
   decltype(auto) operator()(
-      expr<expr_kind::assign,
-           subs<term<field<tag::kind::uniform, TT>>, term<tag::group::active>>,
-           call_expr<term<RT>, RHS>>
+      expr<
+          expr_kind::assign,
+          subs<term<field<tag::kind::uniform, TT>>, term<tag::group::active>>,
+          call_expr<term<RT>, RHS>>
           expr) const {
     using namespace boost::hana::literals;
-    return this->rd_transform(meta::remove_cvref_t<RT>{},
-                              expr.left().left().value(),
-                              expr.right().elements[1_c]);
+    return this->rd_transform(
+        meta::remove_cvref_t<RT>{}, expr.left().left(),
+        expr.right().elements[1_c]);
   }
 
   using rd_xform_base<F>::rd_xform_base;
 };
 
 template <typename Expr> auto _grd(Expr &&e0) {
-  auto e1 = boost::yap::transform(std::forward<Expr>(e0),
-                                  group_tag_terminal_value_xform{});
+  auto e1 = boost::yap::transform(
+      std::forward<Expr>(e0), group_tag_terminal_value_xform{});
   return boost::yap::transform_strict(
       e1, make_rd_xform<grd_xform>([](auto, auto, auto) { return true; }),
       [](auto) { return false; });
 }
 
 template <typename Expr> auto _urd(Expr &&e0) {
-  auto e1 = boost::yap::transform(std::forward<Expr>(e0),
-                                  group_tag_terminal_value_xform{});
+  auto e1 = boost::yap::transform(
+      std::forward<Expr>(e0), group_tag_terminal_value_xform{});
   return boost::yap::transform_strict(
       e1, make_rd_xform<urd_xform>([](auto, auto, auto) { return true; }),
       [](auto) { return false; });
@@ -170,12 +177,14 @@ template <typename Expr> auto _urd(Expr &&e0) {
 
 namespace prtcl::expr_language {
 
-constexpr boost::yap::expression<boost::yap::expr_kind::terminal,
-                                 boost::hana::tuple<prtcl::tag::reduce::max>>
+constexpr boost::yap::expression<
+    boost::yap::expr_kind::terminal,
+    boost::hana::tuple<prtcl::tag::reduce::max>>
     reduce_max = {};
 
-constexpr boost::yap::expression<boost::yap::expr_kind::terminal,
-                                 boost::hana::tuple<prtcl::tag::reduce::min>>
+constexpr boost::yap::expression<
+    boost::yap::expr_kind::terminal,
+    boost::hana::tuple<prtcl::tag::reduce::min>>
     reduce_min = {};
 
 } // namespace prtcl::expr_language

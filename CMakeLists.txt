@@ -15,6 +15,7 @@ set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 find_package( Threads REQUIRED )
 find_package( OpenMP REQUIRED )
 find_package( Eigen3 REQUIRED )
+find_package( Boost COMPONENTS program_options REQUIRED )
 
 include( DECommonDiagnosticFlags )
 include( DELibCXXFlags )
@@ -32,6 +33,8 @@ include( ExternalProject )
 
 set( tracy_INLCUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/subprojects/tracy" )
 
+
+set( _INC ${CMAKE_CURRENT_SOURCE_DIR}/include )
 set( _SRC ${CMAKE_CURRENT_SOURCE_DIR}/sources )
 
 DE_Add_Catch2_Main( test_main )
@@ -58,6 +61,8 @@ DE_Add_Catch2_Test(
 
   ${_SRC}/tests/prtcl/scheme/test.cpp
   ${_SRC}/tests/prtcl/openmp_neighbourhood.cpp
+
+  ${_SRC}/tests/prtcl/scheme/prtcl_tests.cpp
 
   #${_SRC}/tests/prtcl/expr/eq.cpp
   #${_SRC}/tests/prtcl/expr/rd.cpp
@@ -112,6 +117,23 @@ target_include_directories(
 )
 target_link_libraries(
   prtcl-tests
+  PUBLIC Threads::Threads
+  PUBLIC OpenMP::OpenMP_CXX
+  PUBLIC Eigen3::Eigen
+  PUBLIC ${CMAKE_DL_LIBS}
+)
+
+add_executable(
+  prtcl-generate-tests
+  ${_SRC}/prtcl-generate-tests/main.cpp
+)
+DE_CXX17_Target( prtcl-generate-tests )
+DE_Common_Diagnostics_CXX_Target( prtcl-generate-tests )
+#DE_LibCXX_Target( prtcl-generate-tests )
+DE_Add_Our_Include_Directories( prtcl-generate-tests include sources )
+target_link_libraries(
+  prtcl-generate-tests
+  PUBLIC Boost::program_options
   PUBLIC Threads::Threads
   PUBLIC OpenMP::OpenMP_CXX
   PUBLIC Eigen3::Eigen

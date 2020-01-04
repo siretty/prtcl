@@ -70,8 +70,9 @@ public:
     _print(_printer.indent(), term_.value()) << nl();
   }
 
-  template <typename KT, typename TT, typename GT,
-            typename = std::enable_if_t<tag::is_group_v<GT>>>
+  template <
+      typename KT, typename TT, typename GT,
+      typename = std::enable_if_t<tag::is_group_v<GT>>>
   void operator()(subs<term<field<KT, TT>>, term<GT>> expr_) const {
     _printer.indent() << "<subscript>" << nl();
     _print(_printer.indented().indent(), expr_.left().value()) << nl();
@@ -112,53 +113,55 @@ public:
     _printer.indent() << "</call>" << nl();
   }
 
-  template <expr_kind K, typename Expr,
-            typename = std::enable_if_t<is_uop_v<K>>>
+  template <
+      expr_kind K, typename Expr, typename = std::enable_if_t<is_uop_v<K>>>
   void operator()(expr<K, Expr> const &expr_) const {
     using namespace boost::hana::literals;
     _printer.indent() << "<unary op=\"" << boost::yap::op_string(K) << "\">"
                       << nl();
-    boost::yap::transform_strict(expr_.elements[0_c],
-                                 print_math_leaf_xform{_printer.indented()},
-                                 print_math_xform{_printer.indented()});
+    boost::yap::transform_strict(
+        expr_.elements[0_c], print_math_leaf_xform{_printer.indented()},
+        print_math_xform{_printer.indented()});
     _printer.indent() << "</unary>" << nl();
   }
 
-  template <expr_kind K, typename LHS, typename RHS,
-            typename = std::enable_if_t<is_bop_v<K>>>
+  template <
+      expr_kind K, typename LHS, typename RHS,
+      typename = std::enable_if_t<is_bop_v<K>>>
   void operator()(expr<K, LHS, RHS> const &expr_) const {
     _printer.indent() << "<binary op=\"" << boost::yap::op_string(K) << "\">"
                       << nl();
-    boost::yap::transform_strict(expr_.left(),
-                                 print_math_leaf_xform{_printer.indented()},
-                                 print_math_xform{_printer.indented()});
-    boost::yap::transform_strict(expr_.right(),
-                                 print_math_leaf_xform{_printer.indented()},
-                                 print_math_xform{_printer.indented()});
+    boost::yap::transform_strict(
+        expr_.left(), print_math_leaf_xform{_printer.indented()},
+        print_math_xform{_printer.indented()});
+    boost::yap::transform_strict(
+        expr_.right(), print_math_leaf_xform{_printer.indented()},
+        print_math_xform{_printer.indented()});
     _printer.indent() << "</binary>" << nl();
   }
 
   template <typename LHS, typename RHS>
   void operator()(expr<expr_kind::assign, LHS, RHS> const &expr_) const {
     _printer.indent() << "<assign>" << nl();
-    boost::yap::transform_strict(expr_.left(),
-                                 print_math_leaf_xform{_printer.indented()});
-    boost::yap::transform_strict(expr_.right(),
-                                 print_math_leaf_xform{_printer.indented()},
-                                 print_math_xform{_printer.indented()});
+    boost::yap::transform_strict(
+        expr_.left(), print_math_leaf_xform{_printer.indented()});
+    boost::yap::transform_strict(
+        expr_.right(), print_math_leaf_xform{_printer.indented()},
+        print_math_xform{_printer.indented()});
     _printer.indent() << "</assign>" << nl();
   }
 
-  template <expr_kind K, typename LHS, typename RHS, typename = void,
-            typename = std::enable_if_t<is_opassign_v<K>>>
+  template <
+      expr_kind K, typename LHS, typename RHS, typename = void,
+      typename = std::enable_if_t<is_opassign_v<K>>>
   void operator()(expr<K, LHS, RHS> const &expr_) const {
     _printer.indent() << "<opassign op=\"" << boost::yap::op_string(K) << "\">"
                       << nl();
-    boost::yap::transform_strict(expr_.left(),
-                                 print_math_leaf_xform{_printer.indented()});
-    boost::yap::transform_strict(expr_.right(),
-                                 print_math_leaf_xform{_printer.indented()},
-                                 print_math_xform{_printer.indented()});
+    boost::yap::transform_strict(
+        expr_.left(), print_math_leaf_xform{_printer.indented()});
+    boost::yap::transform_strict(
+        expr_.right(), print_math_leaf_xform{_printer.indented()},
+        print_math_xform{_printer.indented()});
     _printer.indent() << "</opassign>" << nl();
   }
 
@@ -193,8 +196,8 @@ public:
 
   template <typename E> void operator()(term<eq<E>> expr_) const {
     _printer.indent() << "<eq>" << nl();
-    boost::yap::transform_strict(expr_.value().expression,
-                                 print_math_xform{_printer.indented()});
+    boost::yap::transform_strict(
+        expr_.value().expression, print_math_xform{_printer.indented()});
     _printer.indent() << "</eq>" << nl();
   }
 
@@ -202,10 +205,10 @@ public:
   void operator()(term<rd<RT, LHS, RHS>> expr_) const {
     _printer.indent() << "<rd op=\"" << expr_.value().reduce_tag << "\">"
                       << nl();
-    _print(_printer.indented().indent(), expr_.value().lhs) << nl();
-    boost::yap::transform_strict(expr_.value().rhs,
-                                 print_math_leaf_xform{_printer.indented()},
-                                 print_math_xform{_printer.indented()});
+    _print(_printer.indented().indent(), expr_.value().lhs.value()) << nl();
+    boost::yap::transform_strict(
+        expr_.value().rhs, print_math_leaf_xform{_printer.indented()},
+        print_math_xform{_printer.indented()});
     _printer.indent() << "</rd>" << nl();
   }
 

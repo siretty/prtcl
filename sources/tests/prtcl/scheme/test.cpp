@@ -18,23 +18,23 @@ TEST_CASE("prtcl/scheme/test", "[prtcl]") {
     o1.add("position"_vvf);
 
     auto &o2 = scheme.add_group("o2").set_type("something_else");
-    o2.resize(10'000);
+    o2.resize(10'001);
     o2.add("position"_vvf);
 
     auto &f1 = scheme.add_group("f1").set_type("fluid");
-    f1.resize(10'000);
+    f1.resize(10'002);
     f1.add("position"_vvf);
 
     auto &f2 = scheme.add_group("f2").set_type("fluid");
-    f2.resize(10'000);
+    f2.resize(10'003);
     f2.add("position"_vvf);
 
     auto &b1 = scheme.add_group("b1").set_type("boundary");
-    b1.resize(10'000);
+    b1.resize(10'004);
     b1.add("position"_vvf);
 
     auto &b2 = scheme.add_group("b2").set_type("boundary");
-    b2.resize(10'000);
+    b2.resize(10'005);
     b2.add("position"_vvf);
   }
 
@@ -52,9 +52,19 @@ TEST_CASE("prtcl/scheme/test", "[prtcl]") {
   test.load(scheme);
 
   {
-    std::cerr << "test.Test(neighbourhood) ..." << '\n';
+    std::cerr << "test.section_a(neighbourhood) ..." << '\n';
     auto beg = std::chrono::high_resolution_clock::now();
-    test.Test(neighbourhood);
+    test.section_a(neighbourhood);
+    auto dur = std::chrono::high_resolution_clock::now() - beg;
+    std::cerr << "... done "
+              << static_cast<std::chrono::duration<float>>(dur).count() << "s"
+              << '\n';
+  }
+
+  {
+    std::cerr << "test.section_b(neighbourhood) ..." << '\n';
+    auto beg = std::chrono::high_resolution_clock::now();
+    test.section_b(neighbourhood);
     auto dur = std::chrono::high_resolution_clock::now() - beg;
     std::cerr << "... done "
               << static_cast<std::chrono::duration<float>>(dur).count() << "s"

@@ -15,25 +15,48 @@ TEST_CASE("prtcl/openmp_source_generator", "[prtcl][openmp_source_generator]") {
 
   std::ostringstream stream;
 
-  auto section = make_named_section(         //
-      "Test",                                //
-      "gs"_gs = 0,                           //
-      foreach_particle(                      //
-          only("fluid")(                     //
-              "a"_vs[i] = 0,                 //
-              foreach_neighbour(             //
-                  only("fluid")(             //
-                      "a"_vs[i] += "b"_vs[j] //
-                      ),                     //
-                  only("boundary")(          //
-                      "a"_vs[i] += "c"_vs[j] //
-                      )                      //
-                  )                          //
-              )                              //
-          ),                                 //
-      "gs"_gs += 1                           //
+  ::prtcl::generate_openmp_source(
+      stream, "TEST",
+      make_named_section(                         //
+          "section_a",                            //
+          "gs"_gs = 0,                            //
+          foreach_particle(                       //
+              only("fluid")(                      //
+                  "a"_vs[i] = 0,                  //
+                  foreach_neighbour(              //
+                      only("fluid")(              //
+                          "a"_vs[i] += "b"_vs[j], //
+                          "d"_us[i] += "b"_vs[j], //
+                          "gs"_gs -= 1            //
+                          ),                      //
+                      only("boundary")(           //
+                          "a"_vs[i] += "c"_vs[j], //
+                          "d"_us[i] += "b"_vs[j]  //
+                          )                       //
+                      )                           //
+                  )                               //
+              ),                                  //
+          "gs"_gs += 1                            //
+          ),                                      //
+      make_named_section(                         //
+          "section_b",                            //
+          "gs"_gs += 2,                           //
+          foreach_particle(                       //
+              only("fluid")(                      //
+                  "a"_vs[i] = 0,                  //
+                  foreach_neighbour(              //
+                      only("fluid")(              //
+                          "a"_vs[i] += "b"_vs[j]  //
+                          ),                      //
+                      only("boundary")(           //
+                          "a"_vs[i] += "c"_vs[j]  //
+                          )                       //
+                      )                           //
+                  )                               //
+              ),                                  //
+          "gs"_gs += 3                            //
+          )                                       //
   );
 
-  ::prtcl::generate_openmp_source(stream, "TEST", section);
   std::cerr << stream.str() << std::endl;
 }

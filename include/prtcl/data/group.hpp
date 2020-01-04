@@ -19,12 +19,14 @@ template <typename Scalar, size_t N> class group : public group_base {
 public:
   size_t size() const { return _size; }
 
-  void resize(size_t new_size_) {
+  auto & resize(size_t new_size_) {
     get(tag::kind::varying{}, tag::type::scalar{}).resize(new_size_);
     get(tag::kind::varying{}, tag::type::vector{}).resize(new_size_);
     get(tag::kind::varying{}, tag::type::matrix{}).resize(new_size_);
 
     _size = new_size_;
+
+    return *this;
   }
 
 public:

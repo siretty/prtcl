@@ -6,6 +6,7 @@
 #include <prtcl/expr/transform/xform_helper.hpp>
 #include <prtcl/meta/remove_cvref.hpp>
 
+#include <iostream>
 #include <string>
 #include <utility>
 
@@ -20,8 +21,8 @@ struct section {
 template <typename... Exprs>
 auto make_named_section(std::string name_, Exprs &&... exprs_) {
   return boost::yap::make_terminal(section{name_})(boost::yap::transform_strict(
-      boost::yap::transform(std::forward<Exprs>(exprs_),
-                            group_tag_terminal_value_xform{}),
+      boost::yap::transform(
+          std::forward<Exprs>(exprs_), group_tag_terminal_value_xform{}),
       make_eq_xform<geq_xform>([](auto &&e) {
         return boost::yap::make_terminal(make_eq(std::forward<decltype(e)>(e)));
       }),

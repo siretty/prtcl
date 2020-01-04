@@ -26,12 +26,12 @@ struct normalized {
   PRTCL_DEFINE_TAG_OPERATORS(normalized)
 };
 
-struct min {
-  PRTCL_DEFINE_TAG_OPERATORS(min)
-};
-
 struct max {
   PRTCL_DEFINE_TAG_OPERATORS(max)
+};
+
+struct min {
+  PRTCL_DEFINE_TAG_OPERATORS(min)
 };
 
 struct kernel {
@@ -40,6 +40,18 @@ struct kernel {
 
 struct kernel_gradient {
   PRTCL_DEFINE_TAG_OPERATORS(kernel_gradient)
+};
+
+struct particle_count {
+  PRTCL_DEFINE_TAG_OPERATORS(particle_count)
+};
+
+struct neighbour_count {
+  PRTCL_DEFINE_TAG_OPERATORS(neighbour_count)
+};
+
+struct zero_vector {
+  PRTCL_DEFINE_TAG_OPERATORS(zero_vector)
 };
 
 } // namespace call
@@ -52,12 +64,16 @@ template <> struct is_tag<call::min> : std::true_type {};
 template <> struct is_tag<call::max> : std::true_type {};
 template <> struct is_tag<call::kernel> : std::true_type {};
 template <> struct is_tag<call::kernel_gradient> : std::true_type {};
+template <> struct is_tag<call::particle_count> : std::true_type {};
+template <> struct is_tag<call::neighbour_count> : std::true_type {};
+template <> struct is_tag<call::zero_vector> : std::true_type {};
 
 template <typename T>
-struct is_call
-    : meta::is_any_of<meta::remove_cvref_t<T>, call::dot, call::norm,
-                      call::norm_squared, call::normalized, call::min,
-                      call::max, call::kernel, call::kernel_gradient> {};
+struct is_call : meta::is_any_of<
+                     meta::remove_cvref_t<T>, call::dot, call::norm,
+                     call::norm_squared, call::normalized, call::min, call::max,
+                     call::kernel, call::kernel_gradient, call::particle_count,
+                     call::neighbour_count, call::zero_vector> {};
 
 template <typename T> constexpr bool is_call_v = is_call<T>::value;
 
