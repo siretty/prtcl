@@ -1,44 +1,48 @@
+
 cmake_minimum_required( VERSION 3.5 FATAL_ERROR )
 
 project(
-  prtcl
+  prtcl-gt
   VERSION 0.1
   LANGUAGES C CXX
 )
 
-# generate compilation database
-set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
+
+set( _PRJ ${CMAKE_CURRENT_SOURCE_DIR} )
+set( _INC ${CMAKE_CURRENT_SOURCE_DIR}/include )
+set( _SRC ${CMAKE_CURRENT_SOURCE_DIR}/sources )
 
 
-include( DECommonDiagnosticFlags )
-include( DELibCXXFlags )
-include( DECatch2 )
-include( DECXX17 )
-include( DEAddOurIncludeDirectories )
+DE_Add_Catch2_Test(
+  prtcl-gt-tests test_main
 
-set( PRTCL_SUBPROJECTS_DIR ${CMAKE_SOURCE_DIR}/subprojects )
+  # allow tests to be profiled with tracy
+  #${tracy_INLCUDE_DIR}/TracyClient.cpp
 
-set( tracy_INCLUDE_DIR ${PRTCL_SUBPROJECTS_DIR}/tracy )
-add_subdirectory( ${PRTCL_SUBPROJECTS_DIR}/catch2 )
-
-
-DE_Add_Catch2_Main( test_main )
-DE_CXX17_Target( test_main )
-DE_LibCXX_Target( test_main )
-target_compile_definitions( test_main
+  ${_PRJ}/tests/prtcl/gt/field_kind.cpp
+  ${_PRJ}/tests/prtcl/gt/field_type.cpp
+  ${_PRJ}/tests/prtcl/gt/field.cpp
+)
+DE_CXX17_Target( prtcl-gt-tests )
+DE_Common_Diagnostics_CXX_Target( prtcl-gt-tests )
+DE_LibCXX_Target( prtcl-gt-tests )
+DE_Add_Our_Include_Directories( prtcl-gt-tests include sources )
+target_compile_definitions(
+  prtcl-gt-tests
   PUBLIC
+    TRACY_ENABLE
     CATCH_CONFIG_ENABLE_BENCHMARKING
 )
-
-
-add_subdirectory( core )
-add_subdirectory( gt )
-#add_subdirectory( rt )
-
-
-
-
-
+target_include_directories(
+  prtcl-gt-tests
+  PUBLIC
+    ${tracy_INLCUDE_DIR}
+)
+target_link_libraries(
+  prtcl-gt-tests
+  PUBLIC prtcl-core
+  PUBLIC ${CMAKE_DL_LIBS}
+)
 
 
 #find_package( Threads REQUIRED )
