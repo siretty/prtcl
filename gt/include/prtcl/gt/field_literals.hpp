@@ -2,18 +2,18 @@
 
 #include <prtcl/gt/field.hpp>
 
+#include <boost/yap/yap.hpp>
+
 #define PRTCL_DEFINE_FIELD_ALIASES(Name, Kind, Type, Shape)                    \
-  namespace prtcl::gt {                                                        \
-  using Name##_field = ::prtcl::gt::Shape##_field<                             \
-      ::prtcl::gt::field_kind::Kind, ::prtcl::gt::field_type::Type>;           \
-  } /* namespace prtcl::gt */                                                  \
   namespace prtcl::gt::field_literals {                                        \
-  inline auto operator""_##Name##f(char const *ptr, size_t len) {              \
-    return Name##_field{{std::string_view{ptr, len}}};                         \
-  }                                                                            \
   inline auto operator""_##Name(char const *ptr, size_t len) {                 \
+    return field{field_kind::Kind, field_type::Type, Shape##_shape_tag{},      \
+                 std::string_view{ptr, len}};                                  \
+  }                                                                            \
+  inline auto operator""_##Name##_term(char const *ptr, size_t len) {          \
     return ::boost::yap::make_terminal(                                        \
-        Name##_field{{std::string_view{ptr, len}}});                           \
+        field{field_kind::Kind, field_type::Type, Shape##_shape_tag{},         \
+              std::string_view{ptr, len}});                                    \
   }                                                                            \
   } /* namespace prtcl::gt::field_literals */
 

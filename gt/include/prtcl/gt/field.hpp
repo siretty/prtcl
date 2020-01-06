@@ -1,30 +1,39 @@
 #pragma once
 
-#include <prtcl/core/shape.hpp>
 #include <prtcl/gt/field_kind.hpp>
+#include <prtcl/gt/field_shape.hpp>
 #include <prtcl/gt/field_type.hpp>
 
+#include <array>
+#include <initializer_list>
 #include <ostream>
 #include <string>
 #include <utility>
 
 #include <cstddef>
 
-#include <boost/yap/yap.hpp>
+#include <boost/algorithm/string/join.hpp>
+#include <boost/container/small_vector.hpp>
+#include <boost/operators.hpp>
+#include <boost/range/adaptor/transformed.hpp>
+#include <boost/range/iterator_range.hpp>
 
 namespace prtcl::gt {
 
-template <field_kind Kind_, field_type Type_, typename Shape_> class field {
-  static_assert(is_shape_v<Shape_>, "");
+class field : public ::boost::totally_ordered<field> {
+public:
+  using shape_type = ::boost::container::small_vector<size_t, 2>;
+  using name_type = std::string;
 
 public:
-  static constexpr field_kind kind() { return Kind_; }
+  constexpr auto kind() const { return _kind; }
 
-  static constexpr field_type type() { return Type_; }
+  constexpr auto type() const { return _type; }
 
-  static constexpr auto shape() { return Shape_{}; }
+  size_t rank() const { return _shape.size(); }
 
-public:
+  auto shape() const { return ::boost::make_iterator_range(_shape); }
+
   auto name() const { return _name; }
 
 public:
@@ -36,25 +45,73 @@ public:
   field(field &&) = default;
   field &operator=(field &&) = default;
 
-  field(std::string_view name_) : _name{name_} {}
+  template <typename Name_>
+  explicit field(
+      field_kind kind_, field_type type_, std::initializer_list<size_t> shape_,
+      Name_ &&name_)
+      : _kind{kind_}, _type{type_}, _shape{shape_.begin(), shape_.end()},
+        _name{std::forward<Name_>(name_)} {
+    // TODO: validate kind-type-shape combination
+    // TODO: validate name
+  }
+
+  template <typename Name_>
+  explicit field(
+      field_kind kind_, field_type type_, scalar_shape_tag, Name_ &&name_)
+      : field{kind_, type_, std::initializer_list<size_t>{},
+              std::forward<Name_>(name_)} {}
+
+  template <typename Name_>
+  explicit field(
+      field_kind kind_, field_type type_, vector_shape_tag, Name_ &&name_)
+      : field{kind_, type_, {0}, std::forward<Name_>(name_)} {}
+
+  template <typename Name_>
+  explicit field(
+      field_kind kind_, field_type type_, matrix_shape_tag, Name_ &&name_)
+      : field{kind_, type_, {0, 0}, std::forward<Name_>(name_)} {}
+
+public:
+  bool operator==(field rhs_) const {
+    return _kind == rhs_.kind() and _type == rhs_.type() and
+           _shape == rhs_.shape() and _name == rhs_.name();
+  }
+
+  bool operator<(field rhs_) const {
+    auto lhs_kt = std::make_tuple(kind(), type());
+    auto rhs_kt = std::make_tuple(rhs_.kind(), rhs_.type());
+    if (lhs_kt < rhs_kt)
+      return true;
+    else if (lhs_kt > rhs_kt)
+      return false;
+    else {
+      auto lhs_sh = shape();
+      auto rhs_sh = rhs_.shape();
+      if (lhs_sh < rhs_sh)
+        return true;
+      else if (lhs_sh > rhs_sh)
+        return false;
+      else
+        return name() < rhs_.name();
+    }
+  }
 
 private:
-  std::string _name;
+  field_kind _kind;
+  field_type _type;
+  shape_type _shape;
+  name_type _name;
 
   friend std::ostream &operator<<(std::ostream &o_, field const &f_) {
-    o_ << "field<" << enumerator_name(f_.kind()) << ", "
-       << enumerator_name(f_.type()) << ", " << f_.shape() << ">{" << f_.name()
-       << "}";
+    o_ << "field{" << enumerator_name(f_.kind()) << ", "
+       << enumerator_name(f_.type()) << ", {"
+       << boost::algorithm::join(
+              f_.shape() | boost::adaptors::transformed(
+                               [](auto v_) { return std::to_string(v_); }),
+              ", ")
+       << "}, \"" << f_.name() << "\"}";
+    return o_;
   }
 };
-
-template <field_kind Kind_, field_type Type_>
-using scalar_field = field<Kind_, Type_, shape<>>;
-
-template <field_kind Kind_, field_type Type_, size_t E0_ = 0>
-using vector_field = field<Kind_, Type_, shape<E0_>>;
-
-template <field_kind Kind_, field_type Type_, size_t E0_ = 0, size_t E1_ = 0>
-using matrix_field = field<Kind_, Type_, shape<E0_, E1_>>;
 
 } // namespace prtcl::gt
