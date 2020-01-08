@@ -18,6 +18,7 @@ target_sources(
   prtcl-core
   INTERFACE
     ${_INC_PC}/invalid_enumerator_error.hpp
+    ${_INC_PC}/enumerator_name.hpp
     ${_INC_PC}/shape.hpp
 )
 target_include_directories(

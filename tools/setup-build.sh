@@ -23,6 +23,7 @@ case $1 in
       CC=${_CC} CXX=${_CXX} cmake -GNinja -S. -Bbld/rel/${_CC}    "${_CMAKE_FLAGS[@]}" -DCMAKE_BUILD_TYPE=Release
       CC=${_CC} CXX=${_CXX} cmake -GNinja -S. -Bbld/reldbg/${_CC} "${_CMAKE_FLAGS[@]}" -DCMAKE_BUILD_TYPE=RelWithDebInfo
       CC=${_CC} CXX=${_CXX} cmake -GNinja -S. -Bbld/asan/${_CC}   "${_CMAKE_FLAGS[@]}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_FLAGS="-fsanitize=address"
+      CC=${_CC} CXX=${_CXX} cmake -GNinja -S. -Bbld/asan_dbg/${_CC}   "${_CMAKE_FLAGS[@]}" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=address"
     }
     ;;
 
