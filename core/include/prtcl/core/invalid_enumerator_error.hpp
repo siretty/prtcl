@@ -21,8 +21,6 @@ template <typename Enum_> struct invalid_enumerator_error : std::exception {
   invalid_enumerator_error(Enum_ enumerator_) noexcept
       : enumerator{enumerator_} {}
 
-  ~invalid_enumerator_error() noexcept override = default;
-
   char const *what() const noexcept override {
     return "invalid enumerator value";
   }

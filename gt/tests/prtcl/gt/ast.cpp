@@ -1,3 +1,5 @@
+#include "prtcl/gt/nd_dtype.hpp"
+#include "prtcl/gt/nd_shape.hpp"
 #include <catch.hpp>
 
 #include <prtcl/gt/ast/node.hpp>
@@ -13,6 +15,7 @@ enum class prog_expr_kind {
 
 TEST_CASE("prtcl/gt/ast", "[prtcl]") {
   namespace ast = prtcl::gt::ast;
+  using prtcl::gt::nd_dtype, prtcl::gt::nd_shape;
 
   auto pr = std::make_unique<ast::procedure>("test");
 
@@ -24,10 +27,9 @@ TEST_CASE("prtcl/gt/ast", "[prtcl]") {
     })
       ->add_child(ast::equation{
           (new ast::assignment{"="})
+              ->add_child(ast::global_field{"g", nd_dtype::real, nd_shape{0}})
               ->add_child(
-                  ast::global_field{"g", ast::nd_dtype::real, ast::nd_shape{0}})
-              ->add_child(ast::global_field{"h", ast::nd_dtype::real,
-                                            ast::nd_shape{0}})});
+                  ast::global_field{"h", nd_dtype::real, nd_shape{0}})});
 
   ast::ast_latex_printer{std::cerr}.print(pr.get());
 }

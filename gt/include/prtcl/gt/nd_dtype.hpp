@@ -1,6 +1,6 @@
 #pragma once
 
-namespace prtcl::gt::ast {
+namespace prtcl::gt {
 
 enum class nd_dtype {
   real,

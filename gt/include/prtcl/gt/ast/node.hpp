@@ -1,7 +1,8 @@
 #pragma once
 
-#include "nd_dtype.hpp"
-#include "nd_shape.hpp"
+#include <prtcl/gt/nd_dtype.hpp>
+#include <prtcl/gt/nd_index.hpp>
+#include <prtcl/gt/nd_shape.hpp>
 
 #include <memory>
 #include <set>
@@ -271,7 +272,7 @@ public:
   std::string group_type() const { return _group_type; }
 
 public:
-  if_group_type(std::string group_type_) : _group_type{group_type_} {}
+  explicit if_group_type(std::string group_type_) : _group_type{group_type_} {}
 
 private:
   std::string _group_type;
@@ -284,7 +285,7 @@ public:
   auto *math() const { return _math.get(); }
 
 public:
-  equation(ast_node_base *math_) : _math{math_} {}
+  explicit equation(ast_node_base *math_) : _math{math_} {}
 
 private:
   std::unique_ptr<ast_node_base> _math;

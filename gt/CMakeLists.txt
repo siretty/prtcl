@@ -30,6 +30,8 @@ DE_Add_Catch2_Test(
   ${_PRJ}/tests/prtcl/gt/field_requirements.cpp
 
   ${_PRJ}/tests/prtcl/gt/ast.cpp
+
+  ${_PRJ}/tests/prtcl/gt/dsl/procedure.cpp
 )
 DE_CXX17_Target( prtcl-gt-tests )
 DE_Common_Diagnostics_CXX_Target( prtcl-gt-tests )

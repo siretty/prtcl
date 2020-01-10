@@ -20,6 +20,7 @@ target_sources(
     ${_INC_PC}/invalid_enumerator_error.hpp
     ${_INC_PC}/enumerator_name.hpp
     ${_INC_PC}/shape.hpp
+    ${_INC_PC}/remove_cvref.hpp
 )
 target_include_directories(
   prtcl-core
