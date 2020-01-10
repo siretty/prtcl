@@ -6,7 +6,7 @@ namespace prtcl::gt::dsl {
 
 struct neighbor_index {};
 
-using neighbor_index_expr = term_type<neighbor_index>;
+using neighbor_index_expr = term_expr<neighbor_index>;
 
 } // namespace prtcl::gt::dsl
 

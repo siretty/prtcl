@@ -17,14 +17,15 @@ enum class field_kind {
   varying,
 };
 
-struct field {
+template <field_kind Kind_> struct field {
+  static constexpr field_kind kind = Kind_;
+
   std::string name;
-  field_kind kind;
   nd_dtype dtype;
   nd_shape shape;
 };
 
-using field_expr = term_type<field>;
+template <field_kind Kind_> using field_expr = term_expr<field<Kind_>>;
 
 } // namespace prtcl::gt::dsl
 
@@ -32,17 +33,17 @@ namespace prtcl::gt::dsl::language {
 
 inline auto
 gr_field(std::string name_, std::initializer_list<size_t> shape_ = {}) {
-  return field_expr{{name_, field_kind::global, nd_dtype::real, shape_}};
+  return field_expr<field_kind::global>{{name_, nd_dtype::real, shape_}};
 }
 
 inline auto
 ur_field(std::string name_, std::initializer_list<size_t> shape_ = {}) {
-  return field_expr{{name_, field_kind::uniform, nd_dtype::real, shape_}};
+  return field_expr<field_kind::uniform>{{name_, nd_dtype::real, shape_}};
 }
 
 inline auto
 vr_field(std::string name_, std::initializer_list<size_t> shape_ = {}) {
-  return field_expr{{name_, field_kind::varying, nd_dtype::real, shape_}};
+  return field_expr<field_kind::varying>{{name_, nd_dtype::real, shape_}};
 }
 
 } // namespace prtcl::gt::dsl::language

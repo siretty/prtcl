@@ -10,7 +10,7 @@ struct operation {
   std::string name;
 };
 
-using operation_expr = term_type<operation>;
+using operation_expr = term_expr<operation>;
 
 } // namespace prtcl::gt::dsl
 

@@ -15,7 +15,7 @@ struct procedure {
   std::string name;
 };
 
-using procedure_expr = term_type<procedure>;
+using procedure_expr = term_expr<procedure>;
 
 } // namespace prtcl::gt::dsl
 

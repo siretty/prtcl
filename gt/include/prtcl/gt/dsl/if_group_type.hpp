@@ -10,7 +10,7 @@ struct if_group_type {
   std::string group_type;
 };
 
-using if_group_type_expr = term_type<if_group_type>;
+using if_group_type_expr = term_expr<if_group_type>;
 
 } // namespace prtcl::gt::dsl
 

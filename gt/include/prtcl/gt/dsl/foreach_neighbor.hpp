@@ -6,7 +6,7 @@ namespace prtcl::gt::dsl {
 
 struct foreach_neighbor {};
 
-using foreach_neighbor_expr = term_type<foreach_neighbor>;
+using foreach_neighbor_expr = term_expr<foreach_neighbor>;
 
 } // namespace prtcl::gt::dsl
 

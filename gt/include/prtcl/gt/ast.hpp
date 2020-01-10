@@ -117,6 +117,12 @@ public:
     return add_return<NodeType_>{*node_, impl()};
   }
 
+  template <typename NodeType_>
+  add_return<NodeType_> add_child(NodeType_ *orig_) {
+    auto *node_ = static_cast<NodeType_ *>(this->base_add_child(orig_));
+    return add_return<NodeType_>{*node_, impl()};
+  }
+
 private:
   auto &impl() { return *static_cast<Impl_ *>(this); }
   // }}}
@@ -137,7 +143,7 @@ private:
   // }}}
 };
 
-class operation : public ast_nary_base {
+class operation : public ast_nary_crtp<operation> {
   // {{{
 public:
   std::string name() const { return _name; }
@@ -334,34 +340,34 @@ protected:
 public:
   void dispatch(ast_node_base *node_) {
     if (auto n = node_->as_ptr<procedure>())
-      return impl().print(n);
+      return impl()(n);
     if (auto n = node_->as_ptr<foreach_particle>())
-      return impl().print(n);
+      return impl()(n);
     if (auto n = node_->as_ptr<foreach_neighbor>())
-      return impl().print(n);
+      return impl()(n);
     if (auto n = node_->as_ptr<if_group_type>())
-      return impl().print(n);
+      return impl()(n);
     if (auto n = node_->as_ptr<equation>())
-      return impl().print(n);
+      return impl()(n);
 
     if (auto n = node_->as_ptr<assignment>())
-      return impl().print(n);
+      return impl()(n);
     if (auto n = node_->as_ptr<operation>())
-      return impl().print(n);
+      return impl()(n);
     if (auto n = node_->as_ptr<global_field>())
-      return impl().print(n);
+      return impl()(n);
     if (auto n = node_->as_ptr<uniform_field>())
-      return impl().print(n);
+      return impl()(n);
     if (auto n = node_->as_ptr<varying_field>())
-      return impl().print(n);
+      return impl()(n);
     if (auto n = node_->as_ptr<constant>())
-      return impl().print(n);
+      return impl()(n);
     if (auto n = node_->as_ptr<particle_subscript>())
-      return impl().print(n);
+      return impl()(n);
     if (auto n = node_->as_ptr<neighbor_subscript>())
-      return impl().print(n);
+      return impl()(n);
     if (auto n = node_->as_ptr<component_subscript>())
-      return impl().print(n);
+      return impl()(n);
 
     throw std::runtime_error("not implemented");
   }
@@ -387,7 +393,7 @@ class ast_latex_printer : public ast_printer_crtp<ast_latex_printer> {
   // =====
 
 public:
-  void print(procedure *node_) {
+  void operator()(procedure *node_) {
     *this << R"(\begin{PrtclProcedure}{)" << node_->name() << "}" << nl;
     {
       auto indenter = this->indent();
@@ -397,7 +403,7 @@ public:
     *this << R"(\end{PrtclProcedure})" << nl;
   }
 
-  void print(foreach_particle *node_) {
+  void operator()(foreach_particle *node_) {
     *this << R"(\begin{PrtclForeachParticle})" << nl;
     {
       auto indenter = this->indent();
@@ -407,7 +413,7 @@ public:
     *this << R"(\end{PrtclForeach})" << nl;
   }
 
-  void print(foreach_neighbor *node_) {
+  void operator()(foreach_neighbor *node_) {
     *this << R"(\begin{PrtclForeachNeighbor})" << nl;
     {
       auto indenter = this->indent();
@@ -417,7 +423,7 @@ public:
     *this << R"(\end{PrtclForeach})" << nl;
   }
 
-  void print(if_group_type *node_) {
+  void operator()(if_group_type *node_) {
     *this << R"(\begin{PrtclIfGroupType}{)" << node_->group_type() << "}" << nl;
     {
       auto indenter = this->indent();
@@ -427,7 +433,7 @@ public:
     *this << R"(\end{PrtclIfGroupType})" << nl;
   }
 
-  void print(equation *node_) {
+  void operator()(equation *node_) {
     *this << R"(\begin{PrtclEquation})" << nl;
     {
       auto indenter = this->indent();
@@ -441,7 +447,7 @@ public:
   // Mathematics
   // =====
 
-  void print(assignment *node_) {
+  void operator()(assignment *node_) {
     if (2 != node_->children().size())
       throw std::runtime_error{"invalid number of children"};
 
@@ -460,7 +466,7 @@ public:
     this->dispatch(node_->children()[1]);
   }
 
-  void print(operation *node_) {
+  void operator()(operation *node_) {
     static std::set<std::string_view> const uops = {"-", "norm",
                                                     "norm_squared"};
     static std::set<std::string_view> const bops = {"+", "-", "*", "/", "dot"};
@@ -524,27 +530,27 @@ private:
   }
 
 public:
-  void print(global_field *node_) {
+  void operator()(global_field *node_) {
     *this << R"(\PrtclGlobalField)";
     print_field_suffix(node_);
   }
 
-  void print(uniform_field *node_) {
+  void operator()(uniform_field *node_) {
     *this << R"(\PrtclUniformField)";
     print_field_suffix(node_);
   }
 
-  void print(varying_field *node_) {
+  void operator()(varying_field *node_) {
     *this << R"(\PrtclVaryingField)";
     print_field_suffix(node_);
   }
 
-  void print(constant *node_) {
+  void operator()(constant *node_) {
     *this << R"(\PrtclConstant)";
     print_field_suffix(node_);
   }
 
-  void print(particle_subscript *node_) {
+  void operator()(particle_subscript *node_) {
     if (1 != node_->children().size())
       throw std::runtime_error{"invalid number of children"};
 
@@ -553,7 +559,7 @@ public:
     *this << " }_i";
   }
 
-  void print(neighbor_subscript *node_) {
+  void operator()(neighbor_subscript *node_) {
     if (1 != node_->children().size())
       throw std::runtime_error{"invalid number of children"};
 
@@ -562,7 +568,7 @@ public:
     *this << " }_j";
   }
 
-  void print(component_subscript *node_) {
+  void operator()(component_subscript *node_) {
     if (1 != node_->children().size())
       throw std::runtime_error{"invalid number of children"};
 
@@ -577,7 +583,7 @@ public:
     *this << "}";
   }
 
-  template <typename NodeType_> void print(NodeType_ *) {
+  template <typename NodeType_> void operator()(NodeType_ *) {
     throw std::runtime_error{"not implemented"};
   }
 

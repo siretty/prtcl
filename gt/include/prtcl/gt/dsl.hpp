@@ -2,7 +2,6 @@
 
 #include "dsl/component_index.hpp"
 #include "dsl/constant.hpp"
-#include "dsl/equation.hpp"
 #include "dsl/field.hpp"
 #include "dsl/foreach_neighbor.hpp"
 #include "dsl/foreach_particle.hpp"

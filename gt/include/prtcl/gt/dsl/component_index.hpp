@@ -10,6 +10,6 @@ struct component_index {
   nd_index index;
 };
 
-using component_index_expr = term_type<component_index>;
+using component_index_expr = term_expr<component_index>;
 
 } // namespace prtcl::gt::dsl

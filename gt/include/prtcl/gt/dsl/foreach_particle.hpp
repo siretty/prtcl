@@ -6,7 +6,7 @@ namespace prtcl::gt::dsl {
 
 struct foreach_particle {};
 
-using foreach_particle_expr = term_type<foreach_particle>;
+using foreach_particle_expr = term_expr<foreach_particle>;
 
 } // namespace prtcl::gt::dsl
 

@@ -2,7 +2,7 @@
 #include "prtcl/gt/nd_shape.hpp"
 #include <catch.hpp>
 
-#include <prtcl/gt/ast/node.hpp>
+#include <prtcl/gt/ast.hpp>
 
 #include <iostream>
 
@@ -31,5 +31,5 @@ TEST_CASE("prtcl/gt/ast", "[prtcl]") {
               ->add_child(
                   ast::global_field{"h", nd_dtype::real, nd_shape{0}})});
 
-  ast::ast_latex_printer{std::cerr}.print(pr.get());
+  ast::ast_latex_printer{std::cerr}(pr.get());
 }

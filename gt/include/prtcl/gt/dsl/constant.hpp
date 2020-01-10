@@ -17,7 +17,7 @@ struct constant {
   nd_shape shape;
 };
 
-using constant_expr = term_type<constant>;
+using constant_expr = term_expr<constant>;
 
 } // namespace prtcl::gt::dsl
 
