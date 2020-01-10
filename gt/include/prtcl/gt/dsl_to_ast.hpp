@@ -1,6 +1,8 @@
 #pragma once
 
+#include "prtcl/gt/dsl/component_index.hpp"
 #include <prtcl/core/remove_cvref.hpp>
+
 #include <prtcl/gt/ast.hpp>
 #include <prtcl/gt/dsl.hpp>
 
@@ -11,9 +13,12 @@
 #include <boost/yap/algorithm_fwd.hpp>
 #include <boost/yap/print.hpp>
 
+#include <boost/hana/append.hpp>
 #include <boost/hana/contains.hpp>
 #include <boost/hana/for_each.hpp>
 #include <boost/hana/unpack.hpp>
+
+#include <boost/range/join.hpp>
 
 namespace prtcl::gt::n_dsl_to_ast {
 
@@ -129,6 +134,50 @@ struct neighbor_field_to_ast_xform {
     return node;
   }
 };
+
+// ------------------------------------------------------------
+// Component Subscript
+// ------------------------------------------------------------
+
+struct preprocess_component_index_xform {
+  auto operator()(expr_type<
+                  expr_kind::comma, dsl::component_index_expr,
+                  dsl::component_index_expr>
+                      comma_) const {
+    auto indices = boost::range::join(
+        comma_.left().value().index, comma_.right().value().index);
+    return dsl::component_index_expr{
+        {nd_index{indices.begin(), indices.end()}}};
+  }
+
+  // TODO: support nested levels of comma-expressions
+  // TODO: support "raw" unsigned long long indices
+};
+
+template <typename LHSXForms_> struct component_index_to_ast_xform {
+  template <typename LHS_>
+  auto operator()(subs_expr<LHS_, dsl::component_index_expr> subs_) const {
+    auto node =
+        std::make_unique<ast::component_subscript>(subs_.right().value().index);
+
+    boost::hana::unpack(lhs_xforms, [&subs_, &node](auto &&... xforms_) {
+      node->add_child(
+          boost::yap::transform_strict(
+              subs_.left(), std::forward<decltype(xforms_)>(xforms_)...)
+              .release());
+    });
+
+    return node;
+  }
+
+  LHSXForms_ lhs_xforms;
+};
+
+template <typename XFormsTuple_>
+auto make_component_subscript_to_ast_xform(XFormsTuple_ &&xforms_tuple_) {
+  return component_index_to_ast_xform<core::remove_cvref_t<XFormsTuple_>>{
+      std::forward<XFormsTuple_>(xforms_tuple_)};
+}
 
 // ------------------------------------------------------------
 // Mathematical Expression
@@ -275,12 +324,15 @@ private:
           std::make_unique<ast::if_group_type>(callee.value().group_type);
 
       boost::hana::for_each(args, [&node](auto arg) {
-        using boost::hana::make_tuple;
+        using boost::hana::make_tuple, boost::hana::append;
+        auto lhs_xforms = make_tuple(
+            global_field_to_ast_xform{}, particle_field_to_ast_xform{});
         auto child = boost::yap::transform_strict(
             arg,
             make_equation_to_ast_xform(
-                make_tuple(
-                    global_field_to_ast_xform{}, particle_field_to_ast_xform{}),
+                append(
+                    lhs_xforms,
+                    make_component_subscript_to_ast_xform(lhs_xforms)),
                 make_tuple(make_math_to_ast_xform(
                     global_field_to_ast_xform{}, particle_field_to_ast_xform{},
                     neighbor_field_to_ast_xform{}))));
@@ -320,12 +372,15 @@ private:
           std::make_unique<ast::if_group_type>(callee.value().group_type);
 
       boost::hana::for_each(args, [&node](auto arg) {
-        using boost::hana::make_tuple;
+        using boost::hana::make_tuple, boost::hana::append;
+        auto lhs_xforms = make_tuple(
+            global_field_to_ast_xform{}, particle_field_to_ast_xform{});
         auto child = boost::yap::transform_strict(
             arg, foreach_neighbor_to_ast_xform{},
             make_equation_to_ast_xform(
-                make_tuple(
-                    global_field_to_ast_xform{}, particle_field_to_ast_xform{}),
+                append(
+                    lhs_xforms,
+                    make_component_subscript_to_ast_xform(lhs_xforms)),
                 make_tuple(make_math_to_ast_xform(
                     global_field_to_ast_xform{},
                     particle_field_to_ast_xform{}))));
@@ -348,11 +403,14 @@ struct procedure_to_ast_xform {
     auto node = std::make_unique<ast::procedure>(callee.value().name);
 
     boost::hana::for_each(args, [&node](auto arg) {
-      using boost::hana::make_tuple;
+      using boost::hana::make_tuple, boost::hana::append;
+      auto lhs_xforms = make_tuple(global_field_to_ast_xform{});
       auto child = boost::yap::transform_strict(
           arg, foreach_particle_to_ast_xform{},
           make_equation_to_ast_xform(
-              make_tuple(global_field_to_ast_xform{}),
+              append(
+                  lhs_xforms,
+                  make_component_subscript_to_ast_xform(lhs_xforms)),
               make_tuple(make_math_to_ast_xform(global_field_to_ast_xform{}))));
       node->add_child(child.release());
     });
@@ -369,7 +427,8 @@ template <typename Expr_> auto dsl_to_ast(Expr_ &&expr_) {
   using namespace n_dsl_to_ast;
   return boost::yap::transform_strict(
       boost::yap::transform(
-          std::forward<Expr_>(expr_), remove_expr_ref_xform{}),
+          std::forward<Expr_>(expr_), remove_expr_ref_xform{},
+          preprocess_component_index_xform{}),
       procedure_to_ast_xform{});
 }
 

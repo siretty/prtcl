@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/range/iterator_range_core.hpp>
 #include <prtcl/gt/nd_dtype.hpp>
 #include <prtcl/gt/nd_index.hpp>
 #include <prtcl/gt/nd_shape.hpp>
@@ -159,11 +160,11 @@ private:
 class global_field : public ast_leaf_base {
   // {{{
 public:
-  std::string name() const { return _name; }
+  std::string_view name() const { return _name; }
 
   nd_dtype dtype() const { return _dtype; }
 
-  nd_shape shape() const { return _shape; }
+  auto shape() const { return boost::make_iterator_range(_shape); }
 
 public:
   explicit global_field(std::string name_, nd_dtype dtype_, nd_shape shape_)
@@ -179,11 +180,11 @@ private:
 struct uniform_field : ast_leaf_base {
   // {{{
 public:
-  std::string name() const { return _name; }
+  std::string_view name() const { return _name; }
 
   nd_dtype dtype() const { return _dtype; }
 
-  nd_shape shape() const { return _shape; }
+  auto shape() const { return boost::make_iterator_range(_shape); }
 
 public:
   explicit uniform_field(std::string name_, nd_dtype dtype_, nd_shape shape_)
@@ -199,11 +200,11 @@ private:
 struct varying_field : ast_leaf_base {
   // {{{
 public:
-  std::string name() const { return _name; }
+  std::string_view name() const { return _name; }
 
   nd_dtype dtype() const { return _dtype; }
 
-  nd_shape shape() const { return _shape; }
+  auto shape() const { return boost::make_iterator_range(_shape); }
 
 public:
   explicit varying_field(std::string name_, nd_dtype dtype_, nd_shape shape_)
@@ -219,11 +220,11 @@ private:
 struct constant : ast_leaf_base {
   // {{{
 public:
-  std::string name() const { return _name; }
+  std::string_view name() const { return _name; }
 
   nd_dtype dtype() const { return _dtype; }
 
-  nd_shape shape() const { return _shape; }
+  auto shape() const { return boost::make_iterator_range(_shape); }
 
 public:
   explicit constant(std::string name_, nd_dtype dtype_, nd_shape shape_)
@@ -243,7 +244,7 @@ class neighbor_subscript : public ast_nary_crtp<neighbor_subscript> {};
 class component_subscript : public ast_nary_crtp<component_subscript> {
   // {{{
 public:
-  nd_index index() const { return _index; }
+  auto index() const { return boost::make_iterator_range(_index); }
 
 public:
   explicit component_subscript(nd_index index_) : _index{index_} {}
@@ -258,7 +259,7 @@ private:
 class procedure : public ast_nary_crtp<procedure> {
   // {{{
 public:
-  std::string name() const { return _name; }
+  std::string_view name() const { return _name; }
 
 public:
   explicit procedure(std::string name_) : _name{name_} {}
@@ -275,7 +276,7 @@ class foreach_neighbor : public ast_nary_crtp<foreach_neighbor> {};
 class if_group_type : public ast_nary_crtp<if_group_type> {
   // {{{
 public:
-  std::string group_type() const { return _group_type; }
+  std::string_view group_type() const { return _group_type; }
 
 public:
   explicit if_group_type(std::string group_type_) : _group_type{group_type_} {}
@@ -574,13 +575,13 @@ public:
 
     *this << "{ ";
     this->dispatch(node_->children()[0]);
-    *this << " }_{";
+    *this << " }_{ ";
     for (auto v : node_->index() | boost::adaptors::indexed()) {
       if (0 != v.index())
         *this << ", ";
       *this << v.value();
     }
-    *this << "}";
+    *this << " }";
   }
 
   template <typename NodeType_> void operator()(NodeType_ *) {

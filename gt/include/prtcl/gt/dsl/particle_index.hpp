@@ -15,3 +15,9 @@ namespace prtcl::gt::dsl::monaghan_indices {
 static auto const a = particle_index_expr{};
 
 } // namespace prtcl::gt::dsl::monaghan_indices
+
+namespace prtcl::gt::dsl::generic_indices {
+
+static auto const i = particle_index_expr{};
+
+} // namespace prtcl::gt::dsl::generic_indices

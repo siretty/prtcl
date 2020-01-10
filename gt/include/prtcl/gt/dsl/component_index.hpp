@@ -13,3 +13,11 @@ struct component_index {
 using component_index_expr = term_expr<component_index>;
 
 } // namespace prtcl::gt::dsl
+
+namespace prtcl::gt::dsl::language {
+
+inline auto operator""_idx(unsigned long long value_) {
+  return component_index_expr{{{value_}}};
+}
+
+} // namespace prtcl::gt::dsl::language

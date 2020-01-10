@@ -8,13 +8,15 @@
 
 TEST_CASE("prtcl/gt/dsl/procedure", "[prtcl]") {
   using namespace ::prtcl::gt::dsl::language;
-  using namespace ::prtcl::gt::dsl::monaghan_indices;
-  using namespace ::prtcl::gt::dsl::kernel_shorthand;
+  using namespace ::prtcl::gt::dsl::monaghan_indices; // a, b
+  using namespace ::prtcl::gt::dsl::kernel_shorthand; // W, dW
 
+  auto const g = gr_field("gravity", {0});
   auto const x = vr_field("position", {0});
 
   auto proc = procedure(
       "test",                                            //
+      g = ones({0}),                                     //
       foreach_particle(                                  //
           if_group_type(                                 //
               "some_type",                               //
