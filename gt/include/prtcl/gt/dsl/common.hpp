@@ -1,5 +1,7 @@
 #pragma once
 
+#include <prtcl/gt/common.hpp>
+
 #include <utility>
 
 #include <boost/yap/expression.hpp>

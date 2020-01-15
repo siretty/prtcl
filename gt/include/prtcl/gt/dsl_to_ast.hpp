@@ -68,6 +68,27 @@ struct remove_expr_ref_xform {
 };
 
 // ============================================================
+// Temporary AST Nodes
+// ============================================================
+
+class dsl_to_ast_reduce final
+    : public virtual ast::ast_nary_crtp<dsl_to_ast_reduce> {
+  // {{{
+public:
+  std::string name() const { return _name; }
+
+public:
+  char const *ast_node_name() const final { return "dsl_to_ast_reduce"; }
+
+public:
+  dsl_to_ast_reduce(std::string name_) : _name{name_} {}
+
+private:
+  std::string _name;
+  // }}}
+};
+
+// ============================================================
 // DSL-to-AST Transforms
 // ============================================================
 
@@ -204,6 +225,32 @@ template <typename FieldXForms_> struct math_to_ast_xform {
     return node;
   }
 
+  // Literals
+  // --------
+
+  auto operator()(dsl::literal_expr term_) const {
+    auto literal = term_.value();
+    return std::make_unique<ast::literal>(literal.value, literal.dtype);
+  }
+
+  template <
+      typename Value_,
+      typename = std::enable_if_t<std::is_floating_point<Value_>::value>>
+  auto operator()(dsl::term_expr<Value_> term_) const {
+    return (*this)(dsl::language::rlit(term_.value()));
+  }
+
+  template <
+      typename Value_,
+      typename = std::enable_if_t<std::is_integral<Value_>::value>,
+      typename = void>
+  auto operator()(dsl::term_expr<Value_> term_) const {
+    if (std::is_same<Value_, bool>::value)
+      return (*this)(dsl::language::blit(term_.value()));
+    else
+      return (*this)(dsl::language::ilit(term_.value()));
+  }
+
   // Constants
   // ---------
 
@@ -250,7 +297,43 @@ auto make_math_to_ast_xform(FieldXForms_ &&... field_xforms_) {
 }
 
 // ------------------------------------------------------------
-// Equation
+// DSL-To-AST Reduce
+// ------------------------------------------------------------
+
+template <typename XFormsTuple_> struct reduce_to_ast_xform {
+  template <typename... Args_>
+  auto operator()(call_expr<dsl::reduce_expr, Args_...> call_) const {
+    auto [callee, args] = split(call_);
+    auto node = std::make_unique<dsl_to_ast_reduce>(callee.value().name);
+
+    boost::hana::for_each(
+        args, [this, &node](auto arg) { this->_transform(arg, node); });
+
+    return node;
+  }
+
+  XFormsTuple_ field_xforms;
+
+private:
+  template <typename Arg_, typename Node_>
+  decltype(auto) _transform(Arg_ &arg_, Node_ &node_) const {
+    boost::hana::unpack(
+        field_xforms, [this, &arg_, &node_](auto &&... xforms_) {
+          auto child = boost::yap::transform_strict(
+              arg_, *this, std::forward<decltype(xforms_)>(xforms_)...);
+          node_->add_child(child.release());
+        });
+  }
+};
+
+template <typename XFormsTuple_>
+auto make_reduce_to_ast_xform(XFormsTuple_ &&xforms_tuple_) {
+  return reduce_to_ast_xform<core::remove_cvref_t<XFormsTuple_>>{
+      std::forward<XFormsTuple_>(xforms_tuple_)};
+}
+
+// ------------------------------------------------------------
+// Equation and Reduction
 // ------------------------------------------------------------
 
 template <typename LHSXForms_, typename RHSXForms_>
@@ -262,25 +345,56 @@ struct equation_to_ast_xform {
                          expr_kind::assign, expr_kind::plus_assign,
                          expr_kind::minus_assign, expr_kind::multiplies_assign,
                          expr_kind::divides_assign))>>
-  auto operator()(expr_type<ExprKind_, LHS_, RHS_> expr_) const {
+  std::unique_ptr<ast::ast_node_base>
+  operator()(expr_type<ExprKind_, LHS_, RHS_> expr_) const {
     auto op_name = boost::yap::op_string(ExprKind_);
-    auto node = std::make_unique<ast::assignment>(op_name);
 
-    boost::hana::unpack(lhs_xforms, [&expr_, &node](auto &&... xforms_) {
-      node->add_child(
-          boost::yap::transform_strict(
-              expr_.left(), std::forward<decltype(xforms_)>(xforms_)...)
-              .release());
+    std::unique_ptr<ast::ast_node_base> lhs;
+    boost::hana::unpack(lhs_xforms, [&expr_, &lhs](auto &&... xforms_) {
+      lhs = boost::yap::transform_strict(
+          expr_.left(), std::forward<decltype(xforms_)>(xforms_)...);
     });
 
-    boost::hana::unpack(rhs_xforms, [&expr_, &node](auto &&... xforms_) {
-      node->add_child(
-          boost::yap::transform_strict(
-              expr_.right(), std::forward<decltype(xforms_)>(xforms_)...)
-              .release());
+    std::unique_ptr<ast::ast_node_base> rhs;
+    boost::hana::unpack(rhs_xforms, [&expr_, &rhs](auto &&... xforms_) {
+      rhs = boost::yap::transform_strict(
+          expr_.right(), std::forward<decltype(xforms_)>(xforms_)...);
     });
 
-    return std::make_unique<ast::equation>(node.release());
+    // TODO: handle assigning to component subscripts
+
+    auto make_assignment = [](auto &lhs, auto &rhs, auto op_name) {
+      auto assignment = std::make_unique<ast::assignment>(op_name);
+      assignment->add_child(lhs.release());
+      assignment->add_child(rhs.release());
+      return std::make_unique<ast::equation>(assignment.release());
+    };
+
+    if (auto ps = lhs->as_ptr<ast::particle_subscript>()) {
+      // varying fields of particles result in equations
+      if (ps->children()[0]->as_ptr<ast::varying_field>()) {
+        return make_assignment(lhs, rhs, op_name);
+      }
+    }
+
+    // TODO: handle reductions that are not +=, -=, *=, /=
+    if (expr_kind::assign == ExprKind_) {
+      if (auto rd = rhs->as_ptr<dsl_to_ast_reduce>()) {
+        auto operation = std::make_unique<ast::operation>(rd->name());
+        operation->add_child(lhs.release());
+        for (auto child : rd->release_children())
+          operation->add_child(child);
+        return std::make_unique<ast::reduction>(operation.release());
+      } else {
+        return make_assignment(lhs, rhs, op_name);
+      }
+    } else {
+      auto operation =
+          std::make_unique<ast::operation>(std::string{op_name[0]});
+      operation->add_child(lhs.release());
+      operation->add_child(rhs.release());
+      return std::make_unique<ast::reduction>(operation.release());
+    }
   }
 
   LHSXForms_ lhs_xforms;
@@ -304,7 +418,7 @@ struct foreach_neighbor_to_ast_xform {
   template <typename... Exprs_>
   auto
   operator()(call_expr<dsl::foreach_neighbor_expr, Exprs_...> call_) const {
-    auto node = std::make_unique<ast::foreach_particle>();
+    auto node = std::make_unique<ast::foreach_neighbor>();
 
     boost::hana::for_each(only_args(call_), [&node](auto arg) {
       auto child =
@@ -323,19 +437,22 @@ private:
       auto node =
           std::make_unique<ast::if_group_type>(callee.value().group_type);
 
-      boost::hana::for_each(args, [&node](auto arg) {
+      boost::hana::for_each(args, [&node](auto stmt) {
         using boost::hana::make_tuple, boost::hana::append;
-        auto lhs_xforms = make_tuple(
+        // left-hand-side transforms
+        auto lhs_xforms_0 = make_tuple(
             global_field_to_ast_xform{}, particle_field_to_ast_xform{});
+        auto lhs_xforms = append(
+            lhs_xforms_0, make_component_subscript_to_ast_xform(lhs_xforms_0));
+        // right-hand-side transforms
+        auto rhs_xforms_0 = make_tuple(make_math_to_ast_xform(
+            global_field_to_ast_xform{}, particle_field_to_ast_xform{},
+            neighbor_field_to_ast_xform{}));
+        auto rhs_xforms =
+            append(rhs_xforms_0, make_reduce_to_ast_xform(rhs_xforms_0));
+        // transform
         auto child = boost::yap::transform_strict(
-            arg,
-            make_equation_to_ast_xform(
-                append(
-                    lhs_xforms,
-                    make_component_subscript_to_ast_xform(lhs_xforms)),
-                make_tuple(make_math_to_ast_xform(
-                    global_field_to_ast_xform{}, particle_field_to_ast_xform{},
-                    neighbor_field_to_ast_xform{}))));
+            stmt, make_equation_to_ast_xform(lhs_xforms, rhs_xforms));
         node->add_child(child.release());
       });
 
@@ -371,19 +488,22 @@ private:
       auto node =
           std::make_unique<ast::if_group_type>(callee.value().group_type);
 
-      boost::hana::for_each(args, [&node](auto arg) {
+      boost::hana::for_each(args, [&node](auto stmt) {
         using boost::hana::make_tuple, boost::hana::append;
-        auto lhs_xforms = make_tuple(
+        // left-hand-side transforms
+        auto lhs_xforms_0 = make_tuple(
             global_field_to_ast_xform{}, particle_field_to_ast_xform{});
+        auto lhs_xforms = append(
+            lhs_xforms_0, make_component_subscript_to_ast_xform(lhs_xforms_0));
+        // right-hand-side transforms
+        auto rhs_xforms_0 = make_tuple(make_math_to_ast_xform(
+            global_field_to_ast_xform{}, particle_field_to_ast_xform{}));
+        auto rhs_xforms =
+            append(rhs_xforms_0, make_reduce_to_ast_xform(rhs_xforms_0));
+        // execute the transform
         auto child = boost::yap::transform_strict(
-            arg, foreach_neighbor_to_ast_xform{},
-            make_equation_to_ast_xform(
-                append(
-                    lhs_xforms,
-                    make_component_subscript_to_ast_xform(lhs_xforms)),
-                make_tuple(make_math_to_ast_xform(
-                    global_field_to_ast_xform{},
-                    particle_field_to_ast_xform{}))));
+            stmt, foreach_neighbor_to_ast_xform{},
+            make_equation_to_ast_xform(lhs_xforms, rhs_xforms));
         node->add_child(child.release());
       });
 

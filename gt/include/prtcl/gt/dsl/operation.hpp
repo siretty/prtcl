@@ -2,6 +2,8 @@
 
 #include "common.hpp"
 
+#include "field.hpp"
+
 #include <string>
 
 namespace prtcl::gt::dsl {
@@ -46,7 +48,10 @@ template <typename... Exprs_> auto min(Exprs_ &&... exprs_) {
 // =====
 
 template <typename Expr_> auto kernel(Expr_ &&expr_) {
-  return operation_expr{{"kernel"}}(std::forward<Expr_>(expr_));
+  return operation_expr{{"kernel_h"}}(
+      std::forward<Expr_>(expr_),
+      field_expr<field_kind::global>{
+          {"smoothing_scale", nd_dtype::real, nd_shape{}}});
 }
 
 template <typename DeltaExpr_, typename ScaleExpr_>
@@ -61,7 +66,10 @@ auto kernel_h(DeltaExpr_ &&delta_expr_, ScaleExpr_ &&scale_expr_) {
 // =====
 
 template <typename Expr_> auto kernel_gradient(Expr_ &&expr_) {
-  return operation_expr{{"kernel_gradient"}}(std::forward<Expr_>(expr_));
+  return operation_expr{{"kernel_gradient_h"}}(
+      std::forward<Expr_>(expr_),
+      field_expr<field_kind::global>{
+          {"smoothing_scale", nd_dtype::real, nd_shape{}}});
 }
 
 template <typename DeltaExpr_, typename ScaleExpr_>

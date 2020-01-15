@@ -1,5 +1,3 @@
-#include "prtcl/gt/nd_dtype.hpp"
-#include "prtcl/gt/nd_shape.hpp"
 #include <catch.hpp>
 
 #include <prtcl/gt/ast.hpp>
@@ -17,19 +15,22 @@ TEST_CASE("prtcl/gt/ast", "[prtcl]") {
   namespace ast = prtcl::gt::ast;
   using prtcl::gt::nd_dtype, prtcl::gt::nd_shape;
 
-  auto pr = std::make_unique<ast::procedure>("test");
+  ast::collection co{"test"};
 
-  pr->add_child(ast::foreach_particle{})([](auto *c_) {
-      c_->add_child(ast::if_group_type{"fluid"})([](auto *c_) {
-        c_->add_child(ast::foreach_neighbor{})(
-            [](auto *c_) { c_->add_child(ast::if_group_type{"fluid"}); });
-      });
-    })
-      ->add_child(ast::equation{
-          (new ast::assignment{"="})
-              ->add_child(ast::global_field{"g", nd_dtype::real, nd_shape{0}})
-              ->add_child(
-                  ast::global_field{"h", nd_dtype::real, nd_shape{0}})});
+  co.add_child(ast::procedure{"test"})([](auto *c_) {
+    c_->add_child(ast::foreach_particle{})([](auto *c_) {
+        c_->add_child(ast::if_group_type{"fluid"})([](auto *c_) {
+          c_->add_child(ast::foreach_neighbor{})(
+              [](auto *c_) { c_->add_child(ast::if_group_type{"fluid"}); });
+        });
+      })
+        ->add_child(ast::equation{
+            (new ast::assignment{"="})
+                ->add_child(ast::global_field{"g", nd_dtype::real, nd_shape{0}})
+                ->add_child(
+                    ast::global_field{"h", nd_dtype::real, nd_shape{0}})});
+  });
 
-  ast::ast_latex_printer{std::cerr}(pr.get());
+  ast::latex_printer{std::cerr}(&co);
+  ast::cpp_openmp_printer{std::cerr}(&co);
 }

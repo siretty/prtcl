@@ -1,0 +1,6 @@
+#pragma once
+
+#define PRTCL_CONCAT_IMPL(LHS_, RHS_) LHS_##RHS_              
+#define PRTCL_CONCAT(LHS_, RHS_) PRTCL_CONCAT_IMPL(LHS_, RHS_)
+
+#define PRTCL_UNIQUE_NAME(NAME_) PRTCL_CONCAT(NAME_, __LINE__)

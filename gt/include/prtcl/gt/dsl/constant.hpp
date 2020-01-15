@@ -3,10 +3,6 @@
 #include "common.hpp"
 
 #include <initializer_list>
-#include <prtcl/gt/nd_dtype.hpp>
-#include <prtcl/gt/nd_shape.hpp>
-
-#include <initializer_list>
 #include <string>
 
 namespace prtcl::gt::dsl {
@@ -29,6 +25,14 @@ inline auto zeros(std::initializer_list<size_t> shape_ = {}) {
 
 inline auto ones(std::initializer_list<size_t> shape_ = {}) {
   return constant_expr{{"ones", nd_dtype::real, shape_}};
+}
+
+inline auto positive_infinity(std::initializer_list<size_t> shape_ = {}) {
+  return constant_expr{{"positive_infinity", nd_dtype::real, shape_}};
+}
+
+inline auto negative_infinity(std::initializer_list<size_t> shape_ = {}) {
+  return constant_expr{{"negative_infinity", nd_dtype::real, shape_}};
 }
 
 inline auto identity(size_t extent_ = 0) {

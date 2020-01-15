@@ -21,6 +21,7 @@ target_sources(
     ${_INC_PC}/enumerator_name.hpp
     ${_INC_PC}/shape.hpp
     ${_INC_PC}/remove_cvref.hpp
+    ${_INC_PC}/macros.hpp
 )
 target_include_directories(
   prtcl-core

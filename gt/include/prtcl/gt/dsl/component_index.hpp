@@ -2,8 +2,6 @@
 
 #include "common.hpp"
 
-#include <prtcl/gt/nd_index.hpp>
-
 namespace prtcl::gt::dsl {
 
 struct component_index {

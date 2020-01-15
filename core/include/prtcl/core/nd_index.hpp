@@ -2,7 +2,7 @@
 
 #include <boost/container/small_vector.hpp>
 
-namespace prtcl::gt {
+namespace prtcl::core {
 
 using nd_index = boost::container::small_vector<size_t, 2>;
 

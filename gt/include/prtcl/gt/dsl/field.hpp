@@ -3,10 +3,6 @@
 #include "common.hpp"
 
 #include <initializer_list>
-#include <prtcl/gt/nd_dtype.hpp>
-#include <prtcl/gt/nd_shape.hpp>
-
-#include <initializer_list>
 #include <string>
 
 namespace prtcl::gt::dsl {
@@ -44,6 +40,21 @@ ur_field(std::string name_, std::initializer_list<size_t> shape_ = {}) {
 inline auto
 vr_field(std::string name_, std::initializer_list<size_t> shape_ = {}) {
   return field_expr<field_kind::varying>{{name_, nd_dtype::real, shape_}};
+}
+
+inline auto
+gi_field(std::string name_, std::initializer_list<size_t> shape_ = {}) {
+  return field_expr<field_kind::global>{{name_, nd_dtype::integer, shape_}};
+}
+
+inline auto
+ui_field(std::string name_, std::initializer_list<size_t> shape_ = {}) {
+  return field_expr<field_kind::uniform>{{name_, nd_dtype::integer, shape_}};
+}
+
+inline auto
+vi_field(std::string name_, std::initializer_list<size_t> shape_ = {}) {
+  return field_expr<field_kind::varying>{{name_, nd_dtype::integer, shape_}};
 }
 
 } // namespace prtcl::gt::dsl::language

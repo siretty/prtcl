@@ -33,7 +33,7 @@ target_compile_definitions( test_main
 
 add_subdirectory( core )
 add_subdirectory( gt )
-#add_subdirectory( rt )
+add_subdirectory( rt )
 
 
 
