@@ -14,28 +14,28 @@ TEST_CASE("prtcl/rt/math/vector_data_policy", "[prtcl][rt]") {
 
   using prtcl::core::nd_dtype;
 
-  typename data_policy::scheme_type scheme;
-  CHECK(0 == scheme.groups().size());
+  typename data_policy::model_type model;
+  CHECK(0 == model.groups().size());
 
   SECTION("adding globals") {
     SECTION("real scalar") {
-      auto added = scheme.add_global<nd_dtype::real>("greal");
-      CHECK(added == scheme.get_global<nd_dtype::real>("greal"));
+      auto added = model.add_global<nd_dtype::real>("greal");
+      CHECK(added == model.get_global<nd_dtype::real>("greal"));
       CHECK(nd_dtype::real == added.dtype());
       CHECK(0 == added.shape().size());
     }
 
     SECTION("real three-dim. vector") {
-      auto added = scheme.add_global<nd_dtype::real, 3>("grvec3");
-      CHECK(added == scheme.get_global<nd_dtype::real, 3>("grvec3"));
+      auto added = model.add_global<nd_dtype::real, 3>("grvec3");
+      CHECK(added == model.get_global<nd_dtype::real, 3>("grvec3"));
       CHECK(nd_dtype::real == added.dtype());
       CHECK(1 == added.shape().size());
       CHECK(3 == added.shape()[0]);
     }
 
     SECTION("real three-dim. matrix") {
-      auto added = scheme.add_global<nd_dtype::real, 3, 3>("grmat3");
-      CHECK(added == scheme.get_global<nd_dtype::real, 3, 3>("grmat3"));
+      auto added = model.add_global<nd_dtype::real, 3, 3>("grmat3");
+      CHECK(added == model.get_global<nd_dtype::real, 3, 3>("grmat3"));
       CHECK(nd_dtype::real == added.dtype());
       CHECK(2 == added.shape().size());
       CHECK(3 == added.shape()[0]);
@@ -44,12 +44,12 @@ TEST_CASE("prtcl/rt/math/vector_data_policy", "[prtcl][rt]") {
   }
 
   SECTION("adding group") {
-    auto &group = scheme.add_group("group", "fluid");
+    auto &group = model.add_group("group", "fluid");
     CHECK(0 == group.size());
     CHECK("group" == group.get_name());
     CHECK("fluid" == group.get_type());
-    CHECK(1 == scheme.groups().size());
-    CHECK(group.get_name() == scheme.groups()[0].get_name());
+    CHECK(1 == model.groups().size());
+    CHECK(group.get_name() == model.groups()[0].get_name());
 
     SECTION("adding uniforms") {
       SECTION("real scalar") {

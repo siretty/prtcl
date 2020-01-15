@@ -210,7 +210,7 @@ public:
     std::unordered_map<std::string, std::unique_ptr<nd_data_base>> _varying;
   };
 
-  class scheme_type {
+  class model_type {
   public:
     auto &add_group(std::string_view name_, std::string_view type_) {
       size_t index = _groups.size();

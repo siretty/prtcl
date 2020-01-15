@@ -654,11 +654,31 @@ public:
 
     auto flat = flattened(node_);
 
-    for (auto eq : flat | as_ptr_range<equation>() | no_nullptr()) {
-      auto math_flat = flattened(eq->math());
-      for (auto gf : math_flat | as_ptr_range<global_field>() | no_nullptr()) {
+    auto find_global = [this](auto &&range_) {
+      for (auto gf : std::forward<decltype(range_)>(range_)) {
         add_global(gf->name(), gf->dtype(), make_nd_shape(gf->shape()));
       }
+    };
+
+    auto find_subscript = [this](auto group_type_, auto &&range_) {
+      for (auto ss : std::forward<decltype(range_)>(range_)) {
+        if (auto uf = ss->children()[0]->template as_ptr<uniform_field>())
+          add_uniform(
+              group_type_, uf->name(), uf->dtype(), make_nd_shape(uf->shape()));
+        if (auto vf = ss->children()[0]->template as_ptr<varying_field>())
+          add_varying(
+              group_type_, vf->name(), vf->dtype(), make_nd_shape(vf->shape()));
+      }
+    };
+
+    for (auto eq : flat | as_ptr_range<equation>() | no_nullptr()) {
+      auto math_flat = flattened(eq->math());
+      find_global(math_flat | as_ptr_range<global_field>() | no_nullptr());
+    }
+
+    for (auto rd : flat | as_ptr_range<reduction>() | no_nullptr()) {
+      auto math_flat = flattened(rd->math());
+      find_global(math_flat | as_ptr_range<global_field>() | no_nullptr());
     }
 
     for (auto fp : flat | as_ptr_range<foreach_particle>() | no_nullptr()) {
@@ -667,17 +687,15 @@ public:
         auto gt_flat = flattened(gt);
         for (auto eq : gt_flat | as_ptr_range<equation>() | no_nullptr()) {
           auto math_flat = flattened(eq->math());
-          for (auto ps :
-               math_flat | as_ptr_range<particle_subscript>() | no_nullptr()) {
-            if (auto uf = ps->children()[0]->as_ptr<uniform_field>())
-              add_uniform(
-                  gt->group_type(), uf->name(), uf->dtype(),
-                  make_nd_shape(uf->shape()));
-            if (auto vf = ps->children()[0]->as_ptr<varying_field>())
-              add_varying(
-                  gt->group_type(), vf->name(), vf->dtype(),
-                  make_nd_shape(vf->shape()));
-          }
+          find_subscript(
+              gt->group_type(),
+              math_flat | as_ptr_range<particle_subscript>() | no_nullptr());
+        }
+        for (auto rd : gt_flat | as_ptr_range<reduction>() | no_nullptr()) {
+          auto math_flat = flattened(rd->math());
+          find_subscript(
+              gt->group_type(),
+              math_flat | as_ptr_range<particle_subscript>() | no_nullptr());
         }
       }
     }
@@ -688,17 +706,15 @@ public:
         auto gt_flat = flattened(gt);
         for (auto eq : gt_flat | as_ptr_range<equation>() | no_nullptr()) {
           auto math_flat = flattened(eq->math());
-          for (auto ns :
-               math_flat | as_ptr_range<neighbor_subscript>() | no_nullptr()) {
-            if (auto uf = ns->children()[0]->as_ptr<uniform_field>())
-              add_uniform(
-                  gt->group_type(), uf->name(), uf->dtype(),
-                  make_nd_shape(uf->shape()));
-            if (auto vf = ns->children()[0]->as_ptr<varying_field>())
-              add_varying(
-                  gt->group_type(), vf->name(), vf->dtype(),
-                  make_nd_shape(vf->shape()));
-          }
+          find_subscript(
+              gt->group_type(),
+              math_flat | as_ptr_range<neighbor_subscript>() | no_nullptr());
+        }
+        for (auto rd : gt_flat | as_ptr_range<reduction>() | no_nullptr()) {
+          auto math_flat = flattened(rd->math());
+          find_subscript(
+              gt->group_type(),
+              math_flat | as_ptr_range<neighbor_subscript>() | no_nullptr());
         }
       }
     }
@@ -729,7 +745,7 @@ private:
   group_type_fields_map _uniform;
   group_type_fields_map _varying;
   // }}}
-};
+}; // namespace prtcl::gt::ast
 
 struct reduction_requirements {
   // {{{
@@ -1169,7 +1185,8 @@ public:
       PRTCL_INDENT_RAII;
       *this << "typename TypePolicy_," << nl;
       *this << "template <typename> typename MathPolicy_," << nl;
-      *this << "template <typename> typename DataPolicy_" << nl;
+      *this << "template <typename> typename DataPolicy_," << nl;
+      *this << "size_t Dimensionality_" << nl;
     }
     *this << ">" << nl;
     *this << "struct " << node_->name() << " {" << nl;
@@ -1181,14 +1198,23 @@ public:
       *this << "using math_policy = MathPolicy_<TypePolicy_>;" << nl;
       *this << "using data_policy = DataPolicy_<MathPolicy_>;" << nl;
       *this << nl;
-      // {{{ type aliases
       *this << "template <nd_dtype DType_> using dtype_t = typename "
                "type_policy::template dtype_t<DType_>;"
             << nl;
+      *this << "template <nd_dtype DType_, size_t ...Ns_> using nd_dtype_t = "
+               "typename math_policy::template nd_dtype_t<DType_, Ns_...>;"
+            << nl;
+      *this << "template <nd_dtype DType_, size_t ...Ns_> using "
+               "nd_dtype_data_ref_t = typename math_policy::template "
+               "nd_dtype_data_ref_t<DType_, Ns_...>;"
+            << nl;
       *this << nl;
-      *this << "using scheme_type = typename data_policy::scheme_type;" << nl;
+      *this << "static constexpr size_t N = Dimensionality_;" << nl;
+      *this << nl;
+      *this << "using model_type = typename data_policy::model_type;" << nl;
       *this << "using group_type = typename data_policy::group_type;" << nl;
       *this << nl;
+      // {{{ type aliases
       *this << "template <size_t ...Ns_> using " << nd_type(nd_dtype::real)
             << " = typename "
                "math_policy::nd_real_t<Ns...>;"
@@ -1218,8 +1244,6 @@ public:
             << " = "
                "typename data_policy::nd_boolean_data_ref_t<Ns...>;"
             << nl;
-      *this << nl;
-      *this << "static constexpr size_t N = math_policy::dimensionality;" << nl;
       // }}}
 
       *this << nl;
@@ -1229,17 +1253,18 @@ public:
       { // {{{
         PRTCL_INDENT_RAII;
         for (auto const &gf : reqs.global_fields()) {
-          *this << nd_data_ref_type(gf.dtype) << "<"
-                << shape_to_string(gf.shape) << "> " << gf.name << ";" << nl;
+          *this << "nd_dtype_data_ref_t<"
+                << nd_template_args(gf.dtype, gf.shape) << "> " << gf.name
+                << ";" << nl;
         }
 
         *this << nl;
 
-        *this << "static void _require(scheme_type &s_) {" << nl;
+        *this << "static void _require(model_type &m_) {" << nl;
         { // {{{
           PRTCL_INDENT_RAII;
           for (auto const &gf : reqs.global_fields()) {
-            *this << "s_.add_global<" << nd_template_args(gf.dtype, gf.shape)
+            *this << "m_.add_global<" << nd_template_args(gf.dtype, gf.shape)
                   << ">(\"" << gf.name << "\");" << nl;
           }
         } // }}}
@@ -1247,12 +1272,12 @@ public:
 
         *this << nl;
 
-        *this << "void _load(scheme_type const &s_) {" << nl;
+        *this << "void _load(model_type const &m_) {" << nl;
         { // {{{
           PRTCL_INDENT_RAII;
           for (auto const &gf : reqs.global_fields()) {
             *this << gf.name << " = "
-                  << "s_.get_global<" << nd_template_args(gf.dtype, gf.shape)
+                  << "m_.get_global<" << nd_template_args(gf.dtype, gf.shape)
                   << ">(\"" << gf.name << "\");" << nl;
           }
         } // }}}
@@ -1316,18 +1341,16 @@ public:
             *this << "// uniform fields" << nl;
             for (auto const &uf : reqs.uniform_fields(group_type)) {
               *this << uf.name << " = "
-                    << "g_.get_uniform<" << dtype_to_string(uf.dtype) << ", "
-                    << shape_to_string(uf.shape) << ">(\"" << uf.name << "\");"
-                    << nl;
+                    << "g_.get_uniform<" << nd_template_args(uf.dtype, uf.shape)
+                    << ">(\"" << uf.name << "\");" << nl;
             }
 
             *this << nl;
             *this << "// varying fields" << nl;
             for (auto const &vf : reqs.varying_fields(group_type)) {
               *this << vf.name << " = "
-                    << "g_.get_varying<" << dtype_to_string(vf.dtype) << ", "
-                    << shape_to_string(vf.shape) << ">(\"" << vf.name << "\");"
-                    << nl;
+                    << "g_.get_varying<" << nd_template_args(vf.dtype, vf.shape)
+                    << ">(\"" << vf.name << "\");" << nl;
             }
           } // }}}
           *this << "}" << nl;
@@ -1337,20 +1360,19 @@ public:
       }
 
       cpp_access_modifier("public");
-      *this << "static void require(scheme_type &s_) {" << nl;
+      *this << "static void require(model_type &m_) {" << nl;
       { // {{{
         PRTCL_INDENT_RAII;
-        *this << "_data.global._require(s_);" << nl;
+        *this << "_data.global._require(m_);" << nl;
         *this << nl;
-        *this << "for (auto &group : s_.groups()) {" << nl;
+        *this << "for (auto &group : m_.groups()) {" << nl;
         {
           for (auto const &group_type : reqs.group_types()) {
             PRTCL_INDENT_RAII;
             *this << "if (group.get_type() == \"" << group_type << "\")" << nl;
             {
               PRTCL_INDENT_RAII;
-              *this << "" << group_type << "_group_data::_require(group);"
-                    << nl;
+              *this << group_type << "_group_data::_require(group);" << nl;
             }
           }
         }
@@ -1361,14 +1383,14 @@ public:
       *this << nl;
 
       cpp_access_modifier("public");
-      *this << "void load(scheme_type &s_) {" << nl;
+      *this << "void load(model_type &m_) {" << nl;
       { // {{{
         PRTCL_INDENT_RAII;
-        *this << "_group_count = s_.get_group_count();" << nl;
+        *this << "_group_count = m_.get_group_count();" << nl;
         *this << nl;
-        *this << "_global.load(s_);" << nl;
+        *this << "_global.load(m_);" << nl;
         *this << nl;
-        *this << "for (auto [i, n, group] : s_.enumerate_groups()) {" << nl;
+        *this << "for (auto [i, n, group] : m_.enumerate_groups()) {" << nl;
         for (auto const &group_type : reqs.group_types()) {
           PRTCL_INDENT_RAII;
           *this << "if (group.get_type() == \"" << group_type << "\") {" << nl;

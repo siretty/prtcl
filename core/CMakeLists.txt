@@ -22,6 +22,8 @@ target_sources(
     ${_INC_PC}/shape.hpp
     ${_INC_PC}/remove_cvref.hpp
     ${_INC_PC}/macros.hpp
+    ${_INC_PC}/constpow.hpp
+    ${_INC_PC}/morton_order.hpp
 )
 target_include_directories(
   prtcl-core
