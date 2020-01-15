@@ -19,15 +19,15 @@ DE_Add_Catch2_Test(
   # allow tests to be profiled with tracy
   #${tracy_INLCUDE_DIR}/TracyClient.cpp
 
-  ${_PRJ}/tests/prtcl/gt/field_kind.cpp
-  ${_PRJ}/tests/prtcl/gt/field_type.cpp
-  ${_PRJ}/tests/prtcl/gt/field.cpp
+  #${_PRJ}/tests/prtcl/gt/field_kind.cpp
+  #${_PRJ}/tests/prtcl/gt/field_type.cpp
+  #${_PRJ}/tests/prtcl/gt/field.cpp
 
-  ${_PRJ}/tests/prtcl/gt/function.cpp
+  #${_PRJ}/tests/prtcl/gt/function.cpp
 
-  ${_PRJ}/tests/prtcl/gt/constant.cpp
+  #${_PRJ}/tests/prtcl/gt/constant.cpp
 
-  ${_PRJ}/tests/prtcl/gt/field_requirements.cpp
+  #${_PRJ}/tests/prtcl/gt/field_requirements.cpp
 
   ${_PRJ}/tests/prtcl/gt/ast.cpp
 
