@@ -651,7 +651,7 @@ public:
 public:
   void load(ast_node_base *node_) {
     // TODO: this implementation is inefficient (multiple traversals, ...)
-
+    // {{{
     auto flat = flattened(node_);
 
     auto find_global = [this](auto &&range_) {
@@ -718,6 +718,7 @@ public:
         }
       }
     }
+    // }}}
   }
 
 private:
@@ -745,7 +746,7 @@ private:
   group_type_fields_map _uniform;
   group_type_fields_map _varying;
   // }}}
-}; // namespace prtcl::gt::ast
+};
 
 struct reduction_requirements {
   // {{{
@@ -1180,23 +1181,35 @@ public:
     reduction_requirements rd_reqs;
     rd_reqs.load(node_);
 
+    *this << "#pragma once" << nl;
+    *this << nl;
+    *this << "#include <prtcl/rt/common.hpp>" << nl;
+    *this << "#include <prtcl/rt/basic_model.hpp>" << nl;
+    *this << "#include <prtcl/rt/basic_group.hpp>" << nl;
+    *this << nl;
+    *this << "#include <vector>" << nl;
+    *this << nl;
+    *this << "#include <omp.h>" << nl;
+    *this << nl;
+    *this << "namespace prtcl::schemes {" << nl;
+    *this << nl;
     *this << "template <" << nl;
     {
       PRTCL_INDENT_RAII;
-      *this << "typename TypePolicy_," << nl;
-      *this << "template <typename> typename MathPolicy_," << nl;
-      *this << "template <typename> typename DataPolicy_," << nl;
-      *this << "size_t Dimensionality_" << nl;
+      *this << "typename ModelPolicy_" << nl;
     }
     *this << ">" << nl;
-    *this << "struct " << node_->name() << " {" << nl;
+    *this << "class " << node_->name() << " {" << nl;
     {
       PRTCL_INDENT_RAII;
 
       cpp_access_modifier("public");
-      *this << "using type_policy = TypePolicy_;" << nl;
-      *this << "using math_policy = MathPolicy_<TypePolicy_>;" << nl;
-      *this << "using data_policy = DataPolicy_<MathPolicy_>;" << nl;
+      *this << "using model_policy = ModelPolicy_;" << nl;
+      *this << "using type_policy = typename model_policy::type_policy;" << nl;
+      *this << "using math_policy = typename model_policy::math_policy;" << nl;
+      *this << "using data_policy = typename model_policy::data_policy;" << nl;
+      *this << nl;
+      *this << "using nd_dtype = prtcl::rt::nd_dtype;" << nl;
       *this << nl;
       *this << "template <nd_dtype DType_> using dtype_t = typename "
                "type_policy::template dtype_t<DType_>;"
@@ -1205,47 +1218,14 @@ public:
                "typename math_policy::template nd_dtype_t<DType_, Ns_...>;"
             << nl;
       *this << "template <nd_dtype DType_, size_t ...Ns_> using "
-               "nd_dtype_data_ref_t = typename math_policy::template "
+               "nd_dtype_data_ref_t = typename data_policy::template "
                "nd_dtype_data_ref_t<DType_, Ns_...>;"
             << nl;
       *this << nl;
-      *this << "static constexpr size_t N = Dimensionality_;" << nl;
+      *this << "static constexpr size_t N = model_policy::dimensionality;" << nl;
       *this << nl;
-      *this << "using model_type = typename data_policy::model_type;" << nl;
-      *this << "using group_type = typename data_policy::group_type;" << nl;
-      *this << nl;
-      // {{{ type aliases
-      *this << "template <size_t ...Ns_> using " << nd_type(nd_dtype::real)
-            << " = typename "
-               "math_policy::nd_real_t<Ns...>;"
-            << nl;
-      *this << "template <size_t ...Ns_> using "
-            << nd_data_ref_type(nd_dtype::real)
-            << " = "
-               "typename data_policy::nd_real_data_ref_t<Ns...>;"
-            << nl;
-      *this << nl;
-      *this << "template <size_t ...Ns_> using " << nd_type(nd_dtype::integer)
-            << " = typename "
-               "math_policy::nd_integer_t<Ns...>;"
-            << nl;
-      *this << "template <size_t ...Ns_> using "
-            << nd_data_ref_type(nd_dtype::integer)
-            << " = "
-               "typename data_policy::nd_integer_data_ref_t<Ns...>;"
-            << nl;
-      *this << nl;
-      *this << "template <size_t ...Ns_> using " << nd_type(nd_dtype::boolean)
-            << " = typename "
-               "math_policy::nd_boolean_t<Ns...>;"
-            << nl;
-      *this << "template <size_t ...Ns_> using "
-            << nd_data_ref_type(nd_dtype::boolean)
-            << " = "
-               "typename data_policy::nd_boolean_data_ref_t<Ns...>;"
-            << nl;
-      // }}}
-
+      *this << "using model_type = prtcl::rt::basic_model<model_policy>;" << nl;
+      *this << "using group_type = prtcl::rt::basic_group<model_policy>;" << nl;
       *this << nl;
 
       cpp_access_modifier("private");
@@ -1264,8 +1244,9 @@ public:
         { // {{{
           PRTCL_INDENT_RAII;
           for (auto const &gf : reqs.global_fields()) {
-            *this << "m_.add_global<" << nd_template_args(gf.dtype, gf.shape)
-                  << ">(\"" << gf.name << "\");" << nl;
+            *this << "m_.template add_global<"
+                  << nd_template_args(gf.dtype, gf.shape) << ">(\"" << gf.name
+                  << "\");" << nl;
           }
         } // }}}
         *this << "}" << nl;
@@ -1277,8 +1258,9 @@ public:
           PRTCL_INDENT_RAII;
           for (auto const &gf : reqs.global_fields()) {
             *this << gf.name << " = "
-                  << "m_.get_global<" << nd_template_args(gf.dtype, gf.shape)
-                  << ">(\"" << gf.name << "\");" << nl;
+                  << "m_.template get_global<"
+                  << nd_template_args(gf.dtype, gf.shape) << ">(\"" << gf.name
+                  << "\");" << nl;
           }
         } // }}}
         *this << "}" << nl;
@@ -1299,15 +1281,17 @@ public:
           *this << nl;
           *this << "// uniform fields" << nl;
           for (auto const &uf : reqs.uniform_fields(group_type)) {
-            *this << nd_data_ref_type(uf.dtype) << "<"
-                  << shape_to_string(uf.shape) << "> " << uf.name << ";" << nl;
+            *this << "nd_dtype_data_ref_t<"
+                  << nd_template_args(uf.dtype, uf.shape) << "> " << uf.name
+                  << ";" << nl;
           }
 
           *this << nl;
           *this << "// varying fields" << nl;
           for (auto const &vf : reqs.varying_fields(group_type)) {
-            *this << nd_data_ref_type(vf.dtype) << "<"
-                  << shape_to_string(vf.shape) << "> " << vf.name << ";" << nl;
+            *this << "nd_dtype_data_ref_t<"
+                  << nd_template_args(vf.dtype, vf.shape) << "> " << vf.name
+                  << ";" << nl;
           }
 
           *this << nl;
@@ -1317,15 +1301,17 @@ public:
 
             *this << "// uniform fields" << nl;
             for (auto const &uf : reqs.uniform_fields(group_type)) {
-              *this << "g_.add_uniform<" << nd_template_args(uf.dtype, uf.shape)
-                    << ">(\"" << uf.name << "\");" << nl;
+              *this << "g_.template add_uniform<"
+                    << nd_template_args(uf.dtype, uf.shape) << ">(\"" << uf.name
+                    << "\");" << nl;
             }
 
             *this << nl;
             *this << "// varying fields" << nl;
             for (auto const &vf : reqs.varying_fields(group_type)) {
-              *this << "g_.add_varying<" << nd_template_args(vf.dtype, vf.shape)
-                    << ">(\"" << vf.name << "\");" << nl;
+              *this << "g_.template add_varying<"
+                    << nd_template_args(vf.dtype, vf.shape) << ">(\"" << vf.name
+                    << "\");" << nl;
             }
           } // }}}
           *this << "}" << nl;
@@ -1363,7 +1349,7 @@ public:
       *this << "static void require(model_type &m_) {" << nl;
       { // {{{
         PRTCL_INDENT_RAII;
-        *this << "_data.global._require(m_);" << nl;
+        *this << "global_data::_require(m_);" << nl;
         *this << nl;
         *this << "for (auto &group : m_.groups()) {" << nl;
         {
@@ -1386,22 +1372,30 @@ public:
       *this << "void load(model_type &m_) {" << nl;
       { // {{{
         PRTCL_INDENT_RAII;
-        *this << "_group_count = m_.get_group_count();" << nl;
+        *this << "_group_count = m_.groups().size();" << nl;
         *this << nl;
-        *this << "_global.load(m_);" << nl;
+        *this << "_data.global._load(m_);" << nl;
         *this << nl;
-        *this << "for (auto [i, n, group] : m_.enumerate_groups()) {" << nl;
-        for (auto const &group_type : reqs.group_types()) {
+        *this << "auto groups = m_.groups();" << nl;
+        *this << "for (size_t i = 0; i < groups.size(); ++i) {" << nl;
+        {
           PRTCL_INDENT_RAII;
-          *this << "if (group.get_type() == \"" << group_type << "\") {" << nl;
-          {
-            PRTCL_INDENT_RAII;
-            *this << "auto &data = _data.by_group_type." << group_type
-                  << ".emplace_back();" << nl;
-            *this << "data.load(group);" << nl;
-            *this << "data._index = i;" << nl;
+          *this << "auto &group = groups[static_cast<typename "
+                   "decltype(groups)::difference_type>(i)];"
+                << nl;
+          for (auto const &group_type : reqs.group_types()) {
+            *this << nl;
+            *this << "if (group.get_type() == \"" << group_type << "\") {"
+                  << nl;
+            {
+              PRTCL_INDENT_RAII;
+              *this << "auto &data = _data.by_group_type." << group_type
+                    << ".emplace_back();" << nl;
+              *this << "data._load(group);" << nl;
+              *this << "data._index = i;" << nl;
+            }
+            *this << "}" << nl;
           }
-          *this << "}" << nl;
         }
         *this << "}" << nl;
       } // }}}
@@ -1434,9 +1428,9 @@ public:
         *this << nl;
         *this << "// reductions" << nl;
         for (auto rd : rd_reqs.global()) {
-          *this << "std::vector<" << nd_type(rd.dtype) << "<"
-                << shape_to_string(rd.shape) << ">"
-                << "> rd_" << rd.name << ";" << nl;
+          *this << "std::vector<nd_dtype_t<"
+                << nd_template_args(rd.dtype, rd.shape) << ">> "
+                << "rd_" << rd.name << ";" << nl;
         }
       } // }}}
       *this << "} _per_thread;" << nl;
@@ -1460,6 +1454,8 @@ public:
       }
     }
     *this << "};" << nl;
+    *this << nl;
+    *this << "} // namespace prtcl::schemes" << nl;
     // }}}
   }
 
@@ -1467,12 +1463,12 @@ public:
     // {{{
     cpp_access_modifier("public");
     *this << "template <typename NHood_>" << nl;
-    *this << "void " << node_->name() << "(NHood const &nhood_) {" << nl;
+    *this << "void " << node_->name() << "(NHood_ const &nhood_) {" << nl;
     {
       PRTCL_INDENT_RAII;
 
       *this << "// alias for the global data" << nl;
-      *this << "auto &g = _data._global;" << nl;
+      *this << "auto &g = _data.global;" << nl;
       *this << nl;
 
       *this << "// alias for the math_policy member (types)" << nl;
@@ -1582,6 +1578,7 @@ public:
       }
 
       if (has_reduction_offspring) {
+        *this << nl;
         *this << "// combine global reductions" << nl;
         *this << "#pragma omp critical" << nl;
         *this << "{" << nl;
@@ -1650,7 +1647,7 @@ public:
       _cur_p = node_->group_type();
       group_name = "p";
       index_name = "i";
-      index_bound = "p.size()";
+      index_bound = "p._count";
     } else if (not _cur_n) {
       _cur_n = node_->group_type();
       group_name = "n";
@@ -1820,7 +1817,7 @@ public:
     else if ("neighbor_count" == node_->name())
       *this << "n._count";
     else
-      *this << "c::" << node_->name() << "<"
+      *this << "c::template " << node_->name() << "<"
             << nd_template_args(node_->dtype(), node_->shape()) << ">()";
     // }}}
   }
@@ -1921,13 +1918,13 @@ private:
     using boost::hana::in, boost::hana::make_tuple;
     auto nd_args = nd_template_args(dtype_, std::forward<Shape_>(shape_));
     if (op_ ^ in ^ make_tuple("+", "-"))
-      return "c::zeros<" + nd_args + ">()";
+      return "c::template zeros<" + nd_args + ">()";
     if (op_ ^ in ^ make_tuple("*", "/"))
-      return "c::ones<" + nd_args + ">()";
+      return "c::template ones<" + nd_args + ">()";
     if (op_ == "max")
-      return "c::negative_infinity<" + nd_args + ">()";
+      return "c::template negative_infinity<" + nd_args + ">()";
     if (op_ == "min")
-      return "c::positive_infinity<" + nd_args + ">()";
+      return "c::template positive_infinity<" + nd_args + ">()";
     else
       throw std::runtime_error("invalid reduction op");
   }
@@ -1978,7 +1975,7 @@ public:
 private:
   std::optional<std::string> _cur_p = std::nullopt;
   std::optional<std::string> _cur_n = std::nullopt;
-}; // namespace prtcl::gt::ast
+};
 
 // =====
 

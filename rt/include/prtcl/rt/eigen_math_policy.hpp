@@ -100,7 +100,7 @@ public:
     }
 
     template <typename Arg_> static decltype(auto) norm_squared(Arg_ &&arg_) {
-      return std::forward<Arg_>(arg_).normSquared();
+      return std::forward<Arg_>(arg_).squaredNorm();
     }
 
     template <typename Arg_> static decltype(auto) normalized(Arg_ &&arg_) {

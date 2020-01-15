@@ -16,6 +16,30 @@ set( _SRC ${CMAKE_CURRENT_SOURCE_DIR}/sources )
 find_package( Eigen3 REQUIRED )
 
 
+add_library( prtcl-rt INTERFACE )
+target_sources(
+  prtcl-rt
+  INTERFACE
+    ${_INC}/prtcl/rt/common.hpp
+
+    ${_INC}/prtcl/rt/nd_data_base.hpp
+    ${_INC}/prtcl/rt/grouped_uniform_grid.hpp
+
+    ${_INC}/prtcl/rt/basic_type_policy.hpp
+    ${_INC}/prtcl/rt/eigen_math_policy.hpp
+    ${_INC}/prtcl/rt/vector_data_policy.hpp
+)
+target_include_directories(
+  prtcl-rt
+  INTERFACE 
+    ${_INC}
+)
+target_link_libraries(
+  prtcl-rt
+  INTERFACE prtcl-core
+)
+
+
 DE_Add_Catch2_Test(
   prtcl-rt-tests test_main
 

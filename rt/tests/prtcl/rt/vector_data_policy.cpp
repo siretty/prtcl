@@ -1,5 +1,7 @@
 #include <catch.hpp>
 
+#include <prtcl/rt/basic_model.hpp>
+#include <prtcl/rt/basic_model_policy.hpp>
 #include <prtcl/rt/basic_type_policy.hpp>
 #include <prtcl/rt/eigen_math_policy.hpp>
 #include <prtcl/rt/vector_data_policy.hpp>
@@ -8,13 +10,13 @@
 #include <type_traits>
 
 TEST_CASE("prtcl/rt/math/vector_data_policy", "[prtcl][rt]") {
-  using type_policy = prtcl::rt::fib_type_policy;
-  using math_policy = prtcl::rt::eigen_math_policy<type_policy>;
-  using data_policy = prtcl::rt::vector_data_policy<math_policy>;
+  using model_policy = prtcl::rt::basic_model_policy<
+      prtcl::rt::fib_type_policy, prtcl::rt::eigen_math_policy,
+      prtcl::rt::vector_data_policy, 3>;
 
   using prtcl::core::nd_dtype;
 
-  typename data_policy::model_type model;
+  prtcl::rt::basic_model<model_policy> model;
   CHECK(0 == model.groups().size());
 
   SECTION("adding globals") {

@@ -245,7 +245,7 @@ template <typename FieldXForms_> struct math_to_ast_xform {
       typename = std::enable_if_t<std::is_integral<Value_>::value>,
       typename = void>
   auto operator()(dsl::term_expr<Value_> term_) const {
-    if (std::is_same<Value_, bool>::value)
+    if constexpr (std::is_same<Value_, bool>::value)
       return (*this)(dsl::language::blit(term_.value()));
     else
       return (*this)(dsl::language::ilit(term_.value()));

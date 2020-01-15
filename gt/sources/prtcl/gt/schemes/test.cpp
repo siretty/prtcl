@@ -24,5 +24,25 @@ int main(int, char **) {
                    )
                    .release());
 
+  auto gnc = gi_field("global_neighbor_count", {});
+
+  co.add_child(prtcl::gt::dsl_to_ast(               //
+                   procedure(                       //
+                       "test_counting_neighbors",   //
+                       foreach_particle(            //
+                           if_group_type(           //
+                               "particles",         //
+                               foreach_neighbor(    //
+                                   if_group_type(   //
+                                       "neighbors", //
+                                       gnc += 1     //
+                                       )            //
+                                   )                //
+                               )                    //
+                           )                        //
+                       )                            //
+                   )
+                   .release());
+
   prtcl::gt::ast::cpp_openmp_printer{std::cout}(&co);
 }

@@ -71,19 +71,23 @@ constexpr auto sparse_adjacent_cell_offsets_v =
 // }}}
 
 template <
-    typename MathPolicy_, size_t Dimensionality_,
+    typename ModelPolicy_,
     size_t GroupBits_ = 4, //< The number of bits of group indices.
     size_t IndexBits_ = 28 //< The number of bits of particle indices.
     >
 class grouped_uniform_grid {
-  static constexpr size_t N = Dimensionality_;
+public:
+  using model_policy = ModelPolicy_;
+  using type_policy = typename model_policy::type_policy;
+  using math_policy = typename model_policy::math_policy;
+
+private:
+  static constexpr size_t N = model_policy::dimensionality;
 
   static_assert(1 <= N && N <= 3);
 
-  using math_policy = MathPolicy_;
-
 public:
-  using real = typename math_policy::template dtype_t<nd_dtype::real>;
+  using real = typename type_policy::template dtype_t<nd_dtype::real>;
 
 private:
   // implementation member types {{{
@@ -187,7 +191,7 @@ private:
     boost::sort::block_indirect_sort(
         sorted_to_raw_.begin(), sorted_to_raw_.end(),
         [this, &x](auto i_gr, auto j_gr) {
-          return this->compate_raw_indices(x, i_gr, j_gr);
+          return this->compare_raw_indices(x, i_gr, j_gr);
           // return morton_order(this->compute_grid_index(x, i_gr),
           //                    this->compute_grid_index(x, j_gr));
         });
@@ -317,9 +321,9 @@ private:
           cell_to_adjacent_cells_[n_c][sparse_offset_index] = j_c;
 
           // update the adjacent cells of j_c
-          cell_to_adjacent_cells_[static_cast<size_t>(j_c)]
-                                 [constpow(3, N) - 2 - sparse_offset_index] =
-                                     static_cast<cell_index>(n_c);
+          cell_to_adjacent_cells_[static_cast<size_t>(
+              j_c)][core::constpow(3, N) - 2 - sparse_offset_index] =
+              static_cast<cell_index>(n_c);
         }
       }
     }
@@ -338,7 +342,7 @@ private:
     auto const last = cell_to_grid_.end();
     auto const it =
         std::lower_bound(first, last, gi, [](auto const &lhs, auto const &rhs) {
-          return morton_order(lhs, rhs);
+          return core::morton_order(lhs, rhs);
         });
 
     if (it == last || *it != gi)
@@ -350,21 +354,12 @@ private:
   // }}}
 
   template <typename GroupedVectorData>
-  PRTCL_INLINE bool compate_raw_indices(
+  PRTCL_INLINE bool compare_raw_indices(
       GroupedVectorData const &x, raw_grouped_index const &lhs,
       raw_grouped_index const &rhs) {
     auto lhs_gi = this->compute_grid_index(x, lhs);
     auto rhs_gi = this->compute_grid_index(x, rhs);
-    return morton_order(lhs_gi, rhs_gi);
-    // if (morton_order(lhs_gi, rhs_gi))
-    //  return true;
-    // if (lhs_gi == rhs_gi) {
-    //  // if (lhs.get_group() == rhs.get_group()) {
-    //  //  return lhs.get_index() < rhs.get_index();
-    //  //}
-    //  return lhs.get_group() < rhs.get_group();
-    //}
-    // return false;
+    return core::morton_order(lhs_gi, rhs_gi);
   }
 
   // }}}
@@ -413,18 +408,18 @@ public:
   // }}}
 
 public:
-  // neighbours(group, index, x, fn) {{{
+  // neighbors(group, index, x, fn) {{{
 
   template <typename GroupedVectorData, typename Fn>
-  void neighbours(
+  void neighbors(
       size_t group, size_t index, GroupedVectorData const &x, Fn fn) const {
     PRTCL_ASSERT(N == get_vector_extent(x));
 
-    real radius_squared = constpow(radius_, 2);
-    potential_neighbours(
+    real radius_squared = core::constpow(radius_, 2);
+    potential_neighbors(
         group, index,
         [group, index, radius_squared, &fn, &x](raw_grouped_index const &i_gr) {
-          auto const distance = math_traits::norm_squared(
+          auto const distance = math_policy::operations::norm_squared(
               get_element_ref(get_group_ref(x, group), index) -
               get_element_ref(
                   get_group_ref(x, i_gr.get_group()), i_gr.get_index()));
@@ -437,10 +432,10 @@ public:
   // }}}
 
 public:
-  // potential_neighbours(group, index, fn) {{{
+  // potential_neighbors(group, index, fn) {{{
 
   template <typename Fn>
-  void potential_neighbours(size_t group, size_t index, Fn fn) const {
+  void potential_neighbors(size_t group, size_t index, Fn fn) const {
     PRTCL_ASSERT(group < max_raw_group);
     PRTCL_ASSERT(index < max_raw_index);
 
@@ -526,7 +521,8 @@ private:
     return cell_to_adjacent_cells_[static_cast<size_t>(i_c)];
   }
 
-  std::vector<std::array<cell_index, constpow(3, N) - 1>>
+  std::vector<
+      std::array<cell_index, static_cast<size_t>(core::constpow(3, N) - 1)>>
       cell_to_adjacent_cells_;
 
   // }}}
@@ -565,7 +561,7 @@ private:
 
 private:
   real radius_;
-}; // namespace sphxx
+};
 
 } // namespace prtcl::rt
 
