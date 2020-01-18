@@ -510,10 +510,6 @@ public:
       nd_shape shape_) {
     std::string gt{group_type_};
     add_group_type(group_type_);
-    std::cerr << "GROUP_TYPE " << group_type_ << " UNIFORM " << name_ << " #"
-              << _uniform[gt].size() << " " << &_uniform << '\n';
-    //_uniform.left.insert(
-    //    {std::string{group_type_}, field_descr{name_, dtype_, shape_}});
     _uniform[std::string(group_type_)].emplace(name_, dtype_, shape_);
   }
 
@@ -522,10 +518,6 @@ public:
       nd_shape shape_) {
     std::string gt{group_type_};
     add_group_type(group_type_);
-    std::cerr << "GROUP_TYPE " << group_type_ << " VARYING " << name_ << " #"
-              << _varying[gt].size() << " " << &_varying << '\n';
-    //_varying.left.insert(
-    //    {std::string{group_type_}, field_descr{name_, dtype_, shape_}});
     _varying[std::string(group_type_)].emplace(name_, dtype_, shape_);
   }
 
@@ -543,13 +535,6 @@ public:
       return boost::make_iterator_range(it->second);
     else
       return result_type{};
-    // return _uniform.left |
-    //       boost::adaptors::filtered(
-    //           [t_](auto const &kv_) -> bool { return t_ == kv_.first; }) |
-    //       boost::adaptors::map_values;
-    // return boost::make_iterator_range(
-    //           _uniform.left.lower_bound(t_), _uniform.left.upper_bound(t_)) |
-    //       boost::adaptors::map_values;
   }
 
   auto varying_fields(std::string t_) const {
@@ -559,13 +544,6 @@ public:
       return boost::make_iterator_range(it->second);
     else
       return result_type{};
-    // return _varying.left |
-    //       boost::adaptors::filtered(
-    //           [t_](auto const &kv_) -> bool { return t_ == kv_.first; }) |
-    //       boost::adaptors::map_values;
-    // return boost::make_iterator_range(
-    //           _varying.left.lower_bound(t_), _varying.left.upper_bound(t_)) |
-    //       boost::adaptors::map_values;
   }
 
   auto group_types() const { return boost::make_iterator_range(_group_types); }
@@ -1589,11 +1567,14 @@ public:
     {
       PRTCL_INDENT_RAII;
 
-      if (_cur_p and not _cur_n)
+      if (_cur_p and not _cur_n) {
         *this << "#pragma omp for" << nl;
+        *this << "for (size_t i = 0; i < p._count; ++i) {" << nl;
+      } else if (_cur_p and _cur_n) {
+        *this << "for (auto const j : neighbors[n._index]) {" << nl;
+      } else
+        throw std::runtime_error("invalid loop nesting");
 
-      *this << "for (size_t " << index_name << " = 0; " << index_name << " < "
-            << index_bound << "; ++" << index_name << ") {" << nl;
       {
         PRTCL_INDENT_RAII;
 
@@ -1902,7 +1883,7 @@ public:
 private:
   std::optional<std::string> _cur_p = std::nullopt;
   std::optional<std::string> _cur_n = std::nullopt;
-};
+}; // namespace prtcl::gt::ast
 
 // =====
 

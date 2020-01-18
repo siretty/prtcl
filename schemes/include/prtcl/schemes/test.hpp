@@ -257,7 +257,7 @@ public:
 
           // start of child #0 if_group_type
           for (auto &n : _data.by_group_type.neighbors) {
-            for (size_t j = 0; j < neighbors[n._index].size(); ++j) {
+            for (auto const j : neighbors[n._index]) {
               // start of child #0 reduction
               rd_global_neighbor_count = ( rd_global_neighbor_count ) + ( static_cast<dtype_t<nd_dtype::integer>>(1) ) ;
               // close of child #0 reduction

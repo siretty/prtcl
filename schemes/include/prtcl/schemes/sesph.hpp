@@ -234,7 +234,7 @@ public:
 
           // start of child #0 if_group_type
           for (auto &n : _data.by_group_type.fluid) {
-            for (size_t j = 0; j < neighbors[n._index].size(); ++j) {
+            for (auto const j : neighbors[n._index]) {
               // start of child #0 equation
               p.density[i] += ( n.mass[0] ) * ( o::kernel_h( ( p.position[i] ) - ( n.position[j] ), g.smoothing_scale[0] ) ) ;
               // close of child #0 equation
@@ -253,7 +253,7 @@ public:
 
           // start of child #0 if_group_type
           for (auto &n : _data.by_group_type.boundary) {
-            for (size_t j = 0; j < neighbors[n._index].size(); ++j) {
+            for (auto const j : neighbors[n._index]) {
               // start of child #0 equation
               p.density[i] += ( ( n.volume[j] ) * ( p.rest_density[0] ) ) * ( o::kernel_h( ( p.position[i] ) - ( n.position[j] ), g.smoothing_scale[0] ) ) ;
               // close of child #0 equation
@@ -326,7 +326,7 @@ public:
 
           // start of child #0 if_group_type
           for (auto &n : _data.by_group_type.fluid) {
-            for (size_t j = 0; j < neighbors[n._index].size(); ++j) {
+            for (auto const j : neighbors[n._index]) {
               // start of child #0 equation
               p.acceleration[i] -= ( ( n.mass[0] ) * ( ( ( p.pressure[i] ) / ( ( p.density[i] ) * ( p.density[i] ) ) ) + ( ( n.pressure[j] ) / ( ( n.density[j] ) * ( n.density[j] ) ) ) ) ) * ( o::kernel_gradient_h( ( p.position[i] ) - ( n.position[j] ), g.smoothing_scale[0] ) ) ;
               // close of child #0 equation
@@ -349,7 +349,7 @@ public:
 
           // start of child #0 if_group_type
           for (auto &n : _data.by_group_type.boundary) {
-            for (size_t j = 0; j < neighbors[n._index].size(); ++j) {
+            for (auto const j : neighbors[n._index]) {
               // start of child #0 equation
               p.acceleration[i] -= ( ( ( ( static_cast<dtype_t<nd_dtype::real>>(0.700000) ) * ( n.volume[j] ) ) * ( p.rest_density[0] ) ) * ( ( ( static_cast<dtype_t<nd_dtype::integer>>(2) ) * ( p.pressure[i] ) ) / ( ( p.density[i] ) * ( p.density[i] ) ) ) ) * ( o::kernel_gradient_h( ( p.position[i] ) - ( n.position[j] ), g.smoothing_scale[0] ) ) ;
               // close of child #0 equation

@@ -171,7 +171,7 @@ public:
 
           // start of child #0 if_group_type
           for (auto &n : _data.by_group_type.boundary) {
-            for (size_t j = 0; j < neighbors[n._index].size(); ++j) {
+            for (auto const j : neighbors[n._index]) {
               // start of child #0 equation
               p.volume[i] += o::kernel_h( ( p.position[i] ) - ( n.position[j] ), g.smoothing_scale[0] ) ;
               // close of child #0 equation
