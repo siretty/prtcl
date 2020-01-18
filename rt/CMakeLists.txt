@@ -14,19 +14,22 @@ set( _SRC ${CMAKE_CURRENT_SOURCE_DIR}/sources )
 
 
 find_package( Eigen3 REQUIRED )
+find_package( Threads REQUIRED )
 
 
 add_library( prtcl-rt INTERFACE )
 target_sources(
   prtcl-rt
   INTERFACE
-    ${_INC}/prtcl/rt/common.hpp
-
-    ${_INC}/prtcl/rt/nd_data_base.hpp
-    ${_INC}/prtcl/rt/grouped_uniform_grid.hpp
-
+    ${_INC}/prtcl/rt/basic_group.hpp
+    ${_INC}/prtcl/rt/basic_model.hpp
+    ${_INC}/prtcl/rt/basic_model_policy.hpp
     ${_INC}/prtcl/rt/basic_type_policy.hpp
+    ${_INC}/prtcl/rt/common.hpp
     ${_INC}/prtcl/rt/eigen_math_policy.hpp
+    ${_INC}/prtcl/rt/grouped_uniform_grid.hpp
+    ${_INC}/prtcl/rt/nd_data_base.hpp
+    ${_INC}/prtcl/rt/neighborhood.hpp
     ${_INC}/prtcl/rt/vector_data_policy.hpp
 )
 target_include_directories(
@@ -48,6 +51,7 @@ DE_Add_Catch2_Test(
 
   ${_PRJ}/tests/prtcl/rt/eigen_math_policy.cpp
   ${_PRJ}/tests/prtcl/rt/vector_data_policy.cpp
+  ${_PRJ}/tests/prtcl/rt/math/kernel/cubic_spline_kernel.cpp
 )
 DE_CXX17_Target( prtcl-rt-tests )
 DE_Common_Diagnostics_CXX_Target( prtcl-rt-tests )
@@ -68,6 +72,7 @@ target_link_libraries(
   prtcl-rt-tests
   PUBLIC prtcl-core
   PUBLIC Eigen3::Eigen
+  PUBLIC Threads::Threads
   PUBLIC ${CMAKE_DL_LIBS}
 )
 

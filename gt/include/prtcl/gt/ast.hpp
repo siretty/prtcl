@@ -1,8 +1,12 @@
 #pragma once
 
+#include <boost/range/iterator_range_core.hpp>
 #include <prtcl/core/macros.hpp>
 
 #include <prtcl/gt/common.hpp>
+
+#include <prtcl/gt/ast/ast_leaf_base.hpp>
+#include <prtcl/gt/ast/ast_nary_crtp.hpp>
 
 #include <memory>
 #include <optional>
@@ -11,6 +15,7 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <unordered_map>
 #include <variant>
 
 #include <iostream>
@@ -19,6 +24,7 @@
 #include <boost/bimap.hpp>
 #include <boost/bimap/multiset_of.hpp>
 #include <boost/bimap/set_of.hpp>
+#include <boost/bimap/unordered_set_of.hpp>
 
 #include <boost/operators.hpp>
 
@@ -50,117 +56,6 @@
 #include <boost/range/algorithm/count_if.hpp>
 
 namespace prtcl::gt::ast {
-
-// =====
-
-class ast_node_base {
-  // {{{
-public:
-  virtual ~ast_node_base() {}
-
-public:
-  template <typename NodeType_> auto *as_ptr(bool throw_ = false) {
-    // dispatch to the const-version
-    return const_cast<NodeType_ *>(
-        static_cast<ast_node_base const *>(this)->as_ptr<NodeType_>(throw_));
-  }
-
-  template <typename NodeType_> auto *as_ptr(bool throw_ = false) const {
-    if (throw_)
-      return std::addressof(dynamic_cast<NodeType_ const &>(*this));
-    else
-      return dynamic_cast<NodeType_ const *>(this);
-  }
-
-public:
-  virtual char const *ast_node_name() const = 0;
-
-public:
-  ast_node_base() = default;
-
-  ast_node_base(ast_node_base const &) = delete;
-  ast_node_base &operator=(ast_node_base const &) = delete;
-
-  ast_node_base(ast_node_base &&) = default;
-  ast_node_base &operator=(ast_node_base &&) = default;
-  // }}}
-};
-
-class ast_leaf_base : public virtual ast_node_base {};
-
-class ast_nary_base : public virtual ast_node_base {
-  // {{{
-public:
-  ast_node_base *base_add_child(ast_node_base *node_) {
-    return _children.emplace_back(node_).get();
-  }
-
-  ast_node_base *base_replace_child(size_t index_, ast_node_base *new_child_) {
-    auto old_child = _children[index_].release();
-    _children[index_] = std::unique_ptr<ast_node_base>(new_child_);
-    return old_child;
-  }
-
-public:
-  auto children() const {
-    return _children |
-           boost::adaptors::transformed([](auto &p_) { return p_.get(); });
-  }
-
-  auto release_children() {
-    return _children |
-           boost::adaptors::transformed([](auto &p_) { return p_.release(); });
-  }
-
-private:
-  std::vector<std::unique_ptr<ast_node_base>> _children;
-  // }}}
-};
-
-template <typename Impl_> class ast_nary_crtp : public virtual ast_nary_base {
-  // {{{
-public:
-  template <typename NodeType_> class add_return {
-    // {{{
-  public:
-    template <typename F_> auto &operator()(F_ &&f_) const {
-      std::forward<F_>(f_)(std::addressof(this->_child));
-      return *this;
-    }
-
-    auto *operator-> () const { return std::addressof(this->_self); }
-
-  public:
-    operator Impl_ *() const { return std::addressof(this->_self); }
-
-  public:
-    add_return(NodeType_ &child_, Impl_ &self_)
-        : _child{child_}, _self{self_} {}
-
-  private:
-    NodeType_ &_child;
-    Impl_ &_self;
-    // }}}
-  };
-
-  template <typename NodeType_>
-  add_return<NodeType_> add_child(NodeType_ &&orig_) {
-    auto *node_ =
-        this->base_add_child(new NodeType_{std::forward<NodeType_>(orig_)})
-            ->template as_ptr<NodeType_>();
-    return add_return<NodeType_>{*node_, impl()};
-  }
-
-  template <typename NodeType_>
-  add_return<NodeType_> add_child(NodeType_ *orig_) {
-    auto *node_ = this->base_add_child(orig_)->template as_ptr<NodeType_>();
-    return add_return<NodeType_>{*node_, impl()};
-  }
-
-private:
-  auto &impl() { return *this->as_ptr<Impl_>(); }
-  // }}}
-};
 
 // =====
 
@@ -613,17 +508,25 @@ public:
   void add_uniform(
       std::string_view group_type_, std::string_view name_, nd_dtype dtype_,
       nd_shape shape_) {
+    std::string gt{group_type_};
     add_group_type(group_type_);
-    _uniform.left.insert(
-        {std::string{group_type_}, field_descr{name_, dtype_, shape_}});
+    std::cerr << "GROUP_TYPE " << group_type_ << " UNIFORM " << name_ << " #"
+              << _uniform[gt].size() << " " << &_uniform << '\n';
+    //_uniform.left.insert(
+    //    {std::string{group_type_}, field_descr{name_, dtype_, shape_}});
+    _uniform[std::string(group_type_)].emplace(name_, dtype_, shape_);
   }
 
   void add_varying(
       std::string_view group_type_, std::string_view name_, nd_dtype dtype_,
       nd_shape shape_) {
+    std::string gt{group_type_};
     add_group_type(group_type_);
-    _varying.left.insert(
-        {std::string{group_type_}, field_descr{name_, dtype_, shape_}});
+    std::cerr << "GROUP_TYPE " << group_type_ << " VARYING " << name_ << " #"
+              << _varying[gt].size() << " " << &_varying << '\n';
+    //_varying.left.insert(
+    //    {std::string{group_type_}, field_descr{name_, dtype_, shape_}});
+    _varying[std::string(group_type_)].emplace(name_, dtype_, shape_);
   }
 
   void add_group_type(std::string_view group_type_) {
@@ -634,16 +537,35 @@ public:
   auto global_fields() const { return ::boost::make_iterator_range(_global); }
 
   auto uniform_fields(std::string t_) const {
-    return boost::make_iterator_range(
-               _uniform.left.lower_bound(t_), _uniform.left.upper_bound(t_)) |
-           boost::adaptors::map_values;
+    using result_type = decltype(
+        boost::make_iterator_range(std::declval<std::set<field_descr>>()));
+    if (auto it = _uniform.find(t_); it != _uniform.end())
+      return boost::make_iterator_range(it->second);
+    else
+      return result_type{};
+    // return _uniform.left |
+    //       boost::adaptors::filtered(
+    //           [t_](auto const &kv_) -> bool { return t_ == kv_.first; }) |
+    //       boost::adaptors::map_values;
+    // return boost::make_iterator_range(
+    //           _uniform.left.lower_bound(t_), _uniform.left.upper_bound(t_)) |
+    //       boost::adaptors::map_values;
   }
 
   auto varying_fields(std::string t_) const {
-
-    return boost::make_iterator_range(
-               _varying.left.lower_bound(t_), _varying.left.upper_bound(t_)) |
-           boost::adaptors::map_values;
+    using result_type = decltype(
+        boost::make_iterator_range(std::declval<std::set<field_descr>>()));
+    if (auto it = _varying.find(t_); it != _varying.end())
+      return boost::make_iterator_range(it->second);
+    else
+      return result_type{};
+    // return _varying.left |
+    //       boost::adaptors::filtered(
+    //           [t_](auto const &kv_) -> bool { return t_ == kv_.first; }) |
+    //       boost::adaptors::map_values;
+    // return boost::make_iterator_range(
+    //           _varying.left.lower_bound(t_), _varying.left.upper_bound(t_)) |
+    //       boost::adaptors::map_values;
   }
 
   auto group_types() const { return boost::make_iterator_range(_group_types); }
@@ -656,17 +578,17 @@ public:
 
     auto find_global = [this](auto &&range_) {
       for (auto gf : std::forward<decltype(range_)>(range_)) {
-        add_global(gf->name(), gf->dtype(), make_nd_shape(gf->shape()));
+        this->add_global(gf->name(), gf->dtype(), make_nd_shape(gf->shape()));
       }
     };
 
     auto find_subscript = [this](auto group_type_, auto &&range_) {
       for (auto ss : std::forward<decltype(range_)>(range_)) {
         if (auto uf = ss->children()[0]->template as_ptr<uniform_field>())
-          add_uniform(
+          this->add_uniform(
               group_type_, uf->name(), uf->dtype(), make_nd_shape(uf->shape()));
         if (auto vf = ss->children()[0]->template as_ptr<varying_field>())
-          add_varying(
+          this->add_varying(
               group_type_, vf->name(), vf->dtype(), make_nd_shape(vf->shape()));
       }
     };
@@ -736,15 +658,17 @@ private:
   };
 
 private:
-  using group_type_fields_map = ::boost::bimaps::bimap<
-      ::boost::bimaps::multiset_of<std::string>,
-      ::boost::bimaps::set_of<field_descr>>;
+  // using group_type_fields_map = ::boost::bimaps::bimap<
+  //    ::boost::bimaps::unordered_set_of<std::string>,
+  //    ::boost::bimaps::multiset_of<field_descr>>;
 
 private:
   std::set<std::string> _group_types;
   std::set<field_descr> _global;
-  group_type_fields_map _uniform;
-  group_type_fields_map _varying;
+  // group_type_fields_map _uniform;
+  // group_type_fields_map _varying;
+  std::unordered_map<std::string, std::set<field_descr>> _uniform;
+  std::unordered_map<std::string, std::set<field_descr>> _varying;
   // }}}
 };
 
@@ -1222,7 +1146,8 @@ public:
                "nd_dtype_data_ref_t<DType_, Ns_...>;"
             << nl;
       *this << nl;
-      *this << "static constexpr size_t N = model_policy::dimensionality;" << nl;
+      *this << "static constexpr size_t N = model_policy::dimensionality;"
+            << nl;
       *this << nl;
       *this << "using model_type = prtcl::rt::basic_model<model_policy>;" << nl;
       *this << "using group_type = prtcl::rt::basic_group<model_policy>;" << nl;
@@ -1327,16 +1252,18 @@ public:
             *this << "// uniform fields" << nl;
             for (auto const &uf : reqs.uniform_fields(group_type)) {
               *this << uf.name << " = "
-                    << "g_.get_uniform<" << nd_template_args(uf.dtype, uf.shape)
-                    << ">(\"" << uf.name << "\");" << nl;
+                    << "g_.template get_uniform<"
+                    << nd_template_args(uf.dtype, uf.shape) << ">(\"" << uf.name
+                    << "\");" << nl;
             }
 
             *this << nl;
             *this << "// varying fields" << nl;
             for (auto const &vf : reqs.varying_fields(group_type)) {
               *this << vf.name << " = "
-                    << "g_.get_varying<" << nd_template_args(vf.dtype, vf.shape)
-                    << ">(\"" << vf.name << "\");" << nl;
+                    << "g_.template get_varying<"
+                    << nd_template_args(vf.dtype, vf.shape) << ">(\"" << vf.name
+                    << "\");" << nl;
             }
           } // }}}
           *this << "}" << nl;

@@ -2,10 +2,13 @@
 
 #include "common.hpp"
 
+#include <prtcl/rt/math/math_policy.hpp>
+
 #include <algorithm>
 #include <initializer_list>
 #include <limits>
 
+#include <cmath>
 #include <cstddef>
 
 #include <Eigen/Eigen>
@@ -63,12 +66,35 @@ using select_eigen_dtype_t =
 
 // }}}
 
+// {{{ eigen_extent
+
+template <typename, size_t> struct eigen_extent;
+
+template <typename EigenType_> struct eigen_extent<EigenType_, 0> {
+  static constexpr size_t value =
+      static_cast<size_t>(EigenType_::RowsAtCompileTime);
+};
+
+template <typename EigenType_> struct eigen_extent<EigenType_, 1> {
+  static constexpr size_t value =
+      static_cast<size_t>(EigenType_::ColsAtCompileTime);
+};
+
+template <typename EigenType_, size_t Dimension_>
+constexpr size_t eigen_extent_v = eigen_extent<EigenType_, Dimension_>::value;
+
+// }}}
+
 } // namespace n_eigen
 
 template <typename TypePolicy_> struct eigen_math_policy {
+private:
   using real = typename TypePolicy_::real;
   using integer = typename TypePolicy_::integer;
   using boolean = typename TypePolicy_::boolean;
+
+public:
+  using type_policy = TypePolicy_;
 
 public:
   template <nd_dtype DType_>
@@ -79,14 +105,9 @@ public:
   using nd_dtype_t = n_eigen::select_eigen_dtype_t<TypePolicy_, DType_, Ns_...>;
 
 public:
-  template <size_t... Ns_>
-  using nd_real_t = n_eigen::select_eigen_type_t<real, Ns_...>;
-
-  template <size_t... Ns_>
-  using nd_integer_t = n_eigen::select_eigen_type_t<integer, Ns_...>;
-
-  template <size_t... Ns_>
-  using nd_boolean_t = n_eigen::select_eigen_type_t<boolean, Ns_...>;
+  template <typename NDType_, size_t Dimension_>
+  static constexpr size_t extent_v =
+      n_eigen::eigen_extent_v<NDType_, Dimension_>;
 
 public:
   struct operations {
@@ -109,15 +130,23 @@ public:
     }
 
     template <typename... Args_> static decltype(auto) max(Args_ &&... args_) {
-      // TODO: support coefficient-wise max for non-real / non-scalars
+      // TODO: support max for non-real-non-scalars
       return std::max(
           std::initializer_list<real>{std::forward<Args_>(args_)...});
     }
 
     template <typename... Args_> static decltype(auto) min(Args_ &&... args_) {
-      // TODO: support coefficient-wise max for non-real / non-scalars
+      // TODO: support max for non-real-non-scalars
       return std::min(
           std::initializer_list<real>{std::forward<Args_>(args_)...});
+    }
+
+    template <typename Arg_> static decltype(auto) cmax(Arg_ &&arg_) {
+      return std::forward<Arg_>(arg_).maxCoeff();
+    }
+
+    template <typename Arg_> static decltype(auto) cmin(Arg_ &&arg_) {
+      return std::forward<Arg_>(arg_).minCoeff();
     }
   };
 
@@ -184,6 +213,16 @@ public:
     template <nd_dtype DType_, size_t... Ns_> static decltype(auto) identity() {
       static_assert(DType_ == nd_dtype::real and 2 == sizeof...(Ns_), "");
       return n_eigen::select_eigen_type_t<real, Ns_...>::Identity();
+    }
+
+    template <nd_dtype DType_, size_t... Ns_> static decltype(auto) epsilon() {
+      static_assert(nd_dtype::real == DType_, "");
+      using type = dtype_t<DType_>;
+      if constexpr (0 == sizeof...(Ns_))
+        return std::sqrt(std::numeric_limits<type>::epsilon());
+      else
+        return n_eigen::select_eigen_type_t<type, Ns_...>::Constant(
+            epsilon<DType_>());
     }
   };
 };

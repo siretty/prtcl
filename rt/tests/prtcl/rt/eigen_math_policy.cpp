@@ -10,14 +10,14 @@ TEST_CASE("prtcl/rt/math/eigen_math_policy.hpp", "[prtcl][rt]") {
   using type_policy = prtcl::rt::fib_type_policy;
   using math_policy = prtcl::rt::eigen_math_policy<type_policy>;
 
-  SECTION("math policy types") {
-    CHECK(std::is_same<typename math_policy::real, float>::value);
-    CHECK(std::is_same<typename math_policy::integer, int>::value);
-    CHECK(std::is_same<typename math_policy::boolean, bool>::value);
+  using prtcl::rt::nd_boolean_t;
+  using prtcl::rt::nd_integer_t;
+  using prtcl::rt::nd_real_t;
 
-    CHECK(std::is_same<typename math_policy::nd_real_t<>, float>::value);
-    CHECK(std::is_same<typename math_policy::nd_integer_t<>, int>::value);
-    CHECK(std::is_same<typename math_policy::nd_boolean_t<>, bool>::value);
+  SECTION("math policy types") {
+    CHECK(std::is_same<nd_real_t<math_policy>, float>::value);
+    CHECK(std::is_same<nd_integer_t<math_policy>, int>::value);
+    CHECK(std::is_same<nd_boolean_t<math_policy>, bool>::value);
   }
 
   using prtcl::core::nd_dtype;
@@ -35,8 +35,8 @@ TEST_CASE("prtcl/rt/math/eigen_math_policy.hpp", "[prtcl][rt]") {
   }
 
   SECTION("three-dimensional real linear algebra") {
-    using rvec3 = typename math_policy::nd_real_t<3>;
-    using rmat3 = typename math_policy::nd_real_t<3, 3>;
+    using rvec3 = nd_real_t<math_policy, 3>;
+    using rmat3 = nd_real_t<math_policy, 3, 3>;
 
     CHECK(rvec3{0.f, 0.f, 0.f} == c::zeros<nd_dtype::real, 3>());
     CHECK(rvec3{1.f, 1.f, 1.f} == c::ones<nd_dtype::real, 3>());
@@ -64,7 +64,7 @@ TEST_CASE("prtcl/rt/math/eigen_math_policy.hpp", "[prtcl][rt]") {
   }
 
   SECTION("three-dimensional integer vectors") {
-    using ivec3 = typename math_policy::nd_integer_t<3>;
+    using ivec3 = nd_integer_t<math_policy, 3>;
 
     CHECK(ivec3{0, 0, 0} == c::zeros<nd_dtype::integer, 3>());
     CHECK(ivec3{1, 1, 1} == c::ones<nd_dtype::integer, 3>());
@@ -78,7 +78,7 @@ TEST_CASE("prtcl/rt/math/eigen_math_policy.hpp", "[prtcl][rt]") {
   }
 
   SECTION("three-dimensional boolean vectors") {
-    using bvec3 = typename math_policy::nd_boolean_t<3>;
+    using bvec3 = nd_boolean_t<math_policy, 3>;
 
     CHECK(bvec3{false, false, false} == c::zeros<nd_dtype::boolean, 3>());
     CHECK(bvec3{true, true, true} == c::ones<nd_dtype::boolean, 3>());

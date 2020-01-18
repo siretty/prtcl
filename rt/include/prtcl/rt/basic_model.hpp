@@ -4,6 +4,7 @@
 
 #include "basic_group.hpp"
 
+#include <boost/range/iterator_range_core.hpp>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -17,7 +18,6 @@
 namespace prtcl::rt {
 
 template <typename ModelPolicy_> class basic_model {
-  // {{{
   using type_policy = typename ModelPolicy_::type_policy;
   using math_policy = typename ModelPolicy_::math_policy;
   using data_policy = typename ModelPolicy_::data_policy;
@@ -76,11 +76,13 @@ public:
       throw std::runtime_error{"unknown name"};
   }
 
+public:
+  auto globals() const { return boost::make_iterator_range(_global); }
+
 private:
   std::unordered_map<std::string, std::unique_ptr<nd_data_base>> _global;
   std::unordered_map<std::string, size_t> _group_to_index;
   std::vector<std::unique_ptr<group_type>> _groups;
-  // }}}
 };
 
 } // namespace prtcl::rt

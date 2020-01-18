@@ -1,48 +1,43 @@
-#include <prtcl/gt/ast.hpp>
-#include <prtcl/gt/dsl_to_ast.hpp>
+#include <prtcl/gt/dsl.hpp>
+#include <prtcl/gt/schemes_registry.hpp>
 
-#include <iostream>
+PRTCL_GT_START_REGISTER_SCHEME_PROCEDURES(test)
 
-int main(int, char **) {
-  prtcl::gt::ast::collection co{"test"};
+using namespace prtcl::gt::dsl::language;
+using namespace prtcl::gt::dsl::generic_indices;
 
-  using namespace prtcl::gt::dsl::language;
-  using namespace prtcl::gt::dsl::generic_indices;
+auto gpc = gi_field("global_particle_count", {});
 
-  auto gpc = gi_field("global_particle_count", {});
+registry.scheme_procedures(
+    "test",                        //
+    procedure(                     //
+        "test_counting_particles", //
+        foreach_particle(          //
+            if_group_type(         //
+                "particles",       //
+                gpc += 1           //
+                )                  //
+            )                      //
+        ));
 
-  co.add_child(prtcl::gt::dsl_to_ast(             //
-                   procedure(                     //
-                       "test_counting_particles", //
-                       foreach_particle(          //
-                           if_group_type(         //
-                               "particles",       //
-                               gpc += 1           //
-                               )                  //
-                           )                      //
-                       )                          //
-                   )
-                   .release());
+auto gnc = gi_field("global_neighbor_count", {});
 
-  auto gnc = gi_field("global_neighbor_count", {});
+registry.scheme_procedures(
+    "test",                          //
+    procedure(                       //
+        "test_counting_neighbors",   //
+        foreach_particle(            //
+            if_group_type(           //
+                "particles",         //
+                foreach_neighbor(    //
+                    if_group_type(   //
+                        "neighbors", //
+                        gnc += 1     //
+                        )            //
+                    )                //
+                )                    //
+            )                        //
+        )                            //
+);
 
-  co.add_child(prtcl::gt::dsl_to_ast(               //
-                   procedure(                       //
-                       "test_counting_neighbors",   //
-                       foreach_particle(            //
-                           if_group_type(           //
-                               "particles",         //
-                               foreach_neighbor(    //
-                                   if_group_type(   //
-                                       "neighbors", //
-                                       gnc += 1     //
-                                       )            //
-                                   )                //
-                               )                    //
-                           )                        //
-                       )                            //
-                   )
-                   .release());
-
-  prtcl::gt::ast::cpp_openmp_printer{std::cout}(&co);
-}
+PRTCL_GT_CLOSE_REGISTER_SCHEME_PROCEDURES

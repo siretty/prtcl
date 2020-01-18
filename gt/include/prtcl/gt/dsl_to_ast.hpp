@@ -237,7 +237,8 @@ template <typename FieldXForms_> struct math_to_ast_xform {
       typename Value_,
       typename = std::enable_if_t<std::is_floating_point<Value_>::value>>
   auto operator()(dsl::term_expr<Value_> term_) const {
-    return (*this)(dsl::language::rlit(term_.value()));
+    return (*this)(
+        dsl::language::rlit(static_cast<long double>(term_.value())));
   }
 
   template <
@@ -248,7 +249,8 @@ template <typename FieldXForms_> struct math_to_ast_xform {
     if constexpr (std::is_same<Value_, bool>::value)
       return (*this)(dsl::language::blit(term_.value()));
     else
-      return (*this)(dsl::language::ilit(term_.value()));
+      return (*this)(
+          dsl::language::ilit(static_cast<long long int>(term_.value())));
   }
 
   // Constants

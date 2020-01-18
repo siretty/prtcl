@@ -14,7 +14,6 @@
 namespace prtcl::rt {
 
 template <typename ModelPolicy_> class basic_group {
-  // {{{
   using type_policy = typename ModelPolicy_::type_policy;
   using math_policy = typename ModelPolicy_::math_policy;
   using data_policy = typename ModelPolicy_::data_policy;
@@ -55,7 +54,7 @@ public:
   }
 
   template <nd_dtype DType_, size_t... Ns_>
-  auto get_uniform(std::string name_) {
+  auto get_uniform(std::string name_) const {
     if (auto it = _uniform.find(name_); it != _uniform.end())
       return nd_dtype_data_ref_t<DType_, Ns_...>{
           *static_cast<nd_dtype_data_t<DType_, Ns_...> *>(it->second.get())};
@@ -74,7 +73,7 @@ public:
   }
 
   template <nd_dtype DType_, size_t... Ns_>
-  auto get_varying(std::string name_) {
+  auto get_varying(std::string name_) const {
     if (auto it = _varying.find(name_); it != _varying.end())
       return nd_dtype_data_ref_t<DType_, Ns_...>{
           *static_cast<nd_dtype_data_t<DType_, Ns_...> *>(it->second.get())};
@@ -83,7 +82,7 @@ public:
   }
 
   template <nd_dtype DType_, size_t... Ns_>
-  bool has_varying(std::string name_) {
+  bool has_varying(std::string name_) const {
     if (auto it = _varying.find(name_); it != _varying.end()) {
       nd_data_base *base = it->second.get();
       return base->dtype() == DType_ and base->shape() == nd_shape{Ns_...};
@@ -108,7 +107,6 @@ private:
   size_t _size = 0;
   std::unordered_map<std::string, std::unique_ptr<nd_data_base>> _uniform;
   std::unordered_map<std::string, std::unique_ptr<nd_data_base>> _varying;
-  // }}}
 };
 
 } // namespace prtcl::rt

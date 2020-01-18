@@ -1,32 +1,28 @@
-#include <prtcl/gt/ast.hpp>
-#include <prtcl/gt/dsl_to_ast.hpp>
+#include <prtcl/gt/dsl.hpp>
+#include <prtcl/gt/schemes_registry.hpp>
 
-#include <iostream>
+PRTCL_GT_START_REGISTER_SCHEME_PROCEDURES(symplectic_euler)
 
-int main(int, char **) {
-  prtcl::gt::ast::collection co{"symplectic_euler"};
+using namespace prtcl::gt::dsl::language;
+using namespace prtcl::gt::dsl::generic_indices;
 
-  using namespace prtcl::gt::dsl::language;
-  using namespace prtcl::gt::dsl::generic_indices;
+auto time_step = gr_field("time_step", {});
+auto x = vr_field("position", {0});
+auto v = vr_field("velocity", {0});
+auto a = vr_field("acceleration", {0});
 
-  auto time_step = gr_field("time_step", {});
-  auto x = vr_field("position", {0});
-  auto v = vr_field("velocity", {0});
-  auto a = vr_field("acceleration", {0});
+registry.scheme_procedures(
+    "symplectic_euler",                   //
+    procedure(                            //
+        "advect_symplectic_euler",        //
+        foreach_particle(                 //
+            if_group_type(                //
+                "fluid",                  //
+                v[i] += time_step * a[i], //
+                x[i] += time_step * v[i]  //
+                )                         //
+            )                             //
+        )                                 //
+);
 
-  co.add_child(prtcl::gt::dsl_to_ast(                    //
-                   procedure(                            //
-                       "advect_symplectic_euler",        //
-                       foreach_particle(                 //
-                           if_group_type(                //
-                               "fluid",                  //
-                               v[i] += time_step * a[i], //
-                               x[i] += time_step * v[i]  //
-                               )                         //
-                           )                             //
-                       )                                 //
-                   )
-                   .release());
-
-  prtcl::gt::ast::cpp_openmp_printer{std::cout}(&co);
-}
+PRTCL_GT_CLOSE_REGISTER_SCHEME_PROCEDURES
