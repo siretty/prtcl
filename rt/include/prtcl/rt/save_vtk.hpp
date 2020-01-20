@@ -47,6 +47,14 @@ void save_vtk(std::ostream &o_, basic_group<ModelPolicy_> const &g_) {
       o_ << std::fixed << format_array(a[i]) << "\n";
   }
 
+  if (g_.template has_varying<nd_dtype::real>("volume")) {
+    auto v = g_.template get_varying<nd_dtype::real>("volume");
+    o_ << "SCALARS volume float 1\n";
+    o_ << "LOOKUP_TABLE default\n";
+    for (size_t i = 0; i < g_.size(); ++i)
+      o_ << std::fixed << v[i] << "\n";
+  }
+
   if (g_.template has_varying<nd_dtype::real>("density")) {
     auto d = g_.template get_varying<nd_dtype::real>("density");
     o_ << "SCALARS density float 1\n";
