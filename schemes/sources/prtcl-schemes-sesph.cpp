@@ -217,7 +217,6 @@ int main(int, char **) {
 
     std::cout << "START OF FRAME #" << frame + 1 << '\n';
     while (clock.now() < frame_done) {
-      // for (size_t step = 0; step < (1.0L / fps) / dt; ++step) {
       // update the neighborhood
       nhood.update();
 
