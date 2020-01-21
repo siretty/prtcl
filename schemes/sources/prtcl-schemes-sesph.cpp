@@ -12,13 +12,17 @@
 #include <prtcl/rt/vector_data_policy.hpp>
 
 #include <prtcl/schemes/boundary.hpp>
+#include <prtcl/schemes/getcwd.hpp>
 #include <prtcl/schemes/sesph.hpp>
 #include <prtcl/schemes/symplectic_euler.hpp>
 
+#include <fstream>
 #include <iostream>
 #include <random>
 
-#include <boost/filesystem.hpp>
+#include <cstdlib>
+
+#include <unistd.h>
 
 int main(int, char **) {
   using prtcl::core::nd_dtype;
@@ -68,12 +72,11 @@ int main(int, char **) {
     f.get_uniform<nd_dtype::real>("rest_density")[0] = rho0;
     f.get_uniform<nd_dtype::real>("compressibility")[0] = 10'000'000;
     f.get_uniform<nd_dtype::real>("viscosity")[0] = 0.01f;
-    f.get_uniform<nd_dtype::real>("mass")[0] =
-        prtcl::core::constpow(h, N) * rho0;
   }
 
   { // initialize fluid position and velocity
     auto const h = model.get_global<nd_dtype::real>("smoothing_scale")[0];
+    auto const rho0 = f.get_uniform<nd_dtype::real>("rest_density")[0];
 
     std::mt19937 gen;
     std::uniform_real_distribution<typename type_policy::real> dis{-0.01f,
@@ -87,11 +90,13 @@ int main(int, char **) {
     size_t i = 0;
     auto x = f.get_varying<nd_dtype::real, N>("position");
     auto v = f.get_varying<nd_dtype::real, N>("velocity");
+    auto m = f.get_varying<nd_dtype::real>("mass");
     for (auto ix : x_grid) {
       x[i][0] = h * ix[0] + dis(gen) * h;
       x[i][1] = h * ix[1] + dis(gen) * h;
       x[i][2] = h * ix[2] + dis(gen) * h;
       v[i] = math_policy::constants::zeros<nd_dtype::real, N>();
+      m[i] = prtcl::core::constpow(h, N) * rho0;
       ++i;
     }
   }
@@ -149,15 +154,15 @@ int main(int, char **) {
 
   boundary.compute_volume(nhood);
 
-  namespace fs = boost::filesystem;
-  auto output_dir = fs::current_path() / "output";
+  auto cwd = ::prtcl::schemes::getcwd();
+  auto output_dir = cwd + "/" + "output";
 
   for (auto &g : model.groups()) {
     if ("boundary" != g.get_type())
       continue;
     auto file_name = std::string{g.get_name()} + ".vtk";
-    auto file_path = output_dir / file_name;
-    fs::ofstream file{file_path, file.trunc | file.out};
+    auto file_path = output_dir + "/" + file_name;
+    std::ofstream file{file_path, file.trunc | file.out};
     std::cout << "START SAVE_VTK " << output_dir << '\n';
     prtcl::rt::save_vtk(file, g);
     std::cout << "CLOSE SAVE_VTK " << file_path << '\n';
@@ -172,11 +177,11 @@ int main(int, char **) {
         continue;
       auto file_name =
           std::string{g.get_name()} + "." + std::to_string(frame) + ".vtk";
-      auto file_path = output_dir / file_name;
-      fs::ofstream file{file_path, file.trunc | file.out};
+      auto file_path = output_dir + "/" + file_name;
+      std::ofstream file{file_path, file.trunc | file.out};
       std::cout << "START SAVE_VTK " << output_dir << '\n';
       prtcl::rt::save_vtk(file, g);
-      std::cout << "CLOSE SAVE_VTK " << file_path << '\n';
+      std::cout << "CLOSE SAVE_VTK " << file_path << '\n' << '\n';
     }
 
     if (frame == max_frame)
@@ -185,11 +190,16 @@ int main(int, char **) {
     std::cout << "START OF FRAME #" << frame + 1 << '\n';
     auto dt = static_cast<long double>(
         model.get_global<nd_dtype::real>("time_step")[0]);
+    auto h = static_cast<long double>(
+        model.get_global<nd_dtype::real>("smoothing_scale")[0]);
     for (size_t step = 0; step < (1.0L / fps) / dt; ++step) {
       nhood.update();
       sesph.compute_density_and_pressure(nhood);
       sesph.compute_acceleration(nhood);
       advect.advect_symplectic_euler(nhood);
+      auto max_speed = static_cast<long double>(
+          model.get_global<nd_dtype::real>("maximum_speed")[0]);
+      std::cout << "maximum_cfl = " << (max_speed * dt / h) << '\n';
     }
     std::cout << "CLOSE OF FRAME #" << frame + 1 << '\n' << '\n';
   }

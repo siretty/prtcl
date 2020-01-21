@@ -20,7 +20,7 @@ set( _SRC ${CMAKE_CURRENT_SOURCE_DIR}/sources )
 find_package( Threads REQUIRED )
 find_package( Eigen3 REQUIRED )
 find_package( OpenMP REQUIRED )
-find_package( Boost REQUIRED COMPONENTS filesystem )
+#find_package( Boost REQUIRED COMPONENTS filesystem )
 
 
 function( prtcl_generate_scheme_header _NAME )
@@ -40,9 +40,18 @@ prtcl_generate_scheme_header( sesph )
 prtcl_generate_scheme_header( symplectic_euler )
 
 
-add_library( prtcl-schemes INTERFACE )
+add_library(
+  prtcl-schemes STATIC
+
+  ${_SRC}/prtcl/schemes/getcwd.cpp
+)
+DE_CXX17_Target( prtcl-schemes )
+DE_Common_Diagnostics_CXX_Target( prtcl-schemes )
+DE_LibCXX_Target( prtcl-schemes )
+DE_Add_Our_Include_Directories( prtcl-schemes include sources )
 target_sources(
   prtcl-schemes
+
   INTERFACE
     ${_INC}/prtcl/schemes/test.hpp
 
@@ -52,11 +61,13 @@ target_sources(
 )
 target_include_directories(
   prtcl-schemes
-  INTERFACE
+
+  PUBLIC
     ${_INC}
 )
 target_link_libraries(
   prtcl-schemes
+
   INTERFACE prtcl-rt
 )
 
@@ -127,7 +138,7 @@ target_link_libraries(
   PUBLIC Eigen3::Eigen
   PUBLIC Threads::Threads
   PUBLIC OpenMP::OpenMP_CXX
-  PUBLIC Boost::filesystem
+  #PUBLIC Boost::filesystem
   PUBLIC ${CMAKE_DL_LIBS}
 )
 

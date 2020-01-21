@@ -2,6 +2,7 @@
 
 #include "dsl/component_index.hpp"
 #include "dsl/constant.hpp"
+#include "dsl/deep_copy.hpp"
 #include "dsl/field.hpp"
 #include "dsl/foreach_neighbor.hpp"
 #include "dsl/foreach_particle.hpp"

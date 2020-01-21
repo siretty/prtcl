@@ -1,6 +1,7 @@
 #pragma once
 
 #include <sstream>
+#include <vector>
 
 #include <boost/container/small_vector.hpp>
 
@@ -25,4 +26,4 @@ inline std::string to_string(nd_shape shape_) {
   return ss.str();
 }
 
-} // namespace prtcl::gt
+} // namespace prtcl::core

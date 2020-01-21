@@ -33,13 +33,16 @@ public:
 
 private:
   struct global_data {
+    nd_dtype_data_ref_t<nd_dtype::real> maximum_speed;
     nd_dtype_data_ref_t<nd_dtype::real> time_step;
 
     static void _require(model_type &m_) {
+      m_.template add_global<nd_dtype::real>("maximum_speed");
       m_.template add_global<nd_dtype::real>("time_step");
     }
 
     void _load(model_type const &m_) {
+      maximum_speed = m_.template get_global<nd_dtype::real>("maximum_speed");
       time_step = m_.template get_global<nd_dtype::real>("time_step");
     }
   };
@@ -117,6 +120,7 @@ private:
     std::vector<std::vector<std::vector<size_t>>> neighbors;
 
     // reductions
+    std::vector<nd_dtype_t<nd_dtype::real>> rd_maximum_speed;
   } _per_thread;
 
   size_t _group_count;
@@ -132,15 +136,27 @@ public:
     using o = typename math_policy::operations;
     using c = typename math_policy::constants;
 
-    // start of child #0 foreach_particle
+    // start of child #0 equation
+    g.maximum_speed[0] = c::template negative_infinity<nd_dtype::real>() ;
+    // close of child #0 equation
+
+    // start of child #1 foreach_particle
     #pragma omp parallel
     {
       #pragma omp single
       {
         auto const thread_count = static_cast<size_t>(omp_get_num_threads());
+
+        _per_thread.rd_maximum_speed.resize(thread_count);
       } // pragma omp single
 
       auto const thread_index = static_cast<size_t>(omp_get_thread_num());
+
+      // select the per-thread reduction variables
+      auto &rd_maximum_speed = _per_thread.rd_maximum_speed[thread_index];
+
+      // initialize the per-thread reduction variables
+      rd_maximum_speed = c::template negative_infinity<nd_dtype::real>();
 
       // start of child #0 if_group_type
       for (auto &p : _data.by_group_type.fluid) {
@@ -153,11 +169,21 @@ public:
           // start of child #1 equation
           p.position[i] += ( g.time_step[0] ) * ( p.velocity[i] ) ;
           // close of child #1 equation
+
+          // start of child #2 reduction
+          rd_maximum_speed = o::max( rd_maximum_speed, o::norm( p.velocity[i] ) ) ;
+          // close of child #2 reduction
         }
       }
       // close of child #0 if_group_type
+
+      // combine global reductions
+      #pragma omp critical
+      {
+        g.maximum_speed[0] = o::max( g.maximum_speed[0], rd_maximum_speed ) ;
+      } // pragma omp critical
     } // pragma omp parallel
-    // close of child #0 foreach_particle
+    // close of child #1 foreach_particle
   }
   // close of child #0 procedure
 };

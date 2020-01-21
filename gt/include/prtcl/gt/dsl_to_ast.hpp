@@ -1,6 +1,5 @@
 #pragma once
 
-#include "prtcl/gt/dsl/component_index.hpp"
 #include <prtcl/core/remove_cvref.hpp>
 
 #include <prtcl/gt/ast.hpp>
@@ -51,21 +50,6 @@ auto only_args(call_expr<C_, As_...> call_) {
 
   return hana::slice_c<1, hana::length(call_.elements)>(call_.elements);
 }
-
-// ============================================================
-// Helper Transforms
-// ============================================================
-
-// ------------------------------------------------------------
-// Remove Expresion-Ref. Transform
-// ------------------------------------------------------------
-
-struct remove_expr_ref_xform {
-  template <typename Expr_>
-  auto operator()(expr_type<expr_kind::expr_ref, Expr_> ref_) const {
-    return boost::yap::deref(ref_);
-  }
-};
 
 // ============================================================
 // Temporary AST Nodes
@@ -547,11 +531,9 @@ namespace prtcl::gt {
 
 template <typename Expr_> auto dsl_to_ast(Expr_ &&expr_) {
   using namespace n_dsl_to_ast;
-  return boost::yap::transform_strict(
-      boost::yap::transform(
-          std::forward<Expr_>(expr_), remove_expr_ref_xform{},
-          preprocess_component_index_xform{}),
-      procedure_to_ast_xform{});
+  auto e0 = dsl::deep_copy(std::forward<Expr_>(expr_));
+  auto e1 = boost::yap::transform(e0, preprocess_component_index_xform{});
+  return boost::yap::transform_strict(e1, procedure_to_ast_xform{});
 }
 
 } // namespace prtcl::gt
