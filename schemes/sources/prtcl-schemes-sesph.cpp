@@ -10,6 +10,7 @@
 #include <prtcl/rt/neighborhood.hpp>
 #include <prtcl/rt/save_vtk.hpp>
 #include <prtcl/rt/vector_data_policy.hpp>
+#include <prtcl/rt/virtual_clock.hpp>
 
 #include <prtcl/schemes/boundary.hpp>
 #include <prtcl/schemes/getcwd.hpp>
@@ -39,6 +40,8 @@ int main(int, char **) {
   using type_policy = typename model_policy::type_policy;
   using math_policy = typename model_policy::math_policy;
 
+  using real = typename type_policy::real;
+
   prtcl::rt::basic_model<model_policy> model;
 
   auto &f = model.add_group("f", "fluid");
@@ -55,7 +58,7 @@ int main(int, char **) {
 
   // -----
 
-  size_t grid_size = 16; // 45;
+  size_t grid_size = 50; // 45;
 
   // {{{
   { // initialize global and uniform fields
@@ -84,19 +87,23 @@ int main(int, char **) {
 
     prtcl::rt::integral_grid<N> x_grid;
     x_grid.extents.fill(grid_size);
+    x_grid.extents[1] *= 2;
 
     f.resize(x_grid.size());
 
-    size_t i = 0;
+    auto const base_m = prtcl::core::constpow(h, N) * rho0;
+
     auto x = f.get_varying<nd_dtype::real, N>("position");
     auto v = f.get_varying<nd_dtype::real, N>("velocity");
     auto m = f.get_varying<nd_dtype::real>("mass");
+
+    size_t i = 0;
     for (auto ix : x_grid) {
       x[i][0] = h * ix[0] + dis(gen) * h;
       x[i][1] = h * ix[1] + dis(gen) * h;
       x[i][2] = h * ix[2] + dis(gen) * h;
       v[i] = math_policy::constants::zeros<nd_dtype::real, N>();
-      m[i] = prtcl::core::constpow(h, N) * rho0;
+      m[i] = base_m + dis(gen) * base_m / 10;
       ++i;
     }
   }
@@ -104,10 +111,14 @@ int main(int, char **) {
   { // initialize boundary position
     auto const h = model.get_global<nd_dtype::real>("smoothing_scale")[0];
 
+    grid_size *= 2;
+
     std::array<prtcl::rt::integral_grid<N>, 3> grids = {
         prtcl::rt::integral_grid<N>{1, grid_size + 4, grid_size + 4},
         prtcl::rt::integral_grid<N>{grid_size + 4, 1, grid_size + 4},
         prtcl::rt::integral_grid<N>{grid_size + 4, grid_size + 4, 1}};
+    grids[0].extents[1] = (grids[0].extents[1] - 4) * 2 + 4;
+    grids[2].extents[1] = (grids[2].extents[1] - 4) * 2 + 4;
 
     { // resize boundary group
       size_t count = 0;
@@ -127,9 +138,9 @@ int main(int, char **) {
         x[i][2] = h * ix[2] - 2 * h;
 
         auto const j = i + 1;
-        x[j][0] = (grid_size + 1) * h - h * ix[0];
-        x[j][1] = (grid_size + 1) * h - h * ix[1];
-        x[j][2] = (grid_size + 1) * h - h * ix[2];
+        x[j][0] = (1 * grid_size + 1) * h - h * ix[0];
+        x[j][1] = (2 * grid_size + 1) * h - h * ix[1];
+        x[j][2] = (1 * grid_size + 1) * h - h * ix[2];
 
         i += 2;
       }
@@ -169,7 +180,15 @@ int main(int, char **) {
   }
 
   size_t const fps = 30;
-  size_t max_frame = 60 * fps;
+  size_t const max_frame = 60 * fps;
+
+  prtcl::rt::virtual_clock<long double> clock;
+  using duration = typename decltype(clock)::duration;
+
+  auto const seconds_per_frame = (1.0L / fps);
+
+  auto const max_cfl = 0.7L;
+  auto const max_time_step = seconds_per_frame / 150;
 
   for (size_t frame = 0; frame <= max_frame; ++frame) {
     for (auto &g : model.groups()) {
@@ -187,19 +206,39 @@ int main(int, char **) {
     if (frame == max_frame)
       break;
 
-    std::cout << "START OF FRAME #" << frame + 1 << '\n';
-    auto dt = static_cast<long double>(
-        model.get_global<nd_dtype::real>("time_step")[0]);
+    // permute the particles according to the neighborhood
+    if (0 == frame % 4)
+      nhood.permute(model);
+
     auto h = static_cast<long double>(
         model.get_global<nd_dtype::real>("smoothing_scale")[0]);
-    for (size_t step = 0; step < (1.0L / fps) / dt; ++step) {
+
+    auto frame_done = clock.now() + duration{seconds_per_frame};
+
+    std::cout << "START OF FRAME #" << frame + 1 << '\n';
+    while (clock.now() < frame_done) {
+      // for (size_t step = 0; step < (1.0L / fps) / dt; ++step) {
+      // update the neighborhood
       nhood.update();
+
+      // run all computational steps
       sesph.compute_density_and_pressure(nhood);
       sesph.compute_acceleration(nhood);
       advect.advect_symplectic_euler(nhood);
+
+      // fetch the maximum speed of any fluid particle
       auto max_speed = static_cast<long double>(
           model.get_global<nd_dtype::real>("maximum_speed")[0]);
-      std::cout << "maximum_cfl = " << (max_speed * dt / h) << '\n';
+
+      auto dt = static_cast<long double>(
+          model.get_global<nd_dtype::real>("time_step")[0]);
+
+      // advance the simulation clock
+      clock.advance(dt);
+
+      // modify the timestep
+      model.get_global<nd_dtype::real>("time_step")[0] =
+          static_cast<real>(std::min(max_cfl * h / max_speed, max_time_step));
     }
     std::cout << "CLOSE OF FRAME #" << frame + 1 << '\n' << '\n';
   }

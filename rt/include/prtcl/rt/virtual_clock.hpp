@@ -2,7 +2,9 @@
 
 #include <chrono>
 
-namespace prtcl::core {
+#include <boost/signals2.hpp>
+
+namespace prtcl::rt {
 
 template <typename T> class virtual_clock {
 public:
@@ -20,11 +22,13 @@ public:
 
   template <typename Rep, typename Period>
   time_point advance(std::chrono::duration<Rep, Period> const &d) {
-    now_ += std::chrono::duration_cast<duration>(d);
+    return now_ += std::chrono::duration_cast<duration>(d);
   }
+
+  time_point advance(rep v_) { return advance(duration{v_}); }
 
 private:
   time_point now_ = {};
 };
 
-} // namespace prtcl::core
+} // namespace prtcl::rt

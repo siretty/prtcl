@@ -636,15 +636,8 @@ private:
   };
 
 private:
-  // using group_type_fields_map = ::boost::bimaps::bimap<
-  //    ::boost::bimaps::unordered_set_of<std::string>,
-  //    ::boost::bimaps::multiset_of<field_descr>>;
-
-private:
   std::set<std::string> _group_types;
   std::set<field_descr> _global;
-  // group_type_fields_map _uniform;
-  // group_type_fields_map _varying;
   std::unordered_map<std::string, std::set<field_descr>> _uniform;
   std::unordered_map<std::string, std::set<field_descr>> _varying;
   // }}}
