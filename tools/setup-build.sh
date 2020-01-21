@@ -17,13 +17,28 @@ case $1 in
 
       mkdir -p bld/{dbg,rel,reldbg,asan}/${_CC}
 
-      local _CMAKE_FLAGS=( -DCMAKE_MODULE_PATH="$(pwd)/cmake;/home/daned/.local/share/cmake" -DFORCE_COLORED_DIAGNOSTICS=TRUE -DENABLE_LIBCXX=TRUE )
+      local _CMAKE_FLAGS=( -DCMAKE_MODULE_PATH="$(pwd)/cmake;/home/daned/.local/share/cmake" )
+      _CMAKE_FLAGS+=( -DENABLE_LIBCXX=TRUE )
+      _CMAKE_FLAGS+=( -DFORCE_COLORED_DIAGNOSTICS=TRUE )
 
-      CC=${_CC} CXX=${_CXX} cmake -GNinja -S. -Bbld/dbg/${_CC}    "${_CMAKE_FLAGS[@]}" -DCMAKE_BUILD_TYPE=Debug
-      CC=${_CC} CXX=${_CXX} cmake -GNinja -S. -Bbld/rel/${_CC}    "${_CMAKE_FLAGS[@]}" -DCMAKE_BUILD_TYPE=Release
-      CC=${_CC} CXX=${_CXX} cmake -GNinja -S. -Bbld/reldbg/${_CC} "${_CMAKE_FLAGS[@]}" -DCMAKE_BUILD_TYPE=RelWithDebInfo
-      CC=${_CC} CXX=${_CXX} cmake -GNinja -S. -Bbld/asan/${_CC}   "${_CMAKE_FLAGS[@]}" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_FLAGS="-fsanitize=address"
-      CC=${_CC} CXX=${_CXX} cmake -GNinja -S. -Bbld/asan_dbg/${_CC}   "${_CMAKE_FLAGS[@]}" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=address"
+      local _CMAKE_FLAGS_REL=( )
+      _CMAKE_FLAGS_REL+=( -DOPTIMIZE_FOR_NATIVE=TRUE )
+      _CMAKE_FLAGS_REL+=( -DFAST_MATH=TRUE )
+
+      CC=${_CC} CXX=${_CXX} cmake -GNinja -S. -Bbld/dbg/${_CC} -DCMAKE_BUILD_TYPE=Debug \
+          "${_CMAKE_FLAGS[@]}"
+      
+      CC=${_CC} CXX=${_CXX} cmake -GNinja -S. -Bbld/rel/${_CC} -DCMAKE_BUILD_TYPE=Release \
+          "${_CMAKE_FLAGS[@]}" "${_CMAKE_FLAGS_REL[@]}"
+
+      CC=${_CC} CXX=${_CXX} cmake -GNinja -S. -Bbld/reldbg/${_CC} -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+          "${_CMAKE_FLAGS[@]}"
+
+      CC=${_CC} CXX=${_CXX} cmake -GNinja -S. -Bbld/asan/${_CC} -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+          "${_CMAKE_FLAGS[@]}" -DCMAKE_CXX_FLAGS="-fsanitize=address"
+
+      CC=${_CC} CXX=${_CXX} cmake -GNinja -S. -Bbld/asan_dbg/${_CC} -DCMAKE_BUILD_TYPE=Debug \
+          "${_CMAKE_FLAGS[@]}" -DCMAKE_CXX_FLAGS="-fsanitize=address"
     }
     ;;
 

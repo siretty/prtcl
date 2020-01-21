@@ -379,31 +379,17 @@ public:
     }
   }
 
-  /* debug version of compute_group_permutation {{{
+  // }}}
 
-  template <typename Perm>
-  void compute_group_permutation(size_t group, Perm &perm) const {
-    size_t n_p = 0;
-    // std::cerr << std::endl;
+  // compute_group_permutations(range_) {{{
+
+  template <typename Range_>
+  void compute_group_permutations(Range_ &range_) const {
     for (size_t n_s = 0; n_s < sorted_to_raw_.size(); ++n_s) {
       auto i_gr = sorted_to_raw_[n_s];
-      // auto i_c = sorted_to_cell_[n_s];
-      // auto gi = cell_to_grid_[static_cast<size_t>(i_c)];
-      // auto v =
-      //    get_element_ref(get_group_ref(x, i_gr.get_group()),
-      //    i_gr.get_index());
-      if (i_gr.get_group() == group) {
-        perm[n_p++] = static_cast<typename Perm::value_type>(i_gr.get_index());
-        // std::cerr << "s2r[" << n_s << "] = (" << i_gr.get_group() << ", "
-        //          << i_gr.get_index() << ") c = " << static_cast<size_t>(i_c)
-        //          << " gi = (" << gi[0] << " " << gi[1] << ")"
-        //          << " x = (" << v[0] << " " << v[1] << ")" << std::endl;
-      }
+      *(range_[i_gr.get_group()]++) = i_gr.get_index();
     }
-    // std::cerr << std::endl;
   }
-
-  }}} */
 
   // }}}
 

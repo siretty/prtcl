@@ -20,6 +20,9 @@ public:
 
 public:
   virtual void resize(size_t) = 0;
+
+public:
+  virtual void permute(size_t *) = 0;
 };
 
 } // namespace prtcl::rt

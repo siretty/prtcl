@@ -141,6 +141,8 @@ int main(int, char **) {
   nhood.load(model);
   nhood.update();
 
+  nhood.permute(model);
+
   boundary.load(model);
   sesph.load(model);
   advect.load(model);

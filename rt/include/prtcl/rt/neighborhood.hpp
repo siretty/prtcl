@@ -4,6 +4,7 @@
 
 #include "basic_model.hpp"
 
+#include <iterator>
 #include <vector>
 
 #include <iostream>
@@ -57,7 +58,9 @@ private:
 
 public:
   void load(model_type &model_) {
+    // resize the groups data
     _data.groups.resize(model_.groups().size());
+    // iterate over all groups
     for (size_t i = 0; i < _data.groups.size(); ++i) {
       using difference_type =
           typename decltype(model_.groups())::difference_type;
@@ -79,6 +82,27 @@ public:
 public:
   void update() { _grid.update(_data); }
 
+  void permute(model_type &model_) {
+    // resize all permutation storage
+    _perm.resize(model_.groups().size());
+    // resize the permutation iterators
+    _perm_it.clear();
+    _perm_it.reserve(_perm.size());
+    // resize the permutation for each group and fetch the iterator
+    for (size_t i = 0; i < model_.groups().size(); ++i) {
+      _perm[i].clear();
+      _perm[i].reserve(model_.groups()[i].size());
+      _perm_it.push_back(std::back_inserter(_perm[i]));
+    }
+    // compute all permutations
+    _grid.compute_group_permutations(_perm_it);
+#pragma omp parallel
+    {
+      for (size_t i = 0; i < model_.groups().size(); ++i)
+        model_.groups()[i].permute(_perm[i]);
+    }
+  }
+
 public:
   template <typename Fn> void neighbors(size_t g_, size_t i_, Fn &&fn) const {
     if (_data.groups[g_].has_position)
@@ -88,6 +112,9 @@ public:
 private:
   grid_type _grid;
   model_data_type _data;
+  std::vector<std::vector<size_t>> _perm;
+  std::vector<std::back_insert_iterator<typename decltype(_perm)::value_type>>
+      _perm_it;
 };
 
 } // namespace prtcl::rt

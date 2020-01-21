@@ -8,6 +8,10 @@ project(
 )
 
 
+include( PRTCL_Add_Target_CXX_FLAGS_FastMath )
+include( PRTCL_Add_Target_CXX_FLAGS_OptimizeForNative )
+
+
 set( _PRJ ${CMAKE_CURRENT_SOURCE_DIR} )
 set( _INC ${CMAKE_CURRENT_SOURCE_DIR}/include )
 set( _SRC ${CMAKE_CURRENT_SOURCE_DIR}/sources )
@@ -103,6 +107,8 @@ DE_CXX17_Target( prtcl-schemes-sesph )
 DE_Common_Diagnostics_CXX_Target( prtcl-schemes-sesph )
 DE_LibCXX_Target( prtcl-schemes-sesph )
 DE_Add_Our_Include_Directories( prtcl-schemes-sesph include sources )
+PRTCL_Add_Target_CXX_FLAGS_FastMath( prtcl-schemes-sesph )
+PRTCL_Add_Target_CXX_FLAGS_OptimizeForNative( prtcl-schemes-sesph )
 target_compile_definitions(
   prtcl-schemes-sesph
   PUBLIC

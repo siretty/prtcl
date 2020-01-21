@@ -8,8 +8,13 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 
 #include <cstddef>
+
+#include <boost/range/algorithm/copy.hpp>
+
+#include <omp.h>
 
 namespace prtcl::rt {
 
@@ -91,6 +96,29 @@ public:
   }
 
 public:
+  template <typename Range_> void permute(Range_ const &range_) {
+#pragma omp single
+    {
+      // create indexed access to the varying data
+      _to_permute.clear();
+      _to_permute.reserve(_varying.size());
+      for (auto const &[_, v] : _varying)
+        _to_permute.push_back(v.get());
+      // one permutation per thread
+      _per_thread_perm.resize(static_cast<size_t>(omp_get_num_threads()));
+    }
+    // ensure that the current threads permutation has the right size
+    auto tid = static_cast<size_t>(omp_get_thread_num());
+    _per_thread_perm[tid].resize(boost::size(range_));
+    // permute each varying field
+#pragma omp for schedule(static, 1)
+    for (size_t i = 0; i < _to_permute.size(); ++i) {
+      boost::range::copy(range_, _per_thread_perm[tid].begin());
+      _to_permute[i]->permute(_per_thread_perm[tid].data());
+    }
+  }
+
+public:
   basic_group() = delete;
 
   basic_group(basic_group &&) = default;
@@ -107,6 +135,9 @@ private:
   size_t _size = 0;
   std::unordered_map<std::string, std::unique_ptr<nd_data_base>> _uniform;
   std::unordered_map<std::string, std::unique_ptr<nd_data_base>> _varying;
+
+  std::vector<std::vector<size_t>> _per_thread_perm;
+  std::vector<nd_data_base *> _to_permute;
 };
 
 } // namespace prtcl::rt

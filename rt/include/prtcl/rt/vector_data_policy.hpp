@@ -11,6 +11,8 @@
 
 #include <cstddef>
 
+#include <boost/algorithm/apply_permutation.hpp>
+
 #include <boost/operators.hpp>
 
 #include <boost/range/adaptor/transformed.hpp>
@@ -53,6 +55,12 @@ public:
 
 public:
   void resize(size_t size_) final { _data.resize(size_); }
+
+public:
+  void permute(size_t *perm_) final {
+    auto indices = boost::make_iterator_range(perm_, perm_ + size());
+    boost::algorithm::apply_permutation(_data, indices);
+  }
 
 private:
   std::vector<value_type> _data;
