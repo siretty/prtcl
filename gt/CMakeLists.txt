@@ -13,10 +13,10 @@ set( _INC ${CMAKE_CURRENT_SOURCE_DIR}/include )
 set( _SRC ${CMAKE_CURRENT_SOURCE_DIR}/sources )
 
 
-add_library( prtcl-gt INTERFACE )
-target_sources(
+prtcl_add_library(
   prtcl-gt
-  INTERFACE
+  TYPE INTERFACE
+  INTERFACE_SOURCES
     ${_INC}/prtcl/gt/ast/ast_leaf_base.hpp
     ${_INC}/prtcl/gt/ast/ast_nary_base.hpp
     ${_INC}/prtcl/gt/ast/ast_nary_crtp.hpp
@@ -40,13 +40,8 @@ target_sources(
     ${_INC}/prtcl/gt/dsl_to_ast.hpp
     ${_INC}/prtcl/gt/schemes_registry.hpp
 )
-target_include_directories(
-  prtcl-gt
-  INTERFACE
-    ${_INC}
-)
-target_link_libraries(
-  prtcl-gt
+target_include_directories( prtcl-gt INTERFACE ${_INC} )
+target_link_libraries( prtcl-gt
   INTERFACE prtcl-core
 )
 

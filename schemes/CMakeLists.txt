@@ -40,34 +40,18 @@ prtcl_generate_scheme_header( sesph )
 prtcl_generate_scheme_header( symplectic_euler )
 
 
-add_library(
-  prtcl-schemes STATIC
-
-  ${_SRC}/prtcl/schemes/getcwd.cpp
-)
-DE_CXX17_Target( prtcl-schemes )
-DE_Common_Diagnostics_CXX_Target( prtcl-schemes )
-DE_LibCXX_Target( prtcl-schemes )
-DE_Add_Our_Include_Directories( prtcl-schemes include sources )
-target_sources(
+prtcl_add_library(
   prtcl-schemes
-
-  INTERFACE
+  TYPE INTERFACE
+  INTERFACE_SOURCES
     ${_INC}/prtcl/schemes/test.hpp
 
     ${_INC}/prtcl/schemes/boundary.hpp
     ${_INC}/prtcl/schemes/sesph.hpp
     ${_INC}/prtcl/schemes/symplectic_euler.hpp
 )
-target_include_directories(
-  prtcl-schemes
-
-  PUBLIC
-    ${_INC}
-)
-target_link_libraries(
-  prtcl-schemes
-
+target_include_directories( prtcl-schemes INTERFACE ${_INC} )
+target_link_libraries( prtcl-schemes
   INTERFACE prtcl-rt
 )
 

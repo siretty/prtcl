@@ -2,6 +2,7 @@
 #include <prtcl/rt/basic_model_policy.hpp>
 #include <prtcl/rt/basic_type_policy.hpp>
 #include <prtcl/rt/eigen_math_policy.hpp>
+#include <prtcl/rt/filesystem/getcwd.hpp>
 #include <prtcl/rt/grouped_uniform_grid.hpp>
 #include <prtcl/rt/integral_grid.hpp>
 #include <prtcl/rt/math/kernel/cubic_spline_kernel.hpp>
@@ -13,7 +14,6 @@
 #include <prtcl/rt/virtual_clock.hpp>
 
 #include <prtcl/schemes/boundary.hpp>
-#include <prtcl/schemes/getcwd.hpp>
 #include <prtcl/schemes/sesph.hpp>
 #include <prtcl/schemes/symplectic_euler.hpp>
 
@@ -58,7 +58,7 @@ int main(int, char **) {
 
   // -----
 
-  size_t grid_size = 50; // 45;
+  size_t grid_size = 16; // 45;
 
   // {{{
   { // initialize global and uniform fields
@@ -165,7 +165,7 @@ int main(int, char **) {
 
   boundary.compute_volume(nhood);
 
-  auto cwd = ::prtcl::schemes::getcwd();
+  auto cwd = ::prtcl::rt::filesystem::getcwd();
   auto output_dir = cwd + "/" + "output";
 
   for (auto &g : model.groups()) {

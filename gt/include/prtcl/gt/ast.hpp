@@ -1,6 +1,5 @@
 #pragma once
 
-#include <boost/range/iterator_range_core.hpp>
 #include <prtcl/core/macros.hpp>
 
 #include <prtcl/gt/common.hpp>

@@ -17,29 +17,27 @@ find_package( Eigen3 REQUIRED )
 find_package( Threads REQUIRED )
 
 
-add_library( prtcl-rt INTERFACE )
-target_sources(
+prtcl_add_library(
   prtcl-rt
-  INTERFACE
+  TYPE STATIC
+  PRIVATE_SOURCES
+    ${_SRC}/prtcl/rt/filesystem/getcwd.cpp
+  INTERFACE_SOURCES
     ${_INC}/prtcl/rt/basic_group.hpp
     ${_INC}/prtcl/rt/basic_model.hpp
     ${_INC}/prtcl/rt/basic_model_policy.hpp
     ${_INC}/prtcl/rt/basic_type_policy.hpp
     ${_INC}/prtcl/rt/common.hpp
     ${_INC}/prtcl/rt/eigen_math_policy.hpp
+    ${_INC}/prtcl/rt/filesystem/getcwd.hpp
     ${_INC}/prtcl/rt/grouped_uniform_grid.hpp
     ${_INC}/prtcl/rt/nd_data_base.hpp
-    ${_INC}/prtcl/rt/neighborhood.hpp
+    ${_INC}/prtcl/rt/neighborhood.hpp 
     ${_INC}/prtcl/rt/vector_data_policy.hpp
 )
-target_include_directories(
-  prtcl-rt
-  INTERFACE 
-    ${_INC}
-)
-target_link_libraries(
-  prtcl-rt
-  INTERFACE prtcl-core
+target_include_directories( prtcl-rt INTERFACE ${_INC} )
+target_link_libraries( prtcl-rt
+  PUBLIC prtcl-core
 )
 
 
@@ -70,7 +68,7 @@ target_include_directories(
 )
 target_link_libraries(
   prtcl-rt-tests
-  PUBLIC prtcl-core
+  PUBLIC prtcl-rt
   PUBLIC Eigen3::Eigen
   PUBLIC Threads::Threads
   PUBLIC ${CMAKE_DL_LIBS}
