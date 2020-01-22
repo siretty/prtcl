@@ -20,7 +20,6 @@ set( _SRC ${CMAKE_CURRENT_SOURCE_DIR}/sources )
 find_package( Threads REQUIRED )
 find_package( Eigen3 REQUIRED )
 find_package( OpenMP REQUIRED )
-#find_package( Boost REQUIRED COMPONENTS filesystem )
 
 
 function( prtcl_generate_scheme_header _NAME )
@@ -30,7 +29,7 @@ function( prtcl_generate_scheme_header _NAME )
     DEPENDS prtcl-gt-schemes
     COMMENT "Generating ${_NAME} scheme code."
   )
-endfunction( prtcl_generate_scheme_header _NAME  )
+endfunction( prtcl_generate_scheme_header )
 
 
 prtcl_generate_scheme_header( test )
@@ -122,7 +121,6 @@ target_link_libraries(
   PUBLIC Eigen3::Eigen
   PUBLIC Threads::Threads
   PUBLIC OpenMP::OpenMP_CXX
-  #PUBLIC Boost::filesystem
   PUBLIC ${CMAKE_DL_LIBS}
 )
 
