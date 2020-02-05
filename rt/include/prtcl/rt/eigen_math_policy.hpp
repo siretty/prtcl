@@ -153,6 +153,12 @@ public:
     template <typename Arg_> static decltype(auto) cmin(Arg_ &&arg_) {
       return std::forward<Arg_>(arg_).minCoeff();
     }
+
+    /// Solve a positive- or negative-semi-definite linear system of equation.
+    template <typename A_, typename B_>
+    static decltype(auto) solve_sd(A_ &&a_, B_ &&b_) {
+      return std::forward<A_>(a_).ldlt().solve(std::forward<B_>(b_));
+    }
   };
 
 public:
