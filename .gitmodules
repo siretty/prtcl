@@ -7,3 +7,6 @@
 [submodule "subprojects/boost"]
 	path = subprojects/boost
 	url = https://github.com/boostorg/boost.git
+[submodule "subprojects/eigen"]
+	path = subprojects/eigen
+	url = https://gitlab.com/libeigen/eigen.git
