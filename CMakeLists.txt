@@ -16,6 +16,7 @@ include( DECatch2 )
 include( DECXX17 )
 include( DEAddOurIncludeDirectories )
 include( prtcl_add_library )
+include( prtcl_add_executable )
 
 
 set( PRTCL_SUBPROJECTS_DIR ${CMAKE_SOURCE_DIR}/subprojects )

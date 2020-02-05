@@ -74,3 +74,15 @@ target_link_libraries(
   PUBLIC ${CMAKE_DL_LIBS}
 )
 
+
+prtcl_add_executable(
+  prtcl-sample-mesh
+  TYPE STATIC
+  SOURCES
+    ${_SRC}/prtcl-sample-mesh/main.cpp
+)
+target_link_libraries( prtcl-sample-mesh
+  PUBLIC prtcl-rt
+  PUBLIC Eigen3::Eigen
+)
+

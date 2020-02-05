@@ -116,6 +116,11 @@ public:
       return std::forward<LHS_>(lhs_).dot(std::forward<RHS_>(rhs_));
     }
 
+    template <typename LHS_, typename RHS_>
+    static decltype(auto) cross(LHS_ &&lhs_, RHS_ &&rhs_) {
+      return std::forward<LHS_>(lhs_).cross(std::forward<RHS_>(rhs_));
+    }
+
     template <typename Arg_> static decltype(auto) norm(Arg_ &&arg_) {
       return std::forward<Arg_>(arg_).norm();
     }

@@ -10,6 +10,7 @@
 #include <prtcl/rt/math/mixed_math_policy.hpp>
 #include <prtcl/rt/neighborhood.hpp>
 #include <prtcl/rt/save_vtk.hpp>
+#include <prtcl/rt/triangle_mesh.hpp>
 #include <prtcl/rt/vector_data_policy.hpp>
 #include <prtcl/rt/virtual_clock.hpp>
 
@@ -167,6 +168,11 @@ int main(int, char **) {
 
   auto cwd = ::prtcl::rt::filesystem::getcwd();
   auto output_dir = cwd + "/" + "output";
+
+  {
+    std::ifstream obj_file{cwd + "/" + "share/models/unitcube.obj"};
+    prtcl::rt::triangle_mesh<model_policy>::load_from_obj(obj_file);
+  }
 
   for (auto &g : model.groups()) {
     if ("boundary" != g.get_type())
