@@ -25,9 +25,17 @@ int main(int argc_, char **argv_) {
     obj_file.close();
   }
 
+  mesh.scale(1);
+
   std::vector<rvec> points;
+
+  rt::sample_surface_parameters params{.05L};
+  params.sample_vertices = true;
+  params.sample_edges = true;
+  params.sample_faces = true;
+
   rt::sample_surface(
-      mesh, std::back_inserter(points), rt::surface_sample_parameters{.5L});
+      mesh, std::back_inserter(points), params);
 
   std::cout << "vertices = [" << '\n';
   for (auto const &v : mesh.vertices()) {
@@ -35,12 +43,14 @@ int main(int argc_, char **argv_) {
   }
   std::cout << "]" << '\n';
   std::cout << '\n';
+
   std::cout << "faces = [" << '\n';
   for (auto const &f : mesh.faces()) {
     std::cout << "  [ " << f[0] << ", " << f[1] << ", " << f[2] << " ]," << '\n';
   }
   std::cout << "]" << '\n';
   std::cout << '\n';
+
   std::cout << "points = [" << '\n';
   for (auto const &v : points) {
     std::cout << "  [ " << v[0] << ", " << v[1] << ", " << v[2] << " ]," << '\n';

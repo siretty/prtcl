@@ -15,7 +15,7 @@
 
 namespace prtcl::rt {
 
-struct surface_sample_parameters {
+struct sample_surface_parameters {
   long double maximum_sample_distance;
   bool sample_vertices = true;
   bool sample_edges = true;
@@ -25,7 +25,7 @@ struct surface_sample_parameters {
 template <typename ModelPolicy_, typename OutputIt_>
 void sample_surface(
     triangle_mesh<ModelPolicy_> const &mesh_, OutputIt_ it_,
-    surface_sample_parameters p_) {
+    sample_surface_parameters const &p_) {
   using type_policy = typename ModelPolicy_::type_policy;
   using real = typename type_policy::template dtype_t<nd_dtype::real>;
 
@@ -90,8 +90,8 @@ void sample_surface(
   auto intersect = [](auto ab_, auto ad_, auto bb_, auto bd_) -> rvec2 {
     // {{{
     rmat2 A;
-    A(0, 0) = o::dot(ad_, ad_) / 2, A(0, 1) = -o::dot(ad_, bd_) / 2;
-    A(1, 1) = o::dot(bd_, bd_) / 2, A(1, 0) = A(0, 1);
+    A(0, 0) = o::dot(ad_, ad_), A(0, 1) = -o::dot(ad_, bd_);
+    A(1, 1) = o::dot(bd_, bd_), A(1, 0) = A(0, 1);
 
     rvec2 b;
     b(0) = -o::dot(ad_, ab_ - bb_);
@@ -122,12 +122,18 @@ void sample_surface(
   }
 
   if (p_.sample_vertices) {
+    std::cerr << "sampling vertices ..." << '\n';
+
     // one sample per vertex
     for (rvec const &v : mesh_.vertices())
       *(it_++) = v;
+
+    std::cerr << "... done" << '\n';
   }
 
   if (p_.sample_edges) {
+    std::cerr << "sampling edges ..." << '\n';
+
     // multiple samples per edge
     for (auto const &e : edges) {
       // retrieve the vertices and compute the vector from one to the other
@@ -137,9 +143,13 @@ void sample_surface(
       for (auto t : ticks_between(v0, v1))
         *(it_++) = t;
     }
+
+    std::cerr << "... done" << '\n';
   }
 
   if (p_.sample_faces) {
+    std::cerr << "sampling faces ..." << '\n';
+
     // multiple samples per face
     for (auto const &f : mesh_.faces()) {
       // m is the point with the largest angle
@@ -174,6 +184,8 @@ void sample_surface(
           *(it_++) = t;
       }
     }
+
+    std::cerr << "... done" << '\n';
   }
 }
 
