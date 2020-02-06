@@ -157,7 +157,7 @@ public:
     /// Solve a positive- or negative-semi-definite linear system of equation.
     template <typename A_, typename B_>
     static decltype(auto) solve_sd(A_ &&a_, B_ &&b_) {
-      return std::forward<A_>(a_).ldlt().solve(std::forward<B_>(b_));
+      return std::forward<A_>(a_).ldlt().solve(std::forward<B_>(b_)).eval();
     }
   };
 
