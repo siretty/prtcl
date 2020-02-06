@@ -2,7 +2,7 @@
 function( DE_Add_Catch2_Main _NAME )
   file( WRITE ${CMAKE_CURRENT_BINARY_DIR}/DE_Add_Catch2_Main.cpp
     "#define CATCH_CONFIG_MAIN\n"
-    "#include <catch.hpp>\n"
+    "#include <catch2/catch.hpp>\n"
   )
 
   add_library(
@@ -12,10 +12,9 @@ function( DE_Add_Catch2_Main _NAME )
     ${CMAKE_CURRENT_BINARY_DIR}/DE_Add_Catch2_Main.cpp
   )
 
-  # add catch2 includes
-  target_include_directories(
-    ${_NAME} 
-    PRIVATE ${Catch2_SOURCE_DIR}/single_include/catch2
+  target_link_libraries(
+    ${_NAME}
+    PUBLIC Catch2::Catch2
   )
 endfunction( DE_Add_Catch2_Main )
 
@@ -25,12 +24,6 @@ function( DE_Add_Catch2_Test _NAME _MAIN )
 
     # sources
     ${ARGN}
-  )
-
-  # add catch2 includes
-  target_include_directories(
-    ${_NAME} 
-    PRIVATE ${Catch2_SOURCE_DIR}/single_include/catch2
   )
 
   target_link_libraries(

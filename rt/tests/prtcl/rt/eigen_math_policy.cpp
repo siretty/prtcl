@@ -1,4 +1,4 @@
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 
 #include <prtcl/rt/basic_type_policy.hpp>
 #include <prtcl/rt/eigen_math_policy.hpp>

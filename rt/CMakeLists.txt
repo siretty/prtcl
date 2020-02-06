@@ -38,6 +38,7 @@ prtcl_add_library(
 target_include_directories( prtcl-rt INTERFACE ${_INC} )
 target_link_libraries( prtcl-rt
   PUBLIC prtcl-core
+  PUBLIC prtcl-dep-boost-headers
 )
 
 

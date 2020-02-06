@@ -9,20 +9,29 @@ project(
 # generate compilation database
 set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 
+# setup the dependency prefix
+list( APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/deps/prefix" )
+
+# allow loading our own modules
+list( APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" )
+
+
+find_package( Catch2 REQUIRED )
+
+
+include( prtcl_build_boost )
+
+include( prtcl_add_library )
+include( prtcl_add_executable )
 
 include( DECommonDiagnosticFlags )
 include( DELibCXXFlags )
 include( DECatch2 )
 include( DECXX17 )
 include( DEAddOurIncludeDirectories )
-include( prtcl_add_library )
-include( prtcl_add_executable )
 
 
-set( PRTCL_SUBPROJECTS_DIR ${CMAKE_SOURCE_DIR}/subprojects )
-
-set( tracy_INCLUDE_DIR ${PRTCL_SUBPROJECTS_DIR}/tracy )
-add_subdirectory( ${PRTCL_SUBPROJECTS_DIR}/catch2 )
+prtcl_build_boost()
 
 
 DE_Add_Catch2_Main( test_main )

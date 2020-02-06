@@ -1,6 +1,0 @@
-[submodule "subprojects/boost-build"]
-	path = subprojects/boost-build
-	url = https://github.com/boostorg/build.git
-[submodule "subprojects/catch2"]
-	path = subprojects/catch2
-	url = https://github.com/catchorg/Catch2.git

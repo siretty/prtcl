@@ -1,3 +1,4 @@
+
 cmake_minimum_required( VERSION 3.5 FATAL_ERROR )
 
 project(
@@ -29,4 +30,9 @@ target_include_directories(
   prtcl-core
   INTERFACE 
     ${_INC}
+)
+target_link_libraries(
+  prtcl-core
+  INTERFACE
+    prtcl-dep-boost-container
 )

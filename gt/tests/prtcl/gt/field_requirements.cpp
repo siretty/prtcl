@@ -1,4 +1,4 @@
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 
 #include <prtcl/gt/field_literals.hpp>
 #include <prtcl/gt/field_requirements.hpp>

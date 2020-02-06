@@ -1,6 +1,6 @@
-#include "prtcl/core/nd_dtype.hpp"
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 
+#include <prtcl/rt/common.hpp>
 #include <prtcl/rt/basic_type_policy.hpp>
 #include <prtcl/rt/eigen_math_policy.hpp>
 #include <prtcl/rt/math/kernel/cubic_spline_kernel.hpp>
