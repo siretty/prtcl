@@ -1,0 +1,15 @@
+
+Simple Surface Meshing
+
+- load fluid frames (f.*)
+- add filter 'SPH Volume Interpolator'
+  - select density and mass arrays
+  - select kernel
+  - setup spatial step
+  - setup bounding volume
+  - setup 'Volume Refinement'
+    - 'Refinement Mode' 'Use cell-size'
+    - 'Cell Size' spatial step / 2
+- add filter 'Contour'
+  - setup 'Contour By'
+
