@@ -4,6 +4,12 @@
 
 namespace prtcl::rt::filesystem {
 
-std::string getcwd();
+inline std::string getcwd();
 
 } // namespace prtcl::rt::filesystem
+
+// operating-system specific implementation
+
+#if defined(_POSIX_C_SOURCE)
+#include "posix/getcwd.hpp"
+#endif // defined(_POSIX_C_SOURCE)
