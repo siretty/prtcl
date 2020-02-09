@@ -19,9 +19,7 @@ find_package( Threads REQUIRED )
 
 prtcl_add_library(
   prtcl-rt
-  TYPE STATIC
-  PRIVATE_SOURCES
-    ${_SRC}/prtcl/rt/filesystem/getcwd.cpp
+  TYPE INTERFACE
   INTERFACE_SOURCES
     ${_INC}/prtcl/rt/basic_group.hpp
     ${_INC}/prtcl/rt/basic_model.hpp
@@ -34,11 +32,15 @@ prtcl_add_library(
     ${_INC}/prtcl/rt/nd_data_base.hpp
     ${_INC}/prtcl/rt/neighborhood.hpp 
     ${_INC}/prtcl/rt/vector_data_policy.hpp
+
+    # POSIX-only headers
+    ${_INC}/prtcl/rt/filesystem/posix/getcwd.hpp
+    # TODO: add this conditionally to the sources based on the OS
 )
 target_include_directories( prtcl-rt INTERFACE ${_INC} )
 target_link_libraries( prtcl-rt
-  PUBLIC prtcl-core
-  PUBLIC prtcl-dep-boost-headers
+  INTERFACE prtcl-core
+  INTERFACE prtcl-dep-boost-headers
 )
 
 
@@ -51,6 +53,9 @@ DE_Add_Catch2_Test(
   ${_PRJ}/tests/prtcl/rt/eigen_math_policy.cpp
   ${_PRJ}/tests/prtcl/rt/vector_data_policy.cpp
   ${_PRJ}/tests/prtcl/rt/math/kernel/cubic_spline_kernel.cpp
+
+  ${_PRJ}/tests/prtcl/rt/cli/parse_args_to_ptree.cpp
+  ${_PRJ}/tests/prtcl/rt/cli/command_line_interface.cpp
 )
 DE_CXX17_Target( prtcl-rt-tests )
 DE_Common_Diagnostics_CXX_Target( prtcl-rt-tests )

@@ -394,7 +394,7 @@ public:
   // }}}
 
 public:
-  // neighbors(group, index, x, fn) {{{
+  // neighbors(group, index, data, callback) {{{
 
   template <typename GroupedVectorData, typename Fn>
   void neighbors(
@@ -404,21 +404,60 @@ public:
     real radius_squared = core::constpow(radius_, 2);
     potential_neighbors(
         group, index,
-        [group, index, radius_squared, &fn, &x](raw_grouped_index const &i_gr) {
+        [group, index, radius_squared, &fn, &x](size_t i_g, size_t i_r) {
           auto const distance = math_policy::operations::norm_squared(
               get_element_ref(get_group_ref(x, group), index) -
-              get_element_ref(
-                  get_group_ref(x, i_gr.get_group()), i_gr.get_index()));
+              get_element_ref(get_group_ref(x, i_g), i_r));
           if (distance < radius_squared) {
-            std::invoke(fn, i_gr.get_group(), i_gr.get_index());
+            std::invoke(fn, i_g, i_r);
           }
         });
   }
 
   // }}}
 
+  // neighbors(position, data, callback) {{{
+
+  template <typename X_, typename GroupedVectorData_, typename Fn_>
+  void neighbors(X_ const &x_, GroupedVectorData_ const &d_, Fn_ fn_) const {
+    real radius_squared = core::constpow(radius_, 2);
+    potential_neighbors(
+        x_, [radius_squared, &fn_, &x_, &d_](size_t i_g, size_t i_r) {
+          auto const distance = math_policy::operations::norm_squared(
+              x_ - get_element_ref(get_group_ref(d_, i_g), i_r));
+          if (distance < radius_squared) {
+            std::invoke(fn_, i_g, i_r);
+          }
+        });
+  }
+
+  // }}}
+
+private:
+  // potential_neighbors(cell, callback) {{{
+
+  template <typename Fn> void potential_neighbors(cell_index i_c, Fn fn) const {
+    if (i_c == cell_index::invalid)
+      return;
+
+    auto const &range_s = cell_to_sorted_range(i_c);
+
+    PRTCL_ASSERT(range_s.first != sorted_index::invalid);
+    PRTCL_ASSERT(range_s.second != sorted_index::invalid);
+
+    size_t first = static_cast<size_t>(range_s.first),
+           last = static_cast<size_t>(range_s.second);
+
+    for (size_t i = first; i < last; ++i) {
+      auto i_gr = sorted_to_raw(static_cast<sorted_index>(i));
+      fn(i_gr.get_group(), i_gr.get_index());
+    }
+  }
+
+  // }}}
+
 public:
-  // potential_neighbors(group, index, fn) {{{
+  // potential_neighbors(group, index, callback) {{{
 
   template <typename Fn>
   void potential_neighbors(size_t group, size_t index, Fn fn) const {
@@ -431,24 +470,49 @@ public:
     sorted_index i_s = raw_to_sorted(i_gr);
     cell_index i_c = sorted_to_cell(i_s);
 
-    // lambda for_cell(cell_index) {{{
-    auto for_cell = [this, &fn](cell_index const &j_c) {
-      if (j_c == cell_index::invalid)
-        return;
-
-      auto const &range_s = cell_to_sorted_range(j_c);
-      PRTCL_ASSERT(range_s.first != sorted_index::invalid);
-      PRTCL_ASSERT(range_s.second != sorted_index::invalid);
-      for (size_t i = static_cast<size_t>(range_s.first);
-           i < static_cast<size_t>(range_s.second); ++i)
-        fn(sorted_to_raw(static_cast<sorted_index>(i)));
-    };
-    // }}}
-
-    for_cell(i_c);
+    potential_neighbors(i_c, fn);
 
     for (cell_index j_c : cell_to_adjacent_cells(i_c))
-      for_cell(j_c);
+      potential_neighbors(j_c, fn);
+  }
+
+  // }}}
+
+  // {{{ potential_neighbors(position, callback)
+
+  //! Invokes the callback for each neighbor of the position.
+  template <typename X_, typename Fn_>
+  void potential_neighbors(X_ const &x_, Fn_ fn_) const {
+    auto x_gi = x_to_gi(x_);
+
+    if (auto x_ci = find_cell(x_gi); x_ci != cell_index::invalid) {
+      // if the position is in a known cell, use the adjacent cells
+
+      potential_neighbors(x_ci, fn_);
+      for (cell_index y_ci : cell_to_adjacent_cells_[x_ci])
+        potential_neighbors(y_ci, fn_);
+    } else {
+      // if the position is NOT in a known cell, iterate over all adjacent cells
+      // by their respective grid index
+
+      // enumerate all sparse adjacent cell offsets
+      for (auto const &offset : detail::sparse_adjacent_cell_offsets_v<N>) {
+        // grid index of an adjacent cell
+        grid_index y_gi = x_gi;
+
+        // offset applied by addition
+        for (size_t i = 0; i < N; ++i)
+          y_gi[i] += offset[i];
+
+        potential_neighbors(find_cell(y_gi), fn_);
+
+        // offset applied by subtraction
+        for (size_t i = 0; i < N; ++i)
+          y_gi[i] -= 2 * offset[i];
+
+        potential_neighbors(find_cell(y_gi), fn_);
+      }
+    }
   }
 
   // }}}
@@ -524,20 +588,28 @@ private:
 
   // }}}
 
+private:
   // compute_grid_index(...) -> ... {{{
 
   template <typename GroupedVectorData>
   grid_index
   compute_grid_index(GroupedVectorData const &x, raw_grouped_index i_gr) {
+    return x_to_gi(
+        get_element_ref(get_group_ref(x, i_gr.get_group()), i_gr.get_index()));
+  }
+
+  // }}}
+
+  // {{{ x_to_gi : O -> Z^d
+
+  //! Maps a position to it's corresponding cell index.
+  template <typename X_> grid_index x_to_gi(X_ const &x) {
     grid_index result;
     using single_grid_index = typename grid_index::value_type;
 
     for (size_t axis = 0; axis < result.size(); ++axis) {
-      result[axis] = static_cast<single_grid_index>(std::floor(
-          get_element_ref(
-              get_group_ref(x, i_gr.get_group()),
-              i_gr.get_index())[static_cast<Eigen::Index>(axis)] /
-          radius_));
+      result[axis] = static_cast<single_grid_index>(
+          std::floor(x[static_cast<int>(axis)] / radius_));
     }
 
     return result;

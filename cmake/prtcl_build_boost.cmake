@@ -68,7 +68,7 @@ function( prtcl_build_boost )
     build-prtcl-dep-boost
   )
   target_include_directories(
-    prtcl-dep-boost-headers
+    prtcl-dep-boost-headers SYSTEM
     INTERFACE "${BOOST_PREFIX_DIR}/include"
   )
 

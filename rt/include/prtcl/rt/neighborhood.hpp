@@ -57,6 +57,12 @@ private:
   };
 
 public:
+  void set_radius(real radius_) {
+    // TODO: automatically update when the radius changes
+    _grid.set_radius(radius_);
+  }
+
+public:
   void load(model_type &model_) {
     // resize the groups data
     _data.groups.resize(model_.groups().size());
@@ -77,11 +83,10 @@ public:
     }
   }
 
-  void set_radius(real radius_) { _grid.set_radius(radius_); }
-
 public:
   void update() { _grid.update(_data); }
 
+public:
   void permute(model_type &model_) {
     // resize all permutation storage
     _perm.resize(model_.groups().size());

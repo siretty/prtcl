@@ -1085,6 +1085,13 @@ public:
     *this << nl;
     *this << "#include <omp.h>" << nl;
     *this << nl;
+    *this << "#if defined(__GNUG__)" << nl;
+    *this << "#pragma GCC diagnostic push" << nl;
+    *this << "#pragma GCC diagnostic ignored \"-Wunused-local-typedef\"" << nl;
+    *this << "#pragma GCC diagnostic ignored \"-Wunused-parameter\"" << nl;
+    *this << "#pragma GCC diagnostic ignored \"-Wunused-variable\"" << nl;
+    *this << "#endif" << nl;
+    *this << nl;
     *this << "namespace prtcl::schemes {" << nl;
     *this << nl;
     *this << "template <" << nl;
@@ -1353,6 +1360,10 @@ public:
     *this << "};" << nl;
     *this << nl;
     *this << "} // namespace prtcl::schemes" << nl;
+    *this << nl;
+    *this << "#if defined(__GNUG__)" << nl;
+    *this << "#pragma GCC diagnostic pop" << nl;
+    *this << "#endif" << nl;
     // }}}
   }
 

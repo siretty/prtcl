@@ -8,6 +8,13 @@
 
 #include <omp.h>
 
+#if defined(__GNUG__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-local-typedef"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#endif
+
 namespace prtcl::schemes {
 
 template <
@@ -189,3 +196,7 @@ public:
 };
 
 } // namespace prtcl::schemes
+
+#if defined(__GNUG__)
+#pragma GCC diagnostic pop
+#endif
