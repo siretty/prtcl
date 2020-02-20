@@ -15,7 +15,7 @@
 #include <prtcl/rt/virtual_clock.hpp>
 
 #include <prtcl/schemes/boundary.hpp>
-#include <prtcl/schemes/sesph.hpp>
+#include <prtcl/schemes/sesph_v2.hpp>
 #include <prtcl/schemes/symplectic_euler.hpp>
 
 #include <fstream>

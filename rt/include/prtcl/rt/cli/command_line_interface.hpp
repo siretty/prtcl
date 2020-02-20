@@ -93,7 +93,7 @@ public:
           if (key == name_parts[level]) {
             if (level == name_parts.size() - 1)
               // if we matched the last name part, get the value
-              *(it_++) = node.get_value<Type_>();
+              *(it_++) = node.template get_value<Type_>();
             else
               // descend deeper
               stack.emplace_back(&node, level + 1);
