@@ -70,6 +70,8 @@ private:
     }
 
     void _load(group_type const &g_) {
+      std::cerr << "loading group " << g_.get_name() << '\n';
+
       _count = g_.size();
 
       // uniform fields
@@ -94,6 +96,8 @@ private:
     }
 
     void _load(group_type const &g_) {
+      std::cerr << "loading group " << g_.get_name() << '\n';
+
       _count = g_.size();
 
       // uniform fields
@@ -125,12 +129,16 @@ public:
       auto &group = groups[static_cast<typename decltype(groups)::difference_type>(i)];
 
       if (group.get_type() == "neighbors") {
+        std::cerr << "loading group " << group.get_name() << " with index " << i << '\n';
+
         auto &data = _data.by_group_type.neighbors.emplace_back();
         data._load(group);
         data._index = i;
       }
 
       if (group.get_type() == "particles") {
+        std::cerr << "loading group " << group.get_name() << " with index " << i << '\n';
+
         auto &data = _data.by_group_type.particles.emplace_back();
         data._load(group);
         data._index = i;

@@ -40,6 +40,12 @@ public:
     return *this;
   }
 
+  auto &scale(rvec_type factors_) {
+    for (auto &v : _vertices)
+      v.array() *= factors_.array();
+    return *this;
+  }
+
   auto &translate(rvec_type translation_) {
     for (auto &v : _vertices)
       v += translation_;
@@ -79,11 +85,11 @@ public:
 
     // matches faces (v/t/n v/t/n v/t/n ...)
     static std::regex const re_face_generic{
-        R"(^f(?:\s+(?:\d+)(?:[/]\d*(?:[/]\d*)))*\s*$)"};
+        R"(^f(?:\s+(?:\d+)(?:[/]\d*(?:[/]\d*)?)?)*\s*$)"};
     static std::regex const re_face3{
-        R"(^f\s+(\d+)(?:[/]\d*(?:[/]\d*))\s+(\d+)(?:[/]\d*(?:[/]\d*))\s+(\d+)(?:[/]\d*(?:[/]\d*))\s*$)"};
+        R"(^f\s+(\d+)(?:[/]\d*(?:[/]\d*)?)?\s+(\d+)(?:[/]\d*(?:[/]\d*)?)?\s+(\d+)(?:[/]\d*(?:[/]\d*)?)?\s*$)"};
     static std::regex const re_face4{
-        R"(^f\s+(\d+)(?:[/]\d*(?:[/]\d*))\s+(\d+)(?:[/]\d*(?:[/]\d*))\s+(\d+)(?:[/]\d*(?:[/]\d*))\s+(\d+)(?:[/]\d*(?:[/]\d*))\s*$)"};
+        R"(^f\s+(\d+)(?:[/]\d*(?:[/]\d*)?)?\s+(\d+)(?:[/]\d*(?:[/]\d*)?)?\s+(\d+)(?:[/]\d*(?:[/]\d*)?)?\s+(\d+)(?:[/]\d*(?:[/]\d*)?)?\s*$)"};
 
     size_t vertex_count = 0, face_count = 0;
 

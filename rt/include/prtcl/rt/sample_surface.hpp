@@ -72,13 +72,14 @@ void sample_surface(
         o::dot(-v1_to_v2, -v0_to_v2) / o::norm(v1_to_v2) / o::norm(v0_to_v2));
 
     if (a0 >= a1 and a0 >= a2) {
-      return std::make_tuple(v0, v1, v2);
+      return std::make_tuple(true, v0, v1, v2);
     } else if (a1 >= a0 and a1 >= a2) {
-      return std::make_tuple(v1, v2, v0);
+      return std::make_tuple(true, v1, v2, v0);
     } else if (a2 >= a0 and a2 >= a1) {
-      return std::make_tuple(v2, v0, v1);
+      return std::make_tuple(true, v2, v0, v1);
     } else {
-      throw std::runtime_error{"invalid triangle angles"};
+      std::cerr << "WARNING: encountered face with invalid angles" << '\n';
+      return std::make_tuple(false, v0, v1, v2);
     }
     // }}}
   };
@@ -153,7 +154,12 @@ void sample_surface(
     // multiple samples per face
     for (auto const &f : mesh_.faces()) {
       // m is the point with the largest angle
-      auto [m, a, b] = from_face(f);
+      auto [ok, m, a, b] = from_face(f);
+      
+      // skip invalid faces
+      if (not ok)
+        continue;
+
       // h is the base of the height above m
       auto h = a + project(m - a, b - a);
 

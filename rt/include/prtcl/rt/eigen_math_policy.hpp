@@ -235,6 +235,14 @@ public:
         return n_eigen::select_eigen_type_t<type, Ns_...>::Constant(
             epsilon<DType_>());
     }
+
+    template <nd_dtype DType_, typename T_, size_t N_>
+    static decltype(auto) from_array(std::array<T_, N_> const &a_) {
+      nd_dtype_t<DType_, N_> result;
+      for (size_t n = 0; n < N_; ++n)
+        result[n] = static_cast<dtype_t<DType_>>(a_[n]);
+      return result;
+    }
   };
 };
 

@@ -1223,6 +1223,11 @@ public:
           { // {{{
             PRTCL_INDENT_RAII;
 
+            *this
+                << "std::cerr << \"loading group \" << g_.get_name() << '\\n';"
+                << nl;
+            *this << nl;
+
             *this << "_count = g_.size();" << nl;
             *this << nl;
 
@@ -1293,6 +1298,10 @@ public:
                   << nl;
             {
               PRTCL_INDENT_RAII;
+              *this << "std::cerr << \"loading group \" << group.get_name() << \" "
+                       "with index \" << i << '\\n';"
+                    << nl;
+              *this << nl;
               *this << "auto &data = _data.by_group_type." << group_type
                     << ".emplace_back();" << nl;
               *this << "data._load(group);" << nl;
