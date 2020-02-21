@@ -1,4 +1,6 @@
 
+#include "prtcl/rt/geometry/axis_aligned_box.hpp"
+#include <iterator>
 #include <prtcl/rt/basic_model_policy.hpp>
 #include <prtcl/rt/basic_type_policy.hpp>
 #include <prtcl/rt/eigen_math_policy.hpp>
@@ -14,6 +16,12 @@
 #include <prtcl/rt/vector_data_policy.hpp>
 #include <prtcl/rt/virtual_clock.hpp>
 
+#include <prtcl/rt/cli/command_line_interface.hpp>
+
+#include <prtcl/rt/sample_surface.hpp>
+#include <prtcl/rt/sample_volume.hpp>
+#include <prtcl/rt/triangle_mesh.hpp>
+
 #include <prtcl/schemes/boundary.hpp>
 #include <prtcl/schemes/sesph.hpp>
 #include <prtcl/schemes/symplectic_euler.hpp>
@@ -26,27 +34,47 @@
 
 #include <unistd.h>
 
-int main(int, char **) {
-  using prtcl::core::nd_dtype;
+using prtcl::core::nd_dtype;
 
-  constexpr size_t N = 3;
+constexpr size_t N = 3;
 
-  using model_policy = prtcl::rt::basic_model_policy<
-      prtcl::rt::fib_type_policy,
-      prtcl::rt::mixed_math_policy<
-          prtcl::rt::eigen_math_policy,
-          prtcl::rt::kernel_math_policy_mixin<prtcl::rt::cubic_spline_kernel>>::
-          template policy,
-      prtcl::rt::vector_data_policy, N>;
-  using type_policy = typename model_policy::type_policy;
-  using math_policy = typename model_policy::math_policy;
+using model_policy = prtcl::rt::basic_model_policy<
+    prtcl::rt::fib_type_policy,
+    prtcl::rt::mixed_math_policy<
+        prtcl::rt::eigen_math_policy,
+        prtcl::rt::kernel_math_policy_mixin<prtcl::rt::cubic_spline_kernel>>::
+        template policy,
+    prtcl::rt::vector_data_policy, N>;
+using type_policy = typename model_policy::type_policy;
+using math_policy = typename model_policy::math_policy;
 
-  using real = typename type_policy::real;
+using c = typename math_policy::constants;
+
+using triangle_mesh_type = prtcl::rt::triangle_mesh<model_policy>;
+
+using real = typename type_policy::real;
+using rvec = typename math_policy::template nd_dtype_t<nd_dtype::real, N>;
+
+int main(int argc_, char **argv_) {
+  prtcl::rt::command_line_interface cli{argc_, argv_};
+
+  triangle_mesh_type boundary_mesh;
+  { // load the boundary geometry
+    auto path = cli.value_with_name_or<std::string>(
+        "boundary.geometry", "share/models/unitcube.obj");
+    // open the geometry file for reading
+    std::ifstream file{path, std::ios::in};
+    // read the mesh from the file
+    boundary_mesh = triangle_mesh_type::load_from_obj(file);
+    // close the file
+    file.close();
+  }
 
   prtcl::rt::basic_model<model_policy> model;
 
   auto &f = model.add_group("f", "fluid");
   auto &b = model.add_group("b", "boundary");
+  auto &c = model.add_group("c", "boundary");
 
   prtcl::schemes::boundary<model_policy> boundary;
   boundary.require(model);
@@ -57,14 +85,11 @@ int main(int, char **) {
   prtcl::schemes::symplectic_euler<model_policy> advect;
   advect.require(model);
 
-  // -----
-
-  size_t grid_size = 16; // 45;
-
-  // {{{
   { // initialize global and uniform fields
-    auto const h = 0.025f;
-    auto const rho0 = 1000.f;
+    auto const h = cli.value_with_name_or<real>(
+        "parameter.smoothing_scale", static_cast<real>(0.025));
+    auto const rho0 = cli.value_with_name_or<real>(
+        "parameter.rest_density", static_cast<real>(1000));
 
     model.get_global<nd_dtype::real>("smoothing_scale")[0] = h;
     model.get_global<nd_dtype::real>("time_step")[0] = 0.00001f;
@@ -78,74 +103,114 @@ int main(int, char **) {
     f.get_uniform<nd_dtype::real>("viscosity")[0] = 0.01f;
   }
 
+  // -----
+
+  size_t grid_size = 16;
+
+  // {{{
   { // initialize fluid position and velocity
+    using c = typename math_policy::constants;
+
     auto const h = model.get_global<nd_dtype::real>("smoothing_scale")[0];
     auto const rho0 = f.get_uniform<nd_dtype::real>("rest_density")[0];
+
+    auto const base_m = prtcl::core::constpow(h, N) * rho0;
 
     std::mt19937 gen;
     std::uniform_real_distribution<typename type_policy::real> dis{-0.01f,
                                                                    0.01f};
 
-    prtcl::rt::integral_grid<N> x_grid;
-    x_grid.extents.fill(grid_size);
-    x_grid.extents[1] *= 2;
+    auto const lo_x = cli.value_with_name_or("fluid.aab.lo.x", 1);
+    auto const lo_y = cli.value_with_name_or("fluid.aab.lo.y", 1);
+    auto const lo_z = cli.value_with_name_or("fluid.aab.lo.z", 1);
 
-    f.resize(x_grid.size());
+    auto const hi_x = cli.value_with_name_or("fluid.aab.hi.x", grid_size);
+    auto const hi_y = cli.value_with_name_or("fluid.aab.hi.y", 2 * grid_size);
+    auto const hi_z = cli.value_with_name_or("fluid.aab.hi.z", grid_size);
 
-    auto const base_m = prtcl::core::constpow(h, N) * rho0;
+    prtcl::rt::axis_aligned_box<model_policy, N> aab{
+        h * rvec{lo_x, lo_y, lo_z}, h * rvec{hi_x, hi_y, hi_z}};
+
+    std::vector<rvec> samples;
+    prtcl::rt::sample_volume(aab, std::back_inserter(samples), {h});
+
+    f.resize(samples.size());
 
     auto x = f.get_varying<nd_dtype::real, N>("position");
     auto v = f.get_varying<nd_dtype::real, N>("velocity");
     auto m = f.get_varying<nd_dtype::real>("mass");
 
-    size_t i = 0;
-    for (auto ix : x_grid) {
-      x[i][0] = h * ix[0] + dis(gen) * h;
-      x[i][1] = h * ix[1] + dis(gen) * h;
-      x[i][2] = h * ix[2] + dis(gen) * h;
-      v[i] = math_policy::constants::zeros<nd_dtype::real, N>();
+    for (size_t i = 0; i < f.size(); ++i) {
+      x[i] = samples[i] + h * rvec{dis(gen), dis(gen), dis(gen)};
+      v[i] = c::zeros<nd_dtype::real, N>();
       m[i] = base_m + dis(gen) * base_m / 10;
-      ++i;
     }
   }
+  // }}}
+
+  // {{{
+  rvec b_lo = c::most_positive<nd_dtype::real, N>(),
+       b_hi = c::most_negative<nd_dtype::real, N>();
 
   { // initialize boundary position
     auto const h = model.get_global<nd_dtype::real>("smoothing_scale")[0];
 
-    grid_size *= 2;
+    auto const t_f = real{-2};
+    auto const t_x = cli.value_with_name_or("boundary.translate.x", t_f);
+    auto const t_y = cli.value_with_name_or("boundary.translate.y", t_f);
+    auto const t_z = cli.value_with_name_or("boundary.translate.z", t_f);
+    rvec const t{t_x, t_y, t_z};
 
-    std::array<prtcl::rt::integral_grid<N>, 3> grids = {
-        prtcl::rt::integral_grid<N>{1, grid_size + 4, grid_size + 4},
-        prtcl::rt::integral_grid<N>{grid_size + 4, 1, grid_size + 4},
-        prtcl::rt::integral_grid<N>{grid_size + 4, grid_size + 4, 1}};
-    grids[0].extents[1] = (grids[0].extents[1] - 4) * 2 + 4;
-    grids[2].extents[1] = (grids[2].extents[1] - 4) * 2 + 4;
+    auto const s_f = real{2} * grid_size;
+    auto const s_x = cli.value_with_name_or("boundary.scale.x", s_f);
+    auto const s_y = cli.value_with_name_or("boundary.scale.y", 2 * s_f);
+    auto const s_z = cli.value_with_name_or("boundary.scale.z", s_f);
+    rvec const s{s_x, s_y, s_z};
 
-    { // resize boundary group
-      size_t count = 0;
-      for (auto const &grid : grids)
-        count += grid.size();
-      b.resize(2 * count);
-    }
+    boundary_mesh.scale(h * s);
+    boundary_mesh.translate(h * t);
 
-    auto x = b.get_varying<nd_dtype::real, N>("position");
+    std::vector<rvec> samples;
+    prtcl::rt::sample_surface(boundary_mesh, std::back_inserter(samples), {h});
 
-    size_t i = 0;
-    for (size_t i_grid = 0; i_grid < grids.size(); ++i_grid) {
-      auto const &grid = grids[i_grid];
-      for (auto ix : grid) {
-        x[i][0] = h * ix[0] - 2 * h;
-        x[i][1] = h * ix[1] - 2 * h;
-        x[i][2] = h * ix[2] - 2 * h;
+    std::cerr << "#samples = " << samples.size() << '\n';
 
-        auto const j = i + 1;
-        x[j][0] = (1 * grid_size + 1) * h - h * ix[0];
-        x[j][1] = (2 * grid_size + 1) * h - h * ix[1];
-        x[j][2] = (1 * grid_size + 1) * h - h * ix[2];
+    b.resize(samples.size());
+    auto x_b = b.get_varying<nd_dtype::real, N>("position");
 
-        i += 2;
+    for (size_t ix = 0; ix < samples.size(); ++ix) {
+      x_b[ix] = samples[ix];
+
+      for (int n = 0; n < N; ++n) {
+        b_lo[n] = std::min(b_lo[n], x_b[ix][n]);
+        b_hi[n] = std::max(b_hi[n], x_b[ix][n]);
       }
     }
+  }
+
+  { // setup the catch-box
+    triangle_mesh_type c_mesh;
+    { // open the geometry file for reading
+      std::ifstream file{"share/models/unitcube.obj", std::ios::in};
+      // read the mesh from the file
+      c_mesh = triangle_mesh_type::load_from_obj(file);
+      // close the file
+      file.close();
+    }
+
+    auto const h = model.get_global<nd_dtype::real>("smoothing_scale")[0];
+
+    c_mesh.scale(4 * (b_hi - b_lo));
+    c_mesh.translate(b_lo - 1.5 * (b_hi - b_lo));
+
+    std::vector<rvec> samples;
+    prtcl::rt::sample_surface(c_mesh, std::back_inserter(samples), {h});
+
+    c.resize(samples.size());
+    auto x_c = c.get_varying<nd_dtype::real, N>("position");
+
+    for (size_t ix = 0; ix < c.size(); ++ix)
+      x_c[ix] = samples[ix];
   }
   // }}}
 

@@ -1,7 +1,8 @@
 #pragma once
 
-#include <boost/algorithm/string/find_iterator.hpp>
 #include <utility>
+
+#include <prtcl/core/remove_cvref.hpp>
 
 #include <prtcl/rt/cli/parse_args_to_ptree.hpp>
 
@@ -101,6 +102,33 @@ public:
         }
       }
     }
+  }
+
+public:
+  template <typename Type_>
+  std::optional<core::remove_cvref_t<Type_>>
+  value_with_name(name_type const &name_) const {
+    using type = core::remove_cvref_t<Type_>;
+    if (not _name_value.has_value())
+      // if there are no name-value pairs, return nothing
+      return std::nullopt;
+    if (auto node = _name_value.value().get_optional<type>(name_))
+      // if the name was found, return the value
+      return {node.value().get_value()};
+    else
+      // otherwise return nothing
+      return std::nullopt;
+  }
+
+  template <typename Type_>
+  core::remove_cvref_t<Type_>
+  value_with_name_or(name_type const &name_, Type_ &&default_) const {
+    using type = core::remove_cvref_t<Type_>;
+    if (not _name_value.has_value())
+      // if there are no name-value pairs, return the default
+      return std::forward<Type_>(default_);
+    // otherwise retrieve the value from the tree
+    return _name_value.value().get<type>(name_, std::forward<Type_>(default_));
   }
 
 private:
