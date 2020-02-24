@@ -814,9 +814,18 @@ public:
         increase_indent();
 
         outi() << "_group_count = m_.groups().size();" << nl;
-        outi() << nl;
+        out() << nl;
         outi() << "_data.global._load(m_);" << nl;
-        outi() << nl;
+        out() << nl;
+        for (auto const &[selector_alias, aliases] :
+             particle_selector_to_fields.items()) {
+          // skip the global fields
+          if (selector_alias == "")
+            continue;
+          outi() << "_data.by_group_type." << selector_alias << ".clear();"
+                 << nl;
+        }
+        out() << nl;
         outi() << "auto groups = m_.groups();" << nl;
         outi() << "for (size_t i = 0; i < groups.size(); ++i) {" << nl;
         {

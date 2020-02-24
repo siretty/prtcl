@@ -66,7 +66,7 @@ procedure compute_acceleration {
       // viscosity
       compute a[f] += 
           (
-              nu[f] * V[f_b]
+              nu[f_b] * V[f_b]
             *
               dot(v[f] - v[f_b], x[f] - x[f_b])
             /

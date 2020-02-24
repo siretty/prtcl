@@ -52,6 +52,7 @@ using type_policy = typename model_policy::type_policy;
 using math_policy = typename model_policy::math_policy;
 
 using c = typename math_policy::constants;
+using o = typename math_policy::operations;
 
 using triangle_mesh_type = prtcl::rt::triangle_mesh<model_policy>;
 
@@ -93,7 +94,6 @@ int main(int argc_, char **argv_) {
 
   auto &f = model.add_group("f", "fluid");
   auto &b = model.add_group("b", "boundary");
-  // auto &c = model.add_group("c", "boundary");
 
   prtcl::schemes::boundary<model_policy> boundary;
   boundary.require(model);
@@ -104,13 +104,18 @@ int main(int argc_, char **argv_) {
   prtcl::schemes::symplectic_euler<model_policy> advect;
   advect.require(model);
 
-  { // initialize global and uniform fields
+  { // initialize uniform fields
     auto const rho0 = cli.value_with_name_or<real>(
         "parameter.rest_density", static_cast<real>(1000));
 
     f.get_uniform<nd_dtype::real>("rest_density")[0] = rho0;
     f.get_uniform<nd_dtype::real>("compressibility")[0] = 10'000'000;
     f.get_uniform<nd_dtype::real>("viscosity")[0] = 0.01f;
+  }
+
+  { // initialize uniform fields
+    b.get_uniform<nd_dtype::real>("viscosity")[0] =
+        10 * f.get_uniform<nd_dtype::real>("viscosity")[0];
   }
 
   // -----
@@ -199,6 +204,7 @@ int main(int argc_, char **argv_) {
   }
 
   std::vector<size_t> remove_idxs, remove_perm;
+  std::vector<rvec> spawned_positions, spawned_velocities;
 
   size_t const fps = 30;
   size_t const max_frame = 60 * fps;
@@ -275,6 +281,75 @@ int main(int argc_, char **argv_) {
     while (clock.now() < frame_done) {
       // update the neighborhood
       nhood.update();
+
+      bool spawned = false;
+
+      // spawn new particles from each groups sources
+      for (auto &group : model.groups()) {
+        // {{{ implementation
+        if (group.get_type() != "fluid")
+          continue;
+
+        spawned_positions.clear();
+        spawned_velocities.clear();
+
+        for (auto &source : group.sources()) {
+          rvec const v_init = source.get_initial_velocity()[0];
+
+          auto x = source.get_spawn_positions();
+          for (size_t i = 0; i < source.size(); ++i) {
+            real min_distance = c::positive_infinity<nd_dtype::real>();
+            nhood.neighbors(
+                x[i], [&model, &min_distance, &x, i](size_t g, size_t j) {
+                  auto &g_n = model.get_group(g);
+                  auto x_n = g_n.get_varying<nd_dtype::real, N>("position");
+                  min_distance = std::min(min_distance, o::norm(x[i] - x_n[j]));
+                });
+
+            if (min_distance > static_cast<real>(h)) {
+              spawned_positions.emplace_back(x[i]);
+              spawned_velocities.emplace_back(v_init);
+            }
+          }
+        }
+
+        if (spawned_positions.size() == 0)
+          continue;
+
+        spawned = true;
+
+        size_t const old_size = group.size();
+        group.resize(old_size + spawned_positions.size());
+
+        auto rho0 = group.get_uniform<nd_dtype::real>("rest_density")[0];
+        auto x = group.get_varying<nd_dtype::real, N>("position");
+        auto v = group.get_varying<nd_dtype::real, N>("velocity");
+        auto m = group.get_varying<nd_dtype::real>("mass");
+
+        for (size_t i = 0; i < spawned_positions.size(); ++i) {
+          x[old_size + i] = spawned_positions[i];
+          v[old_size + i] = spawned_velocities[i];
+          m[old_size + i] =
+              static_cast<real>(prtcl::core::constpow(h, N)) * rho0;
+        }
+
+        // std::cerr << "spawned " << spawned_positions.size()
+        //          << " particles in group " << group.get_name() << std::endl;
+
+        // }}}
+      }
+
+      // if new particles were spawned, reload the neighborhood and the schemes
+      if (spawned) {
+        // std::cerr << "reloading neighborhood and schemes" << std::endl;
+
+        nhood.load(model);
+        nhood.update();
+
+        boundary.load(model);
+        sesph.load(model);
+        advect.load(model);
+      }
 
       // run all computational steps
       sesph.compute_density_and_pressure(nhood);

@@ -114,6 +114,11 @@ public:
       _grid.neighbors(g_, i_, _data, std::forward<Fn>(fn));
   }
 
+  template <typename X, typename Fn>
+  void neighbors(X const &x_, Fn &&fn) const {
+    _grid.neighbors(x_, _data, std::forward<Fn>(fn));
+  }
+
 private:
   grid_type _grid;
   model_data_type _data;

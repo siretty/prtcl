@@ -489,7 +489,7 @@ public:
       // if the position is in a known cell, use the adjacent cells
 
       potential_neighbors(x_ci, fn_);
-      for (cell_index y_ci : cell_to_adjacent_cells_[x_ci])
+      for (cell_index y_ci : cell_to_adjacent_cells_[static_cast<size_t>(x_ci)])
         potential_neighbors(y_ci, fn_);
     } else {
       // if the position is NOT in a known cell, iterate over all adjacent cells
@@ -603,7 +603,7 @@ private:
   // {{{ x_to_gi : O -> Z^d
 
   //! Maps a position to it's corresponding cell index.
-  template <typename X_> grid_index x_to_gi(X_ const &x) {
+  template <typename X_> grid_index x_to_gi(X_ const &x) const {
     grid_index result;
     using single_grid_index = typename grid_index::value_type;
 

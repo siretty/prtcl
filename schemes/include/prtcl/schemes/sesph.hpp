@@ -149,12 +149,18 @@ private:
     // index of the selected group
     size_t _index;
 
+    // uniform fields
+    nd_dtype_data_ref_t<nd_dtype::real> viscosity;
+
     // varying fields
     nd_dtype_data_ref_t<nd_dtype::real> volume;
     nd_dtype_data_ref_t<nd_dtype::real, N> velocity;
     nd_dtype_data_ref_t<nd_dtype::real, N> position;
 
     static void _require(group_type &g_) {
+      // uniform fields
+      g_.template add_uniform<nd_dtype::real>("viscosity");
+
       // varying fields
       g_.template add_varying<nd_dtype::real>("volume");
       g_.template add_varying<nd_dtype::real, N>("velocity");
@@ -163,6 +169,9 @@ private:
 
     void _load(group_type const &g_) {
       _count = g_.size();
+
+      // uniform fields
+      viscosity = g_.template get_uniform<nd_dtype::real>("viscosity");
 
       // varying fields
       volume = g_.template get_varying<nd_dtype::real>("volume");
@@ -191,9 +200,13 @@ public:
 public:
   void load(model_type &m_) {
     _group_count = m_.groups().size();
-    
+
     _data.global._load(m_);
-    
+
+    _data.by_group_type.dynamic.clear();
+    _data.by_group_type.fluid.clear();
+    _data.by_group_type.boundary.clear();
+
     auto groups = m_.groups();
     for (size_t i = 0; i < groups.size(); ++i) {
       auto &group = groups[static_cast<typename decltype(groups)::difference_type>(i)];
@@ -346,7 +359,7 @@ public:
 
           for (auto &n : _data.by_group_type.boundary) {
             for (auto const j : neighbors[n._index]) {
-              p.acceleration[i] += ((p.viscosity[0] * n.volume[j] * o::dot((p.velocity[i] - n.velocity[j]), (p.position[i] - n.position[j])) / (o::norm_squared((p.position[i] - n.position[j])) + (l::template narray<nd_dtype::real>({0.01}) * g.smoothing_scale[0] * g.smoothing_scale[0]))) * o::kernel_gradient_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
+              p.acceleration[i] += ((n.viscosity[0] * n.volume[j] * o::dot((p.velocity[i] - n.velocity[j]), (p.position[i] - n.position[j])) / (o::norm_squared((p.position[i] - n.position[j])) + (l::template narray<nd_dtype::real>({0.01}) * g.smoothing_scale[0] * g.smoothing_scale[0]))) * o::kernel_gradient_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
 
               p.acceleration[i] -= (l::template narray<nd_dtype::real>({0.7}) * n.volume[j] * p.rest_density[0] * (l::template narray<nd_dtype::real>({2}) * p.pressure[i] / (p.density[i] * p.density[i])) * o::kernel_gradient_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
             }

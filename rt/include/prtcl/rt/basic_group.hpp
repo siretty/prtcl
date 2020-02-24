@@ -13,6 +13,7 @@
 
 #include <cstddef>
 
+#include <boost/range/adaptors.hpp>
 #include <boost/range/algorithm/copy.hpp>
 
 #include <omp.h>
@@ -107,7 +108,10 @@ public:
 public:
   auto &add_source() { return *_sources.emplace_back(new source_type{}); }
 
-  auto all_sources() const { return boost::make_iterator_range(_sources); }
+  auto sources() const {
+    return _sources | boost::adaptors::transformed(
+                          [](auto &ptr_) -> auto & { return *ptr_.get(); });
+  }
 
 public:
   template <typename Range_> void permute(Range_ const &range_) {

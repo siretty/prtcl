@@ -101,9 +101,12 @@ public:
 public:
   void load(model_type &m_) {
     _group_count = m_.groups().size();
-    
+
     _data.global._load(m_);
-    
+
+    _data.by_group_type.particles.clear();
+    _data.by_group_type.neighbors.clear();
+
     auto groups = m_.groups();
     for (size_t i = 0; i < groups.size(); ++i) {
       auto &group = groups[static_cast<typename decltype(groups)::difference_type>(i)];
