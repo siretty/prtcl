@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
 #include <boost/utility/string_view.hpp>
@@ -16,7 +17,10 @@ inline auto parse_args_to_ptree(int argc_, char **argv_) {
   for (int argi = 1; argi < argc_; ++argi) {
     boost::string_view arg{argv_[argi]};
 
-    if (2 < arg.size() and arg.starts_with("--")) {
+    if (arg.starts_with("--load-json=")) {
+      auto path = arg.substr(12).to_string();
+      boost::property_tree::json_parser::read_json(path, tree);
+    } else if (2 < arg.size() and arg.starts_with("--")) {
       // find long options (starting with --)
       if (auto pos = arg.find_first_of('='); pos != arg.npos) {
         auto key = arg.substr(2, pos - 2), value = arg.substr(pos + 1);

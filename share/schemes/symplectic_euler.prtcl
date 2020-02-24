@@ -1,0 +1,20 @@
+
+let dynamic = particle_selector types {fluid} tags {dynamic};
+
+let x = field position : varying real[];
+let v = field velocity : varying real[];
+let a = field acceleration : varying real[];
+
+let dt = field time_step : global real;
+
+let max_speed  = field maximum_speed : global real;
+
+procedure advect_symplectic_euler {
+  foreach dynamic particle i {
+    compute v[i] += dt[_] * a[i];
+    compute x[i] += dt[_] * v[i];
+
+    reduce max_speed[_] max= norm(v[i]);
+  }
+}
+

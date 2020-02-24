@@ -51,6 +51,8 @@ public:
            });
   }
 
+  auto &name_value() const { return _name_value.value(); }
+
 public:
   bool has_name_only_argument(name_type const &name_) const {
     if (_name_only.has_value())

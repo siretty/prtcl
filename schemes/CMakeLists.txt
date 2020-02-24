@@ -25,8 +25,8 @@ find_package( OpenMP REQUIRED )
 function( prtcl_generate_scheme_header _NAME )
   add_custom_command(
     OUTPUT  ${_INC}/prtcl/schemes/${_NAME}.hpp
-    COMMAND prtcl-gt-schemes ${_NAME} ${_INC}/prtcl/schemes/${_NAME}.hpp
-    DEPENDS prtcl-gt-schemes
+    COMMAND prtcl-gt-schemes ${_PRJ}/../share/schemes/${_NAME}.prtcl ${_INC}/prtcl/schemes/${_NAME}.hpp ${_NAME} prtcl schemes
+    DEPENDS prtcl-gt-schemes ${_PRJ}/../share/schemes/${_NAME}.prtcl
     COMMENT "Generating ${_NAME} scheme code."
   )
 endfunction( prtcl_generate_scheme_header )

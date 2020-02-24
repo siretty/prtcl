@@ -58,6 +58,10 @@ TEST_CASE("prtcl/schemes/test_counting_particles", "[prtcl][schemes]") {
   scheme.load(model);
 
   nhood.update();
+
+  model.get_global<nd_dtype::integer>("global_particle_count")[0] = 0;
+  model.get_global<nd_dtype::integer>("global_neighbor_count")[0] = 0;
+
   scheme.test_counting_particles(nhood);
   scheme.test_counting_neighbors(nhood);
 

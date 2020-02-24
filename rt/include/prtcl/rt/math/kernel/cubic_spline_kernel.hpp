@@ -61,8 +61,8 @@ private:
     /// \f[
     ///   W_\circ'(q) =
     ///   \alpha \left\{ \begin{array}{ll}
-    ///     12 (q - 1)^2               & 0 \leq q \leq 1 \\
-    ///     12 (q - 1)^2 - 3 (q - 2)^2 & 1 \leq q \leq 2 \\
+    ///     12 (q - 1)^2               & 0 \leq q \leq 1 \\ %
+    ///     12 (q - 1)^2 - 3 (q - 2)^2 & 1 \leq q \leq 2 \\ %
     ///     0                          & 2 \leq q
     ///   \end{array} \right.
     /// \f]
@@ -81,8 +81,8 @@ private:
     /// \f[
     ///   \alpha =
     ///   \left\{ \begin{array}{ll}
-    ///     \frac{ 1 }{ 6 }                & 1 = N \\
-    ///     \frac{ 5 }{ 14 } \frac{1}{\pi} & 2 = N \\
+    ///     \frac{ 1 }{ 6 }                & 1 = N \\ %
+    ///     \frac{ 5 }{ 14 } \frac{1}{\pi} & 2 = N \\ %
     ///     \frac{ 1 }{ 4 }  \frac{1}{\pi}& 3 = N
     ///   \end{array} \right.
     /// \f]

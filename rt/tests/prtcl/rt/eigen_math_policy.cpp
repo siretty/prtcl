@@ -22,6 +22,7 @@ TEST_CASE("prtcl/rt/math/eigen_math_policy.hpp", "[prtcl][rt]") {
 
   using prtcl::core::nd_dtype;
 
+  using l = typename math_policy::literals;
   using c = typename math_policy::constants;
 
   SECTION("scalars") {
@@ -40,6 +41,10 @@ TEST_CASE("prtcl/rt/math/eigen_math_policy.hpp", "[prtcl][rt]") {
 
     CHECK(rvec3{0.f, 0.f, 0.f} == c::zeros<nd_dtype::real, 3>());
     CHECK(rvec3{1.f, 1.f, 1.f} == c::ones<nd_dtype::real, 3>());
+
+    CHECK(
+        c::zeros<nd_dtype::real, 3>() ==
+        l::narray<nd_dtype::real, 3>({{0.f, 0.f, 0.f}}));
 
     CHECK(
         c::most_positive<nd_dtype::real>() ==

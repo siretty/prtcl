@@ -1,8 +1,9 @@
+
 #pragma once
 
-#include <prtcl/rt/common.hpp>
-#include <prtcl/rt/basic_model.hpp>
 #include <prtcl/rt/basic_group.hpp>
+#include <prtcl/rt/basic_model.hpp>
+#include <prtcl/rt/common.hpp>
 
 #include <vector>
 
@@ -10,13 +11,12 @@
 
 #if defined(__GNUG__)
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-local-typedef"
+#pragma GCC diagnostic ignored "-Wunused-local-typedefs"
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #endif
 
-namespace prtcl::schemes {
-
+namespace prtcl { namespace schemes {
 template <
   typename ModelPolicy_
 >
@@ -40,353 +40,371 @@ public:
 
 private:
   struct global_data {
+    nd_dtype_data_ref_t<nd_dtype::real> time_step;
     nd_dtype_data_ref_t<nd_dtype::real, N> gravity;
     nd_dtype_data_ref_t<nd_dtype::real> smoothing_scale;
+    nd_dtype_data_ref_t<nd_dtype::real> maximum_speed;
 
     static void _require(model_type &m_) {
+      m_.template add_global<nd_dtype::real>("time_step");
       m_.template add_global<nd_dtype::real, N>("gravity");
       m_.template add_global<nd_dtype::real>("smoothing_scale");
+      m_.template add_global<nd_dtype::real>("maximum_speed");
     }
 
     void _load(model_type const &m_) {
+      time_step = m_.template get_global<nd_dtype::real>("time_step");
       gravity = m_.template get_global<nd_dtype::real, N>("gravity");
       smoothing_scale = m_.template get_global<nd_dtype::real>("smoothing_scale");
+      maximum_speed = m_.template get_global<nd_dtype::real>("maximum_speed");
     }
   };
 
 private:
-  struct boundary_group_data {
+  struct dynamic_data {
+    // particle count of the selected group
     size_t _count;
+    // index of the selected group
     size_t _index;
 
-    // uniform fields
-
     // varying fields
+    nd_dtype_data_ref_t<nd_dtype::real, N> acceleration;
+    nd_dtype_data_ref_t<nd_dtype::real, N> velocity;
     nd_dtype_data_ref_t<nd_dtype::real, N> position;
-    nd_dtype_data_ref_t<nd_dtype::real> volume;
 
     static void _require(group_type &g_) {
-      // uniform fields
-
       // varying fields
+      g_.template add_varying<nd_dtype::real, N>("acceleration");
+      g_.template add_varying<nd_dtype::real, N>("velocity");
       g_.template add_varying<nd_dtype::real, N>("position");
-      g_.template add_varying<nd_dtype::real>("volume");
     }
 
     void _load(group_type const &g_) {
-      std::cerr << "loading group " << g_.get_name() << '\n';
-
       _count = g_.size();
 
-      // uniform fields
-
       // varying fields
+      acceleration = g_.template get_varying<nd_dtype::real, N>("acceleration");
+      velocity = g_.template get_varying<nd_dtype::real, N>("velocity");
       position = g_.template get_varying<nd_dtype::real, N>("position");
-      volume = g_.template get_varying<nd_dtype::real>("volume");
     }
   };
 
 private:
-  struct fluid_group_data {
+  struct fluid_data {
+    // particle count of the selected group
     size_t _count;
+    // index of the selected group
     size_t _index;
 
     // uniform fields
     nd_dtype_data_ref_t<nd_dtype::real> compressibility;
-    nd_dtype_data_ref_t<nd_dtype::real> rest_density;
     nd_dtype_data_ref_t<nd_dtype::real> viscosity;
+    nd_dtype_data_ref_t<nd_dtype::real> rest_density;
 
     // varying fields
     nd_dtype_data_ref_t<nd_dtype::real, N> acceleration;
-    nd_dtype_data_ref_t<nd_dtype::real> density;
     nd_dtype_data_ref_t<nd_dtype::real> mass;
-    nd_dtype_data_ref_t<nd_dtype::real, N> position;
     nd_dtype_data_ref_t<nd_dtype::real> pressure;
+    nd_dtype_data_ref_t<nd_dtype::real> density;
     nd_dtype_data_ref_t<nd_dtype::real, N> velocity;
+    nd_dtype_data_ref_t<nd_dtype::real, N> position;
 
     static void _require(group_type &g_) {
       // uniform fields
       g_.template add_uniform<nd_dtype::real>("compressibility");
-      g_.template add_uniform<nd_dtype::real>("rest_density");
       g_.template add_uniform<nd_dtype::real>("viscosity");
+      g_.template add_uniform<nd_dtype::real>("rest_density");
 
       // varying fields
       g_.template add_varying<nd_dtype::real, N>("acceleration");
-      g_.template add_varying<nd_dtype::real>("density");
       g_.template add_varying<nd_dtype::real>("mass");
-      g_.template add_varying<nd_dtype::real, N>("position");
       g_.template add_varying<nd_dtype::real>("pressure");
+      g_.template add_varying<nd_dtype::real>("density");
       g_.template add_varying<nd_dtype::real, N>("velocity");
+      g_.template add_varying<nd_dtype::real, N>("position");
     }
 
     void _load(group_type const &g_) {
-      std::cerr << "loading group " << g_.get_name() << '\n';
-
       _count = g_.size();
 
       // uniform fields
       compressibility = g_.template get_uniform<nd_dtype::real>("compressibility");
-      rest_density = g_.template get_uniform<nd_dtype::real>("rest_density");
       viscosity = g_.template get_uniform<nd_dtype::real>("viscosity");
+      rest_density = g_.template get_uniform<nd_dtype::real>("rest_density");
 
       // varying fields
       acceleration = g_.template get_varying<nd_dtype::real, N>("acceleration");
-      density = g_.template get_varying<nd_dtype::real>("density");
       mass = g_.template get_varying<nd_dtype::real>("mass");
-      position = g_.template get_varying<nd_dtype::real, N>("position");
       pressure = g_.template get_varying<nd_dtype::real>("pressure");
+      density = g_.template get_varying<nd_dtype::real>("density");
       velocity = g_.template get_varying<nd_dtype::real, N>("velocity");
+      position = g_.template get_varying<nd_dtype::real, N>("position");
+    }
+  };
+
+private:
+  struct boundary_data {
+    // particle count of the selected group
+    size_t _count;
+    // index of the selected group
+    size_t _index;
+
+    // varying fields
+    nd_dtype_data_ref_t<nd_dtype::real> volume;
+    nd_dtype_data_ref_t<nd_dtype::real, N> velocity;
+    nd_dtype_data_ref_t<nd_dtype::real, N> position;
+
+    static void _require(group_type &g_) {
+      // varying fields
+      g_.template add_varying<nd_dtype::real>("volume");
+      g_.template add_varying<nd_dtype::real, N>("velocity");
+      g_.template add_varying<nd_dtype::real, N>("position");
+    }
+
+    void _load(group_type const &g_) {
+      _count = g_.size();
+
+      // varying fields
+      volume = g_.template get_varying<nd_dtype::real>("volume");
+      velocity = g_.template get_varying<nd_dtype::real, N>("velocity");
+      position = g_.template get_varying<nd_dtype::real, N>("position");
     }
   };
 
 public:
   static void require(model_type &m_) {
     global_data::_require(m_);
-
+    
     for (auto &group : m_.groups()) {
-      if (group.get_type() == "boundary")
-        boundary_group_data::_require(group);
-      if (group.get_type() == "fluid")
-        fluid_group_data::_require(group);
+      if (group.get_type() == "fluid") {
+        dynamic_data::_require(group);
+      }
+      if (group.get_type() == "fluid") {
+        fluid_data::_require(group);
+      }
+      if (group.get_type() == "boundary") {
+        boundary_data::_require(group);
+      }
     }
   }
-
+  
 public:
   void load(model_type &m_) {
     _group_count = m_.groups().size();
-
+    
     _data.global._load(m_);
-
+    
     auto groups = m_.groups();
     for (size_t i = 0; i < groups.size(); ++i) {
       auto &group = groups[static_cast<typename decltype(groups)::difference_type>(i)];
 
-      if (group.get_type() == "boundary") {
-        std::cerr << "loading group " << group.get_name() << " with index " << i << '\n';
-
-        auto &data = _data.by_group_type.boundary.emplace_back();
+      if (group.get_type() == "fluid") {
+        auto &data = _data.by_group_type.dynamic.emplace_back();
         data._load(group);
         data._index = i;
       }
 
       if (group.get_type() == "fluid") {
-        std::cerr << "loading group " << group.get_name() << " with index " << i << '\n';
-
         auto &data = _data.by_group_type.fluid.emplace_back();
+        data._load(group);
+        data._index = i;
+      }
+
+      if (group.get_type() == "boundary") {
+        auto &data = _data.by_group_type.boundary.emplace_back();
         data._load(group);
         data._index = i;
       }
     }
   }
-
+  
 private:
   struct {
     global_data global;
     struct {
-      std::vector<boundary_group_data> boundary;
-      std::vector<fluid_group_data> fluid;
+      std::vector<dynamic_data> dynamic;
+      std::vector<fluid_data> fluid;
+      std::vector<boundary_data> boundary;
     } by_group_type;
   } _data;
 
-  struct {
-    std::vector<std::vector<std::vector<size_t>>> neighbors;
+  struct per_thread_type {
+    std::vector<std::vector<size_t>> neighbors;
 
     // reductions
-  } _per_thread;
+    nd_dtype_t<nd_dtype::real> rd_maximum_speed;
+  };
 
+  std::vector<per_thread_type> _per_thread;
   size_t _group_count;
 
-  // start of child #0 procedure
 public:
   template <typename NHood_>
   void compute_density_and_pressure(NHood_ const &nhood_) {
     // alias for the global data
     auto &g = _data.global;
 
-    // alias for the math_policy member (types)
-    using o = typename math_policy::operations;
+    // alias for the math_policy member types
+    using l = typename math_policy::literals;
     using c = typename math_policy::constants;
+    using o = typename math_policy::operations;
 
-    // start of child #0 foreach_particle
-    #pragma omp parallel
-    {
-      #pragma omp single
-      {
+    _Pragma("omp parallel") {
+      _Pragma("omp single") {
         auto const thread_count = static_cast<size_t>(omp_get_num_threads());
-
-        _per_thread.neighbors.resize(thread_count);
+        _per_thread.resize(thread_count);
       } // pragma omp single
 
       auto const thread_index = static_cast<size_t>(omp_get_thread_num());
 
       // select and resize the neighbor storage for the current thread
-      auto &neighbors = _per_thread.neighbors[thread_index];
+      auto &neighbors = _per_thread[thread_index].neighbors;
       neighbors.resize(_group_count);
 
       for (auto &pgn : neighbors)
         pgn.reserve(100);
 
-      // start of child #0 if_group_type
       for (auto &p : _data.by_group_type.fluid) {
-        #pragma omp for
+#pragma omp for
         for (size_t i = 0; i < p._count; ++i) {
+          // clean up the neighbor storage
           for (auto &pgn : neighbors)
             pgn.clear();
 
-          bool has_neighbors = false;
+          // find all neighbors of (p, i)
+          nhood_.neighbors(p._index, i, [&neighbors](auto n_index, auto j) {
+            neighbors[n_index].push_back(j);
+          });
 
-          // start of child #0 equation
-          p.density[i] = static_cast<dtype_t<nd_dtype::real>>(0.000000) ;
-          // close of child #0 equation
+          p.density[i] = l::template narray<nd_dtype::real>({0});
 
-          // start of child #1 foreach_neighbor
-          if (!has_neighbors) {
-            nhood_.neighbors(p._index, i, [&neighbors](auto n_index, auto j) {
-              neighbors[n_index].push_back(j);
-            });
-            has_neighbors = true;
-          }
-
-          // start of child #0 if_group_type
           for (auto &n : _data.by_group_type.fluid) {
             for (auto const j : neighbors[n._index]) {
-              // start of child #0 equation
-              p.density[i] += ( n.mass[j] ) * ( o::kernel_h( ( p.position[i] ) - ( n.position[j] ), g.smoothing_scale[0] ) ) ;
-              // close of child #0 equation
+              p.density[i] += (n.mass[j] * o::kernel_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
             }
           }
-          // close of child #0 if_group_type
-          // close of child #1 foreach_neighbor
 
-          // start of child #2 foreach_neighbor
-          if (!has_neighbors) {
-            nhood_.neighbors(p._index, i, [&neighbors](auto n_index, auto j) {
-              neighbors[n_index].push_back(j);
-            });
-            has_neighbors = true;
-          }
-
-          // start of child #0 if_group_type
           for (auto &n : _data.by_group_type.boundary) {
             for (auto const j : neighbors[n._index]) {
-              // start of child #0 equation
-              p.density[i] += ( ( n.volume[j] ) * ( p.rest_density[0] ) ) * ( o::kernel_h( ( p.position[i] ) - ( n.position[j] ), g.smoothing_scale[0] ) ) ;
-              // close of child #0 equation
+              p.density[i] += (n.volume[j] * p.rest_density[0] * o::kernel_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
             }
           }
-          // close of child #0 if_group_type
-          // close of child #2 foreach_neighbor
 
-          // start of child #3 equation
-          p.pressure[i] = ( p.compressibility[0] ) * ( o::max( static_cast<dtype_t<nd_dtype::real>>(0.000000), ( ( p.density[i] ) / ( p.rest_density[0] ) ) - ( static_cast<dtype_t<nd_dtype::real>>(1.000000) ) ) ) ;
-          // close of child #3 equation
+          p.pressure[i] = (p.compressibility[0] * o::max(l::template narray<nd_dtype::real>({0}), ((p.density[i] / p.rest_density[0]) - l::template narray<nd_dtype::real>({1}))));
         }
       }
-      // close of child #0 if_group_type
     } // pragma omp parallel
-    // close of child #0 foreach_particle
   }
-  // close of child #0 procedure
 
-  // start of child #1 procedure
 public:
   template <typename NHood_>
   void compute_acceleration(NHood_ const &nhood_) {
     // alias for the global data
     auto &g = _data.global;
 
-    // alias for the math_policy member (types)
-    using o = typename math_policy::operations;
+    // alias for the math_policy member types
+    using l = typename math_policy::literals;
     using c = typename math_policy::constants;
+    using o = typename math_policy::operations;
 
-    // start of child #0 foreach_particle
-    #pragma omp parallel
-    {
-      #pragma omp single
-      {
+    _Pragma("omp parallel") {
+      _Pragma("omp single") {
         auto const thread_count = static_cast<size_t>(omp_get_num_threads());
-
-        _per_thread.neighbors.resize(thread_count);
+        _per_thread.resize(thread_count);
       } // pragma omp single
 
       auto const thread_index = static_cast<size_t>(omp_get_thread_num());
 
       // select and resize the neighbor storage for the current thread
-      auto &neighbors = _per_thread.neighbors[thread_index];
+      auto &neighbors = _per_thread[thread_index].neighbors;
       neighbors.resize(_group_count);
 
       for (auto &pgn : neighbors)
         pgn.reserve(100);
 
-      // start of child #0 if_group_type
       for (auto &p : _data.by_group_type.fluid) {
-        #pragma omp for
+#pragma omp for
         for (size_t i = 0; i < p._count; ++i) {
+          // clean up the neighbor storage
           for (auto &pgn : neighbors)
             pgn.clear();
 
-          bool has_neighbors = false;
+          // find all neighbors of (p, i)
+          nhood_.neighbors(p._index, i, [&neighbors](auto n_index, auto j) {
+            neighbors[n_index].push_back(j);
+          });
 
-          // start of child #0 equation
-          p.acceleration[i] = ( static_cast<dtype_t<nd_dtype::real>>(1.000000) ) * ( g.gravity[0] ) ;
-          // close of child #0 equation
+          p.acceleration[i] = g.gravity[0];
 
-          // start of child #1 foreach_neighbor
-          if (!has_neighbors) {
-            nhood_.neighbors(p._index, i, [&neighbors](auto n_index, auto j) {
-              neighbors[n_index].push_back(j);
-            });
-            has_neighbors = true;
-          }
-
-          // start of child #0 if_group_type
           for (auto &n : _data.by_group_type.fluid) {
             for (auto const j : neighbors[n._index]) {
-              // start of child #0 equation
-              p.acceleration[i] -= ( ( n.mass[j] ) * ( ( ( p.pressure[i] ) / ( ( p.density[i] ) * ( p.density[i] ) ) ) + ( ( n.pressure[j] ) / ( ( n.density[j] ) * ( n.density[j] ) ) ) ) ) * ( o::kernel_gradient_h( ( p.position[i] ) - ( n.position[j] ), g.smoothing_scale[0] ) ) ;
-              // close of child #0 equation
+              p.acceleration[i] += ((p.viscosity[0] * (n.mass[j] / n.density[j]) * o::dot((p.velocity[i] - n.velocity[j]), (p.position[i] - n.position[j])) / (o::norm_squared((p.position[i] - n.position[j])) + (l::template narray<nd_dtype::real>({0.01}) * g.smoothing_scale[0] * g.smoothing_scale[0]))) * o::kernel_gradient_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
 
-              // start of child #1 equation
-              p.acceleration[i] += ( ( ( ( p.viscosity[0] ) * ( ( n.mass[j] ) / ( n.density[j] ) ) ) * ( o::dot( ( p.velocity[i] ) - ( n.velocity[j] ), ( p.position[i] ) - ( n.position[j] ) ) ) ) / ( ( o::norm_squared( ( p.position[i] ) - ( n.position[j] ) ) ) + ( ( ( static_cast<dtype_t<nd_dtype::real>>(0.010000) ) * ( g.smoothing_scale[0] ) ) * ( g.smoothing_scale[0] ) ) ) ) * ( o::kernel_gradient_h( ( p.position[i] ) - ( n.position[j] ), g.smoothing_scale[0] ) ) ;
-              // close of child #1 equation
+              p.acceleration[i] -= (n.mass[j] * ((p.pressure[i] / (p.density[i] * p.density[i])) + (n.pressure[j] / (n.density[j] * n.density[j]))) * o::kernel_gradient_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
             }
           }
-          // close of child #0 if_group_type
-          // close of child #1 foreach_neighbor
 
-          // start of child #2 foreach_neighbor
-          if (!has_neighbors) {
-            nhood_.neighbors(p._index, i, [&neighbors](auto n_index, auto j) {
-              neighbors[n_index].push_back(j);
-            });
-            has_neighbors = true;
-          }
-
-          // start of child #0 if_group_type
           for (auto &n : _data.by_group_type.boundary) {
             for (auto const j : neighbors[n._index]) {
-              // start of child #0 equation
-              p.acceleration[i] -= ( ( ( ( static_cast<dtype_t<nd_dtype::real>>(0.700000) ) * ( n.volume[j] ) ) * ( p.rest_density[0] ) ) * ( ( ( static_cast<dtype_t<nd_dtype::integer>>(2) ) * ( p.pressure[i] ) ) / ( ( p.density[i] ) * ( p.density[i] ) ) ) ) * ( o::kernel_gradient_h( ( p.position[i] ) - ( n.position[j] ), g.smoothing_scale[0] ) ) ;
-              // close of child #0 equation
+              p.acceleration[i] += ((p.viscosity[0] * n.volume[j] * o::dot((p.velocity[i] - n.velocity[j]), (p.position[i] - n.position[j])) / (o::norm_squared((p.position[i] - n.position[j])) + (l::template narray<nd_dtype::real>({0.01}) * g.smoothing_scale[0] * g.smoothing_scale[0]))) * o::kernel_gradient_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
 
-              // start of child #1 equation
-              p.acceleration[i] += ( ( ( ( p.viscosity[0] ) * ( n.volume[j] ) ) * ( o::dot( p.velocity[i], ( p.position[i] ) - ( n.position[j] ) ) ) ) / ( ( o::norm_squared( ( p.position[i] ) - ( n.position[j] ) ) ) + ( ( ( static_cast<dtype_t<nd_dtype::real>>(0.010000) ) * ( g.smoothing_scale[0] ) ) * ( g.smoothing_scale[0] ) ) ) ) * ( o::kernel_gradient_h( ( p.position[i] ) - ( n.position[j] ), g.smoothing_scale[0] ) ) ;
-              // close of child #1 equation
+              p.acceleration[i] -= (l::template narray<nd_dtype::real>({0.7}) * n.volume[j] * p.rest_density[0] * (l::template narray<nd_dtype::real>({2}) * p.pressure[i] / (p.density[i] * p.density[i])) * o::kernel_gradient_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
             }
           }
-          // close of child #0 if_group_type
-          // close of child #2 foreach_neighbor
         }
       }
-      // close of child #0 if_group_type
     } // pragma omp parallel
-    // close of child #0 foreach_particle
   }
-  // close of child #1 procedure
+
+public:
+  template <typename NHood_>
+  void sesph_advect(NHood_ const &nhood_) {
+    // alias for the global data
+    auto &g = _data.global;
+
+    // alias for the math_policy member types
+    using l = typename math_policy::literals;
+    using c = typename math_policy::constants;
+    using o = typename math_policy::operations;
+
+    _Pragma("omp parallel") {
+      _Pragma("omp single") {
+        auto const thread_count = static_cast<size_t>(omp_get_num_threads());
+        _per_thread.resize(thread_count);
+      } // pragma omp single
+
+      auto const thread_index = static_cast<size_t>(omp_get_thread_num());
+
+      // select and initialize this threads reduction variable
+      auto &rd_maximum_speed = _per_thread[thread_index].rd_maximum_speed;
+      rd_maximum_speed = c::template negative_infinity<nd_dtype::real>();
+
+      for (auto &p : _data.by_group_type.dynamic) {
+#pragma omp for
+        for (size_t i = 0; i < p._count; ++i) {
+          // no neighbours neccessary
+
+          p.velocity[i] += (g.time_step[0] * p.acceleration[i]);
+
+          p.position[i] += (g.time_step[0] * p.velocity[i]);
+
+          rd_maximum_speed = o::max(rd_maximum_speed, o::norm(p.velocity[i]));
+        }
+      }
+
+      _Pragma("omp critical") {
+        // combine all reduction variables
+
+        g.maximum_speed[0] = o::max(rd_maximum_speed);
+      } // pragma omp critical
+    } // pragma omp parallel
+  }
 };
 
-} // namespace prtcl::schemes
+} /* namespace schemes*/ } /* namespace prtcl*/
+
 
 #if defined(__GNUG__)
 #pragma GCC diagnostic pop
 #endif
+  

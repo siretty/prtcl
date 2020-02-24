@@ -2,6 +2,7 @@
 
 #include "common.hpp"
 
+#include "basic_source.hpp"
 #include "nd_data_base.hpp"
 
 #include <memory>
@@ -19,6 +20,10 @@
 namespace prtcl::rt {
 
 template <typename ModelPolicy_> class basic_group {
+public:
+  using model_policy = ModelPolicy_;
+
+private:
   using type_policy = typename ModelPolicy_::type_policy;
   using math_policy = typename ModelPolicy_::math_policy;
   using data_policy = typename ModelPolicy_::data_policy;
@@ -30,6 +35,8 @@ template <typename ModelPolicy_> class basic_group {
   template <nd_dtype DType_, size_t... Ns_>
   using nd_dtype_data_ref_t =
       typename data_policy::template nd_dtype_data_ref_t<DType_, Ns_...>;
+
+  using source_type = basic_source<model_policy>;
 
 public:
   std::string_view get_name() const { return _group_name; }
@@ -51,11 +58,12 @@ public:
 public:
   template <nd_dtype DType_, size_t... Ns_>
   auto add_uniform(std::string name_) {
-    auto *data = new nd_dtype_data_t<DType_, Ns_...>{};
-    data->resize(1); // uniform data has size 1
-    auto [it, inserted] = _uniform.emplace(name_, data);
-    (void)(inserted); // TODO
-    return nd_dtype_data_ref_t<DType_, Ns_...>{*data};
+    using data_type = nd_dtype_data_t<DType_, Ns_...>;
+    auto data = std::make_unique<data_type>();
+    data->resize(1);
+    auto [it, inserted] = _uniform.emplace(name_, std::move(data));
+    return nd_dtype_data_ref_t<DType_, Ns_...>{
+        *static_cast<data_type *>(it->second.get())};
   }
 
   template <nd_dtype DType_, size_t... Ns_>
@@ -70,11 +78,12 @@ public:
 public:
   template <nd_dtype DType_, size_t... Ns_>
   auto add_varying(std::string name_) {
-    auto data = new nd_dtype_data_t<DType_, Ns_...>{};
+    using data_type = nd_dtype_data_t<DType_, Ns_...>;
+    auto data = std::make_unique<data_type>();
     data->resize(_size);
-    auto [it, inserted] = _varying.emplace(name_, data);
-    (void)(inserted); // TODO
-    return nd_dtype_data_ref_t<DType_, Ns_...>{*data};
+    auto [it, inserted] = _varying.emplace(name_, std::move(data));
+    return nd_dtype_data_ref_t<DType_, Ns_...>{
+        *static_cast<data_type *>(it->second.get())};
   }
 
   template <nd_dtype DType_, size_t... Ns_>
@@ -94,6 +103,11 @@ public:
     } else
       return false;
   }
+
+public:
+  auto &add_source() { return *_sources.emplace_back(new source_type{}); }
+
+  auto all_sources() const { return boost::make_iterator_range(_sources); }
 
 public:
   template <typename Range_> void permute(Range_ const &range_) {
@@ -135,6 +149,7 @@ private:
   size_t _size = 0;
   std::unordered_map<std::string, std::unique_ptr<nd_data_base>> _uniform;
   std::unordered_map<std::string, std::unique_ptr<nd_data_base>> _varying;
+  std::vector<std::unique_ptr<source_type>> _sources;
 
   std::vector<std::vector<size_t>> _per_thread_perm;
   std::vector<nd_data_base *> _to_permute;

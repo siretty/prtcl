@@ -1,8 +1,9 @@
+
 #pragma once
 
-#include <prtcl/rt/common.hpp>
-#include <prtcl/rt/basic_model.hpp>
 #include <prtcl/rt/basic_group.hpp>
+#include <prtcl/rt/basic_model.hpp>
+#include <prtcl/rt/common.hpp>
 
 #include <vector>
 
@@ -10,13 +11,12 @@
 
 #if defined(__GNUG__)
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-local-typedef"
+#pragma GCC diagnostic ignored "-Wunused-local-typedefs"
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #endif
 
-namespace prtcl::schemes {
-
+namespace prtcl { namespace schemes {
 template <
   typename ModelPolicy_
 >
@@ -40,167 +40,145 @@ public:
 
 private:
   struct global_data {
-    nd_dtype_data_ref_t<nd_dtype::real> maximum_speed;
     nd_dtype_data_ref_t<nd_dtype::real> time_step;
+    nd_dtype_data_ref_t<nd_dtype::real> maximum_speed;
 
     static void _require(model_type &m_) {
-      m_.template add_global<nd_dtype::real>("maximum_speed");
       m_.template add_global<nd_dtype::real>("time_step");
+      m_.template add_global<nd_dtype::real>("maximum_speed");
     }
 
     void _load(model_type const &m_) {
-      maximum_speed = m_.template get_global<nd_dtype::real>("maximum_speed");
       time_step = m_.template get_global<nd_dtype::real>("time_step");
+      maximum_speed = m_.template get_global<nd_dtype::real>("maximum_speed");
     }
   };
 
 private:
-  struct fluid_group_data {
+  struct dynamic_data {
+    // particle count of the selected group
     size_t _count;
+    // index of the selected group
     size_t _index;
-
-    // uniform fields
 
     // varying fields
     nd_dtype_data_ref_t<nd_dtype::real, N> acceleration;
-    nd_dtype_data_ref_t<nd_dtype::real, N> position;
     nd_dtype_data_ref_t<nd_dtype::real, N> velocity;
+    nd_dtype_data_ref_t<nd_dtype::real, N> position;
 
     static void _require(group_type &g_) {
-      // uniform fields
-
       // varying fields
       g_.template add_varying<nd_dtype::real, N>("acceleration");
-      g_.template add_varying<nd_dtype::real, N>("position");
       g_.template add_varying<nd_dtype::real, N>("velocity");
+      g_.template add_varying<nd_dtype::real, N>("position");
     }
 
     void _load(group_type const &g_) {
-      std::cerr << "loading group " << g_.get_name() << '\n';
-
       _count = g_.size();
-
-      // uniform fields
 
       // varying fields
       acceleration = g_.template get_varying<nd_dtype::real, N>("acceleration");
-      position = g_.template get_varying<nd_dtype::real, N>("position");
       velocity = g_.template get_varying<nd_dtype::real, N>("velocity");
+      position = g_.template get_varying<nd_dtype::real, N>("position");
     }
   };
 
 public:
   static void require(model_type &m_) {
     global_data::_require(m_);
-
+    
     for (auto &group : m_.groups()) {
-      if (group.get_type() == "fluid")
-        fluid_group_data::_require(group);
+      if (group.get_type() == "fluid") {
+        dynamic_data::_require(group);
+      }
     }
   }
-
+  
 public:
   void load(model_type &m_) {
     _group_count = m_.groups().size();
-
+    
     _data.global._load(m_);
-
+    
     auto groups = m_.groups();
     for (size_t i = 0; i < groups.size(); ++i) {
       auto &group = groups[static_cast<typename decltype(groups)::difference_type>(i)];
 
       if (group.get_type() == "fluid") {
-        std::cerr << "loading group " << group.get_name() << " with index " << i << '\n';
-
-        auto &data = _data.by_group_type.fluid.emplace_back();
+        auto &data = _data.by_group_type.dynamic.emplace_back();
         data._load(group);
         data._index = i;
       }
     }
   }
-
+  
 private:
   struct {
     global_data global;
     struct {
-      std::vector<fluid_group_data> fluid;
+      std::vector<dynamic_data> dynamic;
     } by_group_type;
   } _data;
 
-  struct {
-    std::vector<std::vector<std::vector<size_t>>> neighbors;
+  struct per_thread_type {
+    std::vector<std::vector<size_t>> neighbors;
 
     // reductions
-    std::vector<nd_dtype_t<nd_dtype::real>> rd_maximum_speed;
-  } _per_thread;
+    nd_dtype_t<nd_dtype::real> rd_maximum_speed;
+  };
 
+  std::vector<per_thread_type> _per_thread;
   size_t _group_count;
 
-  // start of child #0 procedure
 public:
   template <typename NHood_>
   void advect_symplectic_euler(NHood_ const &nhood_) {
     // alias for the global data
     auto &g = _data.global;
 
-    // alias for the math_policy member (types)
-    using o = typename math_policy::operations;
+    // alias for the math_policy member types
+    using l = typename math_policy::literals;
     using c = typename math_policy::constants;
+    using o = typename math_policy::operations;
 
-    // start of child #0 equation
-    g.maximum_speed[0] = c::template negative_infinity<nd_dtype::real>() ;
-    // close of child #0 equation
-
-    // start of child #1 foreach_particle
-    #pragma omp parallel
-    {
-      #pragma omp single
-      {
+    _Pragma("omp parallel") {
+      _Pragma("omp single") {
         auto const thread_count = static_cast<size_t>(omp_get_num_threads());
-
-        _per_thread.rd_maximum_speed.resize(thread_count);
+        _per_thread.resize(thread_count);
       } // pragma omp single
 
       auto const thread_index = static_cast<size_t>(omp_get_thread_num());
 
-      // select the per-thread reduction variables
-      auto &rd_maximum_speed = _per_thread.rd_maximum_speed[thread_index];
-
-      // initialize the per-thread reduction variables
+      // select and initialize this threads reduction variable
+      auto &rd_maximum_speed = _per_thread[thread_index].rd_maximum_speed;
       rd_maximum_speed = c::template negative_infinity<nd_dtype::real>();
 
-      // start of child #0 if_group_type
-      for (auto &p : _data.by_group_type.fluid) {
-        #pragma omp for
+      for (auto &p : _data.by_group_type.dynamic) {
+#pragma omp for
         for (size_t i = 0; i < p._count; ++i) {
-          // start of child #0 equation
-          p.velocity[i] += ( g.time_step[0] ) * ( p.acceleration[i] ) ;
-          // close of child #0 equation
+          // no neighbours neccessary
 
-          // start of child #1 equation
-          p.position[i] += ( g.time_step[0] ) * ( p.velocity[i] ) ;
-          // close of child #1 equation
+          p.velocity[i] += (g.time_step[0] * p.acceleration[i]);
 
-          // start of child #2 reduction
-          rd_maximum_speed = o::max( rd_maximum_speed, o::norm( p.velocity[i] ) ) ;
-          // close of child #2 reduction
+          p.position[i] += (g.time_step[0] * p.velocity[i]);
+
+          rd_maximum_speed = o::max(rd_maximum_speed, o::norm(p.velocity[i]));
         }
       }
-      // close of child #0 if_group_type
 
-      // combine global reductions
-      #pragma omp critical
-      {
-        g.maximum_speed[0] = o::max( g.maximum_speed[0], rd_maximum_speed ) ;
+      _Pragma("omp critical") {
+        // combine all reduction variables
+
+        g.maximum_speed[0] = o::max(rd_maximum_speed);
       } // pragma omp critical
     } // pragma omp parallel
-    // close of child #1 foreach_particle
   }
-  // close of child #0 procedure
 };
 
-} // namespace prtcl::schemes
+} /* namespace schemes*/ } /* namespace prtcl*/
+
 
 #if defined(__GNUG__)
 #pragma GCC diagnostic pop
 #endif
+  

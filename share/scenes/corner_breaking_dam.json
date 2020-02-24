@@ -1,0 +1,48 @@
+{
+  "name_value": {
+    "model": {
+      "group": {
+        "f": {
+          "type": "fluid",
+          "tag": "dynamic",
+          "tag": "density",
+          "sample": {
+            "volume": {
+              "what": "triangle_mesh",
+              "file_type": "obj",
+              "file_path": "share/models/unitsphere.obj",
+              "scaling" :     { "0": 16, "1": 16, "2": 16, "adaptive": true },
+              "translation" : { "0": 16, "1": 16, "2": 16, "adaptive": true }
+            }
+          },
+          "source": {
+            "velocity": { "0": 0, "1": 0, "2": 0, "adaptive": true },
+            "sample": {
+              "surface": {
+                "what": "triangle_mesh",
+                "file_type": "obj",
+                "file_path": "share/models/unitdisc.obj",
+                "scaling":     { "0": 1, "1": 1, "2": 1, "adaptive": true },
+                "translation": { "0": 1, "1": 1, "2": 1, "adaptive": true }
+              }
+            }
+          }
+        },
+        "b": {
+          "type": "boundary",
+          "tag": "static",
+          "tag": "volume",
+          "sample": {
+            "surface": {
+              "what": "triangle_mesh",
+              "file_type": "obj",
+              "file_path": "share/models/unitcube.obj",
+              "scaling" :     { "0": 36, "1": 68, "2": 36, "adaptive": true },
+              "translation" : { "0": -2, "1": -2, "2": -2, "adaptive": true }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -155,13 +155,13 @@ void sample_surface(
     for (auto const &f : mesh_.faces()) {
       // m is the point with the largest angle
       auto [ok, m, a, b] = from_face(f);
-      
+
       // skip invalid faces
       if (not ok)
         continue;
 
       // h is the base of the height above m
-      auto h = a + project(m - a, b - a);
+      rvec h = a + project(m - a, b - a);
 
       // std::cerr << "m = [" << m[0] << " " << m[1] << " " << m[2] << "]"
       //          << "\n";

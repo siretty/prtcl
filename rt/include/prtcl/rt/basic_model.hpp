@@ -18,6 +18,10 @@
 namespace prtcl::rt {
 
 template <typename ModelPolicy_> class basic_model {
+public:
+  using model_policy = ModelPolicy_;
+
+private:
   using type_policy = typename ModelPolicy_::type_policy;
   using math_policy = typename ModelPolicy_::math_policy;
   using data_policy = typename ModelPolicy_::data_policy;
@@ -37,8 +41,12 @@ public:
   auto &add_group(std::string_view name_, std::string_view type_) {
     size_t index = _groups.size();
     auto [it, inserted] = _group_to_index.emplace(name_, index);
-    (void)(inserted); // TODO
-    return *_groups.emplace_back(new group_type{name_, type_});
+    group_type *group = nullptr;
+    if (inserted)
+      group = _groups.emplace_back(new group_type{name_, type_}).get();
+    else
+      group = _groups[it->second].get();
+    return *group;
   }
 
 public:
@@ -59,11 +67,12 @@ public:
 
 public:
   template <nd_dtype DType_, size_t... Ns_> auto add_global(std::string name_) {
-    auto *data = new nd_dtype_data_t<DType_, Ns_...>{};
+    using data_type = nd_dtype_data_t<DType_, Ns_...>;
+    auto data = std::make_unique<data_type>();
     data->resize(1);
-    auto [it, inserted] = _global.emplace(name_, data);
-    (void)(inserted); // TODO
-    return nd_dtype_data_ref_t<DType_, Ns_...>{*data};
+    auto [it, inserted] = _global.emplace(name_, std::move(data));
+    return nd_dtype_data_ref_t<DType_, Ns_...>{
+        *static_cast<data_type *>(it->second.get())};
   }
 
 public:

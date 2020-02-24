@@ -1,7 +1,7 @@
 #include <catch2/catch.hpp>
 
-#include <prtcl/rt/common.hpp>
 #include <prtcl/rt/basic_type_policy.hpp>
+#include <prtcl/rt/common.hpp>
 #include <prtcl/rt/eigen_math_policy.hpp>
 #include <prtcl/rt/math/kernel/cubic_spline_kernel.hpp>
 #include <prtcl/rt/math/kernel_math_policy_mixin.hpp>
@@ -25,85 +25,88 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
       template policy<type_policy>;
   using kernel_type = prtcl::rt::cubic_spline_kernel<math_policy>;
 
+  using real = typename type_policy::real;
+
   using o = math_policy::operations;
   using c = math_policy::constants;
 
   using prtcl::core::nd_dtype;
 
+  auto const h = static_cast<real>(1);
+
   CHECK("Cubic Spline" == kernel_type::get_name());
 
-  CHECK(2 == o::kernel_support_radius(1));
+  CHECK(2 == o::kernel_support_radius(h));
 
   auto eval_at_zeros_d1 =
-      o::kernel_h(c::template zeros<nd_dtype::real, 1>(), 1);
+      o::kernel_h(c::template zeros<nd_dtype::real, 1>(), h);
   auto eval_at_zeros_d2 =
-      o::kernel_h(c::template zeros<nd_dtype::real, 2>(), 1);
+      o::kernel_h(c::template zeros<nd_dtype::real, 2>(), h);
   auto eval_at_zeros_d3 =
-      o::kernel_h(c::template zeros<nd_dtype::real, 3>(), 1);
+      o::kernel_h(c::template zeros<nd_dtype::real, 3>(), h);
 
   CHECK(eval_at_zeros_d1 > eval_at_zeros_d2);
   CHECK(eval_at_zeros_d2 > eval_at_zeros_d3);
 
-  auto eval_at_pones_d1 = o::kernel_h(c::template ones<nd_dtype::real, 1>(), 1);
+  auto eval_at_pones_d1 = o::kernel_h(c::template ones<nd_dtype::real, 1>(), h);
   auto eval_at_nones_d1 =
-      o::kernel_h(-c::template ones<nd_dtype::real, 1>(), 1);
+      o::kernel_h(-c::template ones<nd_dtype::real, 1>(), h);
 
   CHECK(eval_at_pones_d1 < eval_at_zeros_d1);
   CHECK(eval_at_pones_d1 == eval_at_nones_d1);
 
-  auto eval_at_pones_d2 = o::kernel_h(c::template ones<nd_dtype::real, 2>(), 1);
+  auto eval_at_pones_d2 = o::kernel_h(c::template ones<nd_dtype::real, 2>(), h);
   auto eval_at_nones_d2 =
-      o::kernel_h(-c::template ones<nd_dtype::real, 2>(), 1);
+      o::kernel_h(-c::template ones<nd_dtype::real, 2>(), h);
 
   CHECK(eval_at_pones_d2 < eval_at_zeros_d2);
   CHECK(eval_at_pones_d2 == eval_at_nones_d2);
 
-  auto eval_at_pones_d3 = o::kernel_h(c::template ones<nd_dtype::real, 3>(), 1);
+  auto eval_at_pones_d3 = o::kernel_h(c::template ones<nd_dtype::real, 3>(), h);
   auto eval_at_nones_d3 =
-      o::kernel_h(-c::template ones<nd_dtype::real, 3>(), 1);
+      o::kernel_h(-c::template ones<nd_dtype::real, 3>(), h);
 
   CHECK(eval_at_pones_d3 < eval_at_zeros_d3);
   CHECK(eval_at_pones_d3 == eval_at_nones_d3);
 
   auto grad_at_zeros_d1 =
-      o::kernel_gradient_h(c::template zeros<nd_dtype::real, 1>(), 1);
+      o::kernel_gradient_h(c::template zeros<nd_dtype::real, 1>(), h);
   auto grad_at_zeros_d2 =
-      o::kernel_gradient_h(c::template zeros<nd_dtype::real, 2>(), 1);
+      o::kernel_gradient_h(c::template zeros<nd_dtype::real, 2>(), h);
   auto grad_at_zeros_d3 =
-      o::kernel_gradient_h(c::template zeros<nd_dtype::real, 3>(), 1);
+      o::kernel_gradient_h(c::template zeros<nd_dtype::real, 3>(), h);
 
   CHECK(0 == o::norm(grad_at_zeros_d1));
   CHECK(0 == o::norm(grad_at_zeros_d2));
   CHECK(0 == o::norm(grad_at_zeros_d3));
 
   auto grad_at_pones_d1 =
-      o::kernel_gradient_h(c::template ones<nd_dtype::real, 1>(), 1);
+      o::kernel_gradient_h(c::template ones<nd_dtype::real, 1>(), h);
 
   CHECK(grad_at_pones_d1[0] < 0);
   CHECK(o::cmin(grad_at_pones_d1) == o::cmax(grad_at_pones_d1));
 
   auto grad_at_pones_d2 =
-      o::kernel_gradient_h(c::template ones<nd_dtype::real, 2>(), 1);
+      o::kernel_gradient_h(c::template ones<nd_dtype::real, 2>(), h);
 
   CHECK(grad_at_pones_d2[0] < 0);
   CHECK(o::cmin(grad_at_pones_d2) == o::cmax(grad_at_pones_d2));
 
   auto grad_at_pones_d3 =
-      o::kernel_gradient_h(c::template ones<nd_dtype::real, 3>(), 1);
+      o::kernel_gradient_h(c::template ones<nd_dtype::real, 3>(), h);
 
   CHECK(grad_at_pones_d3[0] < 0);
   CHECK(o::cmin(grad_at_pones_d3) == o::cmax(grad_at_pones_d3));
 
   SECTION("integrate kernel") {
-    using real = typename type_policy::real;
     auto const error_goal = static_cast<real>(.0001);
 
     SECTION("1D") {
-      auto eval = [](auto const &x) {
-        return o::kernel_h(math_policy::nd_dtype_t<nd_dtype::real, 1>{x[0]}, 1);
+      auto eval = [h](auto const &x) {
+        return o::kernel_h(math_policy::nd_dtype_t<nd_dtype::real, 1>{x[0]}, h);
       };
       std::vector<std::pair<real, real>> bounds = {
-          {0, o::kernel_support_radius(1)},
+          {0, o::kernel_support_radius(h)},
       };
 
       boost::math::quadrature::naive_monte_carlo<real, decltype(eval)> mc{
@@ -114,13 +117,13 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
     }
 
     SECTION("2D") {
-      auto eval = [](auto const &x) {
+      auto eval = [h](auto const &x) {
         return o::kernel_h(
-            math_policy::nd_dtype_t<nd_dtype::real, 2>{x[0], x[1]}, 1);
+            math_policy::nd_dtype_t<nd_dtype::real, 2>{x[0], x[1]}, h);
       };
       std::vector<std::pair<real, real>> bounds = {
-          {0, o::kernel_support_radius(1)},
-          {0, o::kernel_support_radius(1)},
+          {0, o::kernel_support_radius(h)},
+          {0, o::kernel_support_radius(h)},
       };
 
       boost::math::quadrature::naive_monte_carlo<real, decltype(eval)> mc{
@@ -131,14 +134,14 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
     }
 
     SECTION("3D") {
-      auto eval = [](auto const &x) {
+      auto eval = [h](auto const &x) {
         return o::kernel_h(
-            math_policy::nd_dtype_t<nd_dtype::real, 3>{x[0], x[1], x[2]}, 1);
+            math_policy::nd_dtype_t<nd_dtype::real, 3>{x[0], x[1], x[2]}, h);
       };
       std::vector<std::pair<real, real>> bounds = {
-          {0, o::kernel_support_radius(1)},
-          {0, o::kernel_support_radius(1)},
-          {0, o::kernel_support_radius(1)},
+          {0, o::kernel_support_radius(h)},
+          {0, o::kernel_support_radius(h)},
+          {0, o::kernel_support_radius(h)},
       };
 
       boost::math::quadrature::naive_monte_carlo<real, decltype(eval)> mc{
@@ -150,8 +153,7 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
   }
 
   SECTION("kernel radial symmetry") {
-    using real = typename type_policy::real;
-    auto const radius = o::kernel_support_radius(1);
+    auto const radius = o::kernel_support_radius(h);
 
     std::mt19937 gen{0};
     std::uniform_real_distribution<real> dis{-radius, radius};
@@ -168,11 +170,12 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
         points[i][0] = dis(gen);
       }
 
-      auto results = boost::irange<size_t>(0, points.size()) |
-                     boost::adaptors::transformed([&points](auto i_) -> bool {
-                       return 0 == o::kernel_h(points[i_], 1) -
-                                       o::kernel_h(-points[i_], 1);
-                     });
+      auto results =
+          boost::irange<size_t>(0, points.size()) |
+          boost::adaptors::transformed([&points, h](auto i_) -> bool {
+            return 0 ==
+                   o::kernel_h(points[i_], h) - o::kernel_h(-points[i_], h);
+          });
 
       CHECK(std::all_of(results.begin(), results.end(), identity));
     }
@@ -186,11 +189,12 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
         points[i][1] = dis(gen);
       }
 
-      auto results = boost::irange<size_t>(0, points.size()) |
-                     boost::adaptors::transformed([&points](auto i_) -> bool {
-                       return 0 == o::kernel_h(points[i_], 1) -
-                                       o::kernel_h(-points[i_], 1);
-                     });
+      auto results =
+          boost::irange<size_t>(0, points.size()) |
+          boost::adaptors::transformed([&points, h](auto i_) -> bool {
+            return 0 ==
+                   o::kernel_h(points[i_], h) - o::kernel_h(-points[i_], h);
+          });
 
       CHECK(std::all_of(results.begin(), results.end(), identity));
     }
@@ -205,19 +209,19 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
         points[i][2] = dis(gen);
       }
 
-      auto results = boost::irange<size_t>(0, points.size()) |
-                     boost::adaptors::transformed([&points](auto i_) -> bool {
-                       return 0 == o::kernel_h(points[i_], 1) -
-                                       o::kernel_h(-points[i_], 1);
-                     });
+      auto results =
+          boost::irange<size_t>(0, points.size()) |
+          boost::adaptors::transformed([&points, h](auto i_) -> bool {
+            return 0 ==
+                   o::kernel_h(points[i_], h) - o::kernel_h(-points[i_], h);
+          });
 
       CHECK(std::all_of(results.begin(), results.end(), identity));
     }
   }
 
   SECTION("kernel gradient point-symmetry") {
-    using real = typename type_policy::real;
-    auto const radius = o::kernel_support_radius(1);
+    auto const radius = o::kernel_support_radius(h);
 
     std::mt19937 gen{0};
     std::uniform_real_distribution<real> dis{-radius, radius};
@@ -234,12 +238,13 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
         points[i][0] = dis(gen);
       }
 
-      auto results = boost::irange<size_t>(0, points.size()) |
-                     boost::adaptors::transformed([&points](auto i_) -> bool {
-                       return 0 == o::norm(
-                                       o::kernel_gradient_h(points[i_], 1) +
-                                       o::kernel_gradient_h(-points[i_], 1));
-                     });
+      auto results =
+          boost::irange<size_t>(0, points.size()) |
+          boost::adaptors::transformed([&points, h](auto i_) -> bool {
+            return 0 == o::norm(
+                            o::kernel_gradient_h(points[i_], h) +
+                            o::kernel_gradient_h(-points[i_], h));
+          });
 
       CHECK(std::all_of(results.begin(), results.end(), identity));
     }
@@ -253,12 +258,13 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
         points[i][1] = dis(gen);
       }
 
-      auto results = boost::irange<size_t>(0, points.size()) |
-                     boost::adaptors::transformed([&points](auto i_) -> bool {
-                       return 0 == o::norm(
-                                       o::kernel_gradient_h(points[i_], 1) +
-                                       o::kernel_gradient_h(-points[i_], 1));
-                     });
+      auto results =
+          boost::irange<size_t>(0, points.size()) |
+          boost::adaptors::transformed([&points, h](auto i_) -> bool {
+            return 0 == o::norm(
+                            o::kernel_gradient_h(points[i_], h) +
+                            o::kernel_gradient_h(-points[i_], h));
+          });
 
       CHECK(std::all_of(results.begin(), results.end(), identity));
     }
@@ -273,12 +279,13 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
         points[i][2] = dis(gen);
       }
 
-      auto results = boost::irange<size_t>(0, points.size()) |
-                     boost::adaptors::transformed([&points](auto i_) -> bool {
-                       return 0 == o::norm(
-                                       o::kernel_gradient_h(points[i_], 1) +
-                                       o::kernel_gradient_h(-points[i_], 1));
-                     });
+      auto results =
+          boost::irange<size_t>(0, points.size()) |
+          boost::adaptors::transformed([&points, h](auto i_) -> bool {
+            return 0 == o::norm(
+                            o::kernel_gradient_h(points[i_], h) +
+                            o::kernel_gradient_h(-points[i_], h));
+          });
 
       CHECK(std::all_of(results.begin(), results.end(), identity));
     }

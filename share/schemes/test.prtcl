@@ -1,0 +1,21 @@
+
+let particles = particle_selector types {particles} tags {};
+let neighbors = particle_selector types {neighbors} tags {};
+
+let gpc = field global_particle_count : global integer;
+let gnc = field global_neighbor_count : global integer;
+
+procedure test_counting_particles {
+  foreach particles particle i {
+    reduce gpc[_] += integer{1};
+  }
+}
+
+procedure test_counting_neighbors {
+  foreach particles particle i {
+    foreach neighbors neighbor j {
+      reduce gnc[_] += integer{1};
+    }
+  }
+}
+

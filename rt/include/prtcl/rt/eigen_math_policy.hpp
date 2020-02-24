@@ -4,6 +4,8 @@
 
 #include <prtcl/rt/math/math_policy.hpp>
 
+#include <prtcl/core/narray.hpp>
+
 #include <algorithm>
 #include <initializer_list>
 #include <limits>
@@ -110,6 +112,20 @@ public:
       n_eigen::eigen_extent_v<NDType_, Dimension_>;
 
 public:
+  struct literals {
+    template <nd_dtype DType_, size_t... Ns_>
+    static nd_dtype_t<DType_, Ns_...>
+    narray(core::narray_t<dtype_t<DType_>, Ns_...> value_) {
+      if constexpr (sizeof...(Ns_) == 0)
+        return value_;
+      else {
+        using result_type = nd_dtype_t<DType_, Ns_...>;
+        return result_type{Eigen::Map<result_type>{core::narray_data(value_)}};
+      }
+    }
+  };
+
+public:
   struct operations {
     template <typename LHS_, typename RHS_>
     static decltype(auto) dot(LHS_ &&lhs_, RHS_ &&rhs_) {
@@ -120,6 +136,11 @@ public:
     static decltype(auto) cross(LHS_ &&lhs_, RHS_ &&rhs_) {
       return std::forward<LHS_>(lhs_).cross(std::forward<RHS_>(rhs_));
     }
+
+    // template <typename LHS_, typename RHS_>
+    // static decltype(auto) outer_product(LHS_ &&lhs_, RHS_ &&rhs_) {
+    // TODO: implement outer produce (ie. tensor product)
+    //}
 
     template <typename Arg_> static decltype(auto) norm(Arg_ &&arg_) {
       return std::forward<Arg_>(arg_).norm();
@@ -144,6 +165,20 @@ public:
       // TODO: support max for non-real-non-scalars
       return std::min(
           std::initializer_list<real>{std::forward<Args_>(args_)...});
+    }
+
+    template <typename LHS_, typename RHS_>
+    static decltype(auto) cmul(LHS_ &&lhs_, RHS_ &&rhs_) {
+      return (std::forward<LHS_>(lhs_).array() *
+              std::forward<RHS_>(rhs_).array())
+          .matrix();
+    }
+
+    template <typename LHS_, typename RHS_>
+    static decltype(auto) cdiv(LHS_ &&lhs_, RHS_ &&rhs_) {
+      return (std::forward<LHS_>(lhs_).array() /
+              std::forward<RHS_>(rhs_).array())
+          .matrix();
     }
 
     template <typename Arg_> static decltype(auto) cmax(Arg_ &&arg_) {
@@ -217,7 +252,7 @@ public:
       if constexpr (0 == sizeof...(Ns_))
         return -std::numeric_limits<real>::infinity();
       else
-        return n_eigen::select_eigen_type_t<real, Ns_...>::Constant(
+        return -n_eigen::select_eigen_type_t<real, Ns_...>::Constant(
             positive_infinity<DType_>());
     }
 
@@ -240,7 +275,8 @@ public:
     static decltype(auto) from_array(std::array<T_, N_> const &a_) {
       nd_dtype_t<DType_, N_> result;
       for (size_t n = 0; n < N_; ++n)
-        result[n] = static_cast<dtype_t<DType_>>(a_[n]);
+        result[static_cast<Eigen::Index>(n)] =
+            static_cast<dtype_t<DType_>>(a_[n]);
       return result;
     }
   };

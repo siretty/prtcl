@@ -1,8 +1,9 @@
+
 #pragma once
 
-#include <prtcl/rt/common.hpp>
-#include <prtcl/rt/basic_model.hpp>
 #include <prtcl/rt/basic_group.hpp>
+#include <prtcl/rt/basic_model.hpp>
+#include <prtcl/rt/common.hpp>
 
 #include <vector>
 
@@ -10,13 +11,12 @@
 
 #if defined(__GNUG__)
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-local-typedef"
+#pragma GCC diagnostic ignored "-Wunused-local-typedefs"
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #endif
 
-namespace prtcl::schemes {
-
+namespace prtcl { namespace schemes {
 template <
   typename ModelPolicy_
 >
@@ -55,248 +55,196 @@ private:
   };
 
 private:
-  struct neighbors_group_data {
+  struct particles_data {
+    // particle count of the selected group
     size_t _count;
+    // index of the selected group
     size_t _index;
 
-    // uniform fields
-
-    // varying fields
-
     static void _require(group_type &g_) {
-      // uniform fields
-
-      // varying fields
     }
 
     void _load(group_type const &g_) {
-      std::cerr << "loading group " << g_.get_name() << '\n';
-
       _count = g_.size();
-
-      // uniform fields
-
-      // varying fields
     }
   };
 
 private:
-  struct particles_group_data {
+  struct neighbors_data {
+    // particle count of the selected group
     size_t _count;
+    // index of the selected group
     size_t _index;
 
-    // uniform fields
-
-    // varying fields
-
     static void _require(group_type &g_) {
-      // uniform fields
-
-      // varying fields
     }
 
     void _load(group_type const &g_) {
-      std::cerr << "loading group " << g_.get_name() << '\n';
-
       _count = g_.size();
-
-      // uniform fields
-
-      // varying fields
     }
   };
 
 public:
   static void require(model_type &m_) {
     global_data::_require(m_);
-
+    
     for (auto &group : m_.groups()) {
-      if (group.get_type() == "neighbors")
-        neighbors_group_data::_require(group);
-      if (group.get_type() == "particles")
-        particles_group_data::_require(group);
+      if (group.get_type() == "particles") {
+        particles_data::_require(group);
+      }
+      if (group.get_type() == "neighbors") {
+        neighbors_data::_require(group);
+      }
     }
   }
-
+  
 public:
   void load(model_type &m_) {
     _group_count = m_.groups().size();
-
+    
     _data.global._load(m_);
-
+    
     auto groups = m_.groups();
     for (size_t i = 0; i < groups.size(); ++i) {
       auto &group = groups[static_cast<typename decltype(groups)::difference_type>(i)];
 
-      if (group.get_type() == "neighbors") {
-        std::cerr << "loading group " << group.get_name() << " with index " << i << '\n';
-
-        auto &data = _data.by_group_type.neighbors.emplace_back();
+      if (group.get_type() == "particles") {
+        auto &data = _data.by_group_type.particles.emplace_back();
         data._load(group);
         data._index = i;
       }
 
-      if (group.get_type() == "particles") {
-        std::cerr << "loading group " << group.get_name() << " with index " << i << '\n';
-
-        auto &data = _data.by_group_type.particles.emplace_back();
+      if (group.get_type() == "neighbors") {
+        auto &data = _data.by_group_type.neighbors.emplace_back();
         data._load(group);
         data._index = i;
       }
     }
   }
-
+  
 private:
   struct {
     global_data global;
     struct {
-      std::vector<neighbors_group_data> neighbors;
-      std::vector<particles_group_data> particles;
+      std::vector<particles_data> particles;
+      std::vector<neighbors_data> neighbors;
     } by_group_type;
   } _data;
 
-  struct {
-    std::vector<std::vector<std::vector<size_t>>> neighbors;
+  struct per_thread_type {
+    std::vector<std::vector<size_t>> neighbors;
 
     // reductions
-    std::vector<nd_dtype_t<nd_dtype::integer>> rd_global_neighbor_count;
-    std::vector<nd_dtype_t<nd_dtype::integer>> rd_global_particle_count;
-  } _per_thread;
+    nd_dtype_t<nd_dtype::integer> rd_global_neighbor_count;
+    nd_dtype_t<nd_dtype::integer> rd_global_particle_count;
+  };
 
+  std::vector<per_thread_type> _per_thread;
   size_t _group_count;
 
-  // start of child #0 procedure
 public:
   template <typename NHood_>
   void test_counting_particles(NHood_ const &nhood_) {
     // alias for the global data
     auto &g = _data.global;
 
-    // alias for the math_policy member (types)
-    using o = typename math_policy::operations;
+    // alias for the math_policy member types
+    using l = typename math_policy::literals;
     using c = typename math_policy::constants;
+    using o = typename math_policy::operations;
 
-    // start of child #0 foreach_particle
-    #pragma omp parallel
-    {
-      #pragma omp single
-      {
+    _Pragma("omp parallel") {
+      _Pragma("omp single") {
         auto const thread_count = static_cast<size_t>(omp_get_num_threads());
-
-        _per_thread.rd_global_particle_count.resize(thread_count);
+        _per_thread.resize(thread_count);
       } // pragma omp single
 
       auto const thread_index = static_cast<size_t>(omp_get_thread_num());
 
-      // select the per-thread reduction variables
-      auto &rd_global_particle_count = _per_thread.rd_global_particle_count[thread_index];
-
-      // initialize the per-thread reduction variables
+      // select and initialize this threads reduction variable
+      auto &rd_global_particle_count = _per_thread[thread_index].rd_global_particle_count;
       rd_global_particle_count = c::template zeros<nd_dtype::integer>();
 
-      // start of child #0 if_group_type
       for (auto &p : _data.by_group_type.particles) {
-        #pragma omp for
+#pragma omp for
         for (size_t i = 0; i < p._count; ++i) {
-          // start of child #0 reduction
-          rd_global_particle_count = ( rd_global_particle_count ) + ( static_cast<dtype_t<nd_dtype::integer>>(1) ) ;
-          // close of child #0 reduction
+          // no neighbours neccessary
+
+          rd_global_particle_count += l::template narray<nd_dtype::integer>({1});
         }
       }
-      // close of child #0 if_group_type
 
-      // combine global reductions
-      #pragma omp critical
-      {
-        g.global_particle_count[0] = ( g.global_particle_count[0] ) + ( rd_global_particle_count ) ;
+      _Pragma("omp critical") {
+        // combine all reduction variables
+
+        g.global_particle_count[0] += rd_global_particle_count;
       } // pragma omp critical
     } // pragma omp parallel
-    // close of child #0 foreach_particle
   }
-  // close of child #0 procedure
 
-  // start of child #1 procedure
 public:
   template <typename NHood_>
   void test_counting_neighbors(NHood_ const &nhood_) {
     // alias for the global data
     auto &g = _data.global;
 
-    // alias for the math_policy member (types)
-    using o = typename math_policy::operations;
+    // alias for the math_policy member types
+    using l = typename math_policy::literals;
     using c = typename math_policy::constants;
+    using o = typename math_policy::operations;
 
-    // start of child #0 foreach_particle
-    #pragma omp parallel
-    {
-      #pragma omp single
-      {
+    _Pragma("omp parallel") {
+      _Pragma("omp single") {
         auto const thread_count = static_cast<size_t>(omp_get_num_threads());
-
-        _per_thread.neighbors.resize(thread_count);
-
-        _per_thread.rd_global_neighbor_count.resize(thread_count);
+        _per_thread.resize(thread_count);
       } // pragma omp single
 
       auto const thread_index = static_cast<size_t>(omp_get_thread_num());
 
       // select and resize the neighbor storage for the current thread
-      auto &neighbors = _per_thread.neighbors[thread_index];
+      auto &neighbors = _per_thread[thread_index].neighbors;
       neighbors.resize(_group_count);
 
       for (auto &pgn : neighbors)
         pgn.reserve(100);
 
-      // select the per-thread reduction variables
-      auto &rd_global_neighbor_count = _per_thread.rd_global_neighbor_count[thread_index];
-
-      // initialize the per-thread reduction variables
+      // select and initialize this threads reduction variable
+      auto &rd_global_neighbor_count = _per_thread[thread_index].rd_global_neighbor_count;
       rd_global_neighbor_count = c::template zeros<nd_dtype::integer>();
 
-      // start of child #0 if_group_type
       for (auto &p : _data.by_group_type.particles) {
-        #pragma omp for
+#pragma omp for
         for (size_t i = 0; i < p._count; ++i) {
+          // clean up the neighbor storage
           for (auto &pgn : neighbors)
             pgn.clear();
 
-          bool has_neighbors = false;
+          // find all neighbors of (p, i)
+          nhood_.neighbors(p._index, i, [&neighbors](auto n_index, auto j) {
+            neighbors[n_index].push_back(j);
+          });
 
-          // start of child #0 foreach_neighbor
-          if (!has_neighbors) {
-            nhood_.neighbors(p._index, i, [&neighbors](auto n_index, auto j) {
-              neighbors[n_index].push_back(j);
-            });
-            has_neighbors = true;
-          }
-
-          // start of child #0 if_group_type
           for (auto &n : _data.by_group_type.neighbors) {
             for (auto const j : neighbors[n._index]) {
-              // start of child #0 reduction
-              rd_global_neighbor_count = ( rd_global_neighbor_count ) + ( static_cast<dtype_t<nd_dtype::integer>>(1) ) ;
-              // close of child #0 reduction
+              rd_global_neighbor_count += l::template narray<nd_dtype::integer>({1});
             }
           }
-          // close of child #0 if_group_type
-          // close of child #0 foreach_neighbor
         }
       }
-      // close of child #0 if_group_type
 
-      // combine global reductions
-      #pragma omp critical
-      {
-        g.global_neighbor_count[0] = ( g.global_neighbor_count[0] ) + ( rd_global_neighbor_count ) ;
+      _Pragma("omp critical") {
+        // combine all reduction variables
+
+        g.global_neighbor_count[0] += rd_global_neighbor_count;
       } // pragma omp critical
     } // pragma omp parallel
-    // close of child #0 foreach_particle
   }
-  // close of child #1 procedure
 };
 
-} // namespace prtcl::schemes
+} /* namespace schemes*/ } /* namespace prtcl*/
+
 
 #if defined(__GNUG__)
 #pragma GCC diagnostic pop
 #endif
+  

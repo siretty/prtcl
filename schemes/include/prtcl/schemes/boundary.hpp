@@ -1,8 +1,9 @@
+
 #pragma once
 
-#include <prtcl/rt/common.hpp>
-#include <prtcl/rt/basic_model.hpp>
 #include <prtcl/rt/basic_group.hpp>
+#include <prtcl/rt/basic_model.hpp>
+#include <prtcl/rt/common.hpp>
 
 #include <vector>
 
@@ -10,13 +11,12 @@
 
 #if defined(__GNUG__)
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-local-typedef"
+#pragma GCC diagnostic ignored "-Wunused-local-typedefs"
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #endif
 
-namespace prtcl::schemes {
-
+namespace prtcl { namespace schemes {
 template <
   typename ModelPolicy_
 >
@@ -52,159 +52,134 @@ private:
   };
 
 private:
-  struct boundary_group_data {
+  struct boundary_data {
+    // particle count of the selected group
     size_t _count;
+    // index of the selected group
     size_t _index;
 
-    // uniform fields
-
     // varying fields
-    nd_dtype_data_ref_t<nd_dtype::real, N> position;
     nd_dtype_data_ref_t<nd_dtype::real> volume;
+    nd_dtype_data_ref_t<nd_dtype::real, N> position;
 
     static void _require(group_type &g_) {
-      // uniform fields
-
       // varying fields
-      g_.template add_varying<nd_dtype::real, N>("position");
       g_.template add_varying<nd_dtype::real>("volume");
+      g_.template add_varying<nd_dtype::real, N>("position");
     }
 
     void _load(group_type const &g_) {
-      std::cerr << "loading group " << g_.get_name() << '\n';
-
       _count = g_.size();
 
-      // uniform fields
-
       // varying fields
-      position = g_.template get_varying<nd_dtype::real, N>("position");
       volume = g_.template get_varying<nd_dtype::real>("volume");
+      position = g_.template get_varying<nd_dtype::real, N>("position");
     }
   };
 
 public:
   static void require(model_type &m_) {
     global_data::_require(m_);
-
+    
     for (auto &group : m_.groups()) {
-      if (group.get_type() == "boundary")
-        boundary_group_data::_require(group);
+      if (group.get_type() == "boundary") {
+        boundary_data::_require(group);
+      }
     }
   }
-
+  
 public:
   void load(model_type &m_) {
     _group_count = m_.groups().size();
-
+    
     _data.global._load(m_);
-
+    
     auto groups = m_.groups();
     for (size_t i = 0; i < groups.size(); ++i) {
       auto &group = groups[static_cast<typename decltype(groups)::difference_type>(i)];
 
       if (group.get_type() == "boundary") {
-        std::cerr << "loading group " << group.get_name() << " with index " << i << '\n';
-
         auto &data = _data.by_group_type.boundary.emplace_back();
         data._load(group);
         data._index = i;
       }
     }
   }
-
+  
 private:
   struct {
     global_data global;
     struct {
-      std::vector<boundary_group_data> boundary;
+      std::vector<boundary_data> boundary;
     } by_group_type;
   } _data;
 
-  struct {
-    std::vector<std::vector<std::vector<size_t>>> neighbors;
+  struct per_thread_type {
+    std::vector<std::vector<size_t>> neighbors;
 
     // reductions
-  } _per_thread;
+  };
 
+  std::vector<per_thread_type> _per_thread;
   size_t _group_count;
 
-  // start of child #0 procedure
 public:
   template <typename NHood_>
   void compute_volume(NHood_ const &nhood_) {
     // alias for the global data
     auto &g = _data.global;
 
-    // alias for the math_policy member (types)
-    using o = typename math_policy::operations;
+    // alias for the math_policy member types
+    using l = typename math_policy::literals;
     using c = typename math_policy::constants;
+    using o = typename math_policy::operations;
 
-    // start of child #0 foreach_particle
-    #pragma omp parallel
-    {
-      #pragma omp single
-      {
+    _Pragma("omp parallel") {
+      _Pragma("omp single") {
         auto const thread_count = static_cast<size_t>(omp_get_num_threads());
-
-        _per_thread.neighbors.resize(thread_count);
+        _per_thread.resize(thread_count);
       } // pragma omp single
 
       auto const thread_index = static_cast<size_t>(omp_get_thread_num());
 
       // select and resize the neighbor storage for the current thread
-      auto &neighbors = _per_thread.neighbors[thread_index];
+      auto &neighbors = _per_thread[thread_index].neighbors;
       neighbors.resize(_group_count);
 
       for (auto &pgn : neighbors)
         pgn.reserve(100);
 
-      // start of child #0 if_group_type
       for (auto &p : _data.by_group_type.boundary) {
-        #pragma omp for
+#pragma omp for
         for (size_t i = 0; i < p._count; ++i) {
+          // clean up the neighbor storage
           for (auto &pgn : neighbors)
             pgn.clear();
 
-          bool has_neighbors = false;
+          // find all neighbors of (p, i)
+          nhood_.neighbors(p._index, i, [&neighbors](auto n_index, auto j) {
+            neighbors[n_index].push_back(j);
+          });
 
-          // start of child #0 equation
-          p.volume[i] = static_cast<dtype_t<nd_dtype::real>>(0.000000) ;
-          // close of child #0 equation
+          p.volume[i] = l::template narray<nd_dtype::real>({0});
 
-          // start of child #1 foreach_neighbor
-          if (!has_neighbors) {
-            nhood_.neighbors(p._index, i, [&neighbors](auto n_index, auto j) {
-              neighbors[n_index].push_back(j);
-            });
-            has_neighbors = true;
-          }
-
-          // start of child #0 if_group_type
           for (auto &n : _data.by_group_type.boundary) {
             for (auto const j : neighbors[n._index]) {
-              // start of child #0 equation
-              p.volume[i] += o::kernel_h( ( p.position[i] ) - ( n.position[j] ), g.smoothing_scale[0] ) ;
-              // close of child #0 equation
+              p.volume[i] += o::kernel_h((p.position[i] - n.position[j]), g.smoothing_scale[0]);
             }
           }
-          // close of child #0 if_group_type
-          // close of child #1 foreach_neighbor
 
-          // start of child #2 equation
-          p.volume[i] = ( static_cast<dtype_t<nd_dtype::integer>>(1) ) / ( p.volume[i] ) ;
-          // close of child #2 equation
+          p.volume[i] = (l::template narray<nd_dtype::real>({1}) / p.volume[i]);
         }
       }
-      // close of child #0 if_group_type
     } // pragma omp parallel
-    // close of child #0 foreach_particle
   }
-  // close of child #0 procedure
 };
 
-} // namespace prtcl::schemes
+} /* namespace schemes*/ } /* namespace prtcl*/
+
 
 #if defined(__GNUG__)
 #pragma GCC diagnostic pop
 #endif
+  
