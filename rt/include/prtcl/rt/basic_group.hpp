@@ -5,7 +5,11 @@
 #include "basic_source.hpp"
 #include "nd_data_base.hpp"
 
+#include <algorithm>
+#include <boost/range/iterator_range_core.hpp>
+#include <iterator>
 #include <memory>
+#include <numeric>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -13,8 +17,12 @@
 
 #include <cstddef>
 
+#include <boost/container/flat_set.hpp>
+
 #include <boost/range/adaptors.hpp>
-#include <boost/range/algorithm/copy.hpp>
+#include <boost/range/algorithm/copy_backward.hpp>
+#include <boost/range/algorithm/set_algorithm.hpp>
+#include <boost/range/irange.hpp>
 
 #include <omp.h>
 
@@ -54,6 +62,39 @@ public:
     for (auto &[name, data] : _varying)
       data->resize(size_);
     _size = size_;
+  }
+
+private:
+  std::vector<size_t> _destroy_perm;
+
+public:
+  auto create(size_t count) {
+    // store the current size of this group
+    size_t old_size = size();
+    // resize so that there is enough space for the new particles
+    resize(old_size + count);
+    // return the range of indices that were added
+    return boost::irange(old_size, old_size + count);
+  }
+
+  template <typename IndexRange> void erase(IndexRange const &indices) {
+    if (boost::size(indices) == 0)
+      return;
+    // ensure the permutation buffer is big enough
+    _destroy_perm.resize(size());
+    // copy and sort the indices that are to be destroyed
+    auto first = boost::range::copy_backward(indices, _destroy_perm.end());
+    std::sort(first, _destroy_perm.end());
+    // generate the remaining indices
+    boost::range::set_difference(
+        boost::irange<size_t>(0, size()),
+        boost::make_iterator_range(first, _destroy_perm.end()),
+        _destroy_perm.begin());
+    // permute this groups fields such that all particles that are to be
+    // destroyed are in the end
+    permute(_destroy_perm);
+    // remove the particles by resizing this group
+    resize(size() - std::distance(first, _destroy_perm.end()));
   }
 
 public:

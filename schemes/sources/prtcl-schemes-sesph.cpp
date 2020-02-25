@@ -247,6 +247,7 @@ int main(int argc_, char **argv_) {
         if (group.get_type() != "fluid")
           continue;
 
+        // find all particles in group that are out-of-bounds
         remove_idxs.clear();
 
         auto x = group.get_varying<nd_dtype::real, N>("position");
@@ -254,17 +255,7 @@ int main(int argc_, char **argv_) {
           if (not position_in_domain(x[i]))
             remove_idxs.push_back(i);
 
-        remove_perm.resize(group.size());
-        std::iota(remove_perm.begin(), remove_perm.end(), 0);
-        std::stable_partition(
-            remove_perm.begin(), remove_perm.end(),
-            [&remove_idxs](auto const &index) {
-              auto first = remove_idxs.begin(), last = remove_idxs.end();
-              return not std::binary_search(first, last, index);
-            });
-
-        group.permute(remove_perm);
-        group.resize(group.size() - remove_idxs.size());
+        group.erase(remove_idxs);
       }
 
       // reload the neighborhood structure after removing particles
