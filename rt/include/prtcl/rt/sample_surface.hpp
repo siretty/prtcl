@@ -1,7 +1,8 @@
 #pragma once
 
 #include <prtcl/core/remove_cvref.hpp>
-#include <prtcl/rt/triangle_mesh.hpp>
+
+#include <prtcl/rt/geometry/triangle_mesh.hpp>
 
 #include <array>
 #include <type_traits>

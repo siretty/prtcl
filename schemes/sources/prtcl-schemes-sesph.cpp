@@ -5,6 +5,7 @@
 #include <prtcl/rt/eigen_math_policy.hpp>
 #include <prtcl/rt/filesystem/getcwd.hpp>
 #include <prtcl/rt/geometry/axis_aligned_box.hpp>
+#include <prtcl/rt/geometry/triangle_mesh.hpp>
 #include <prtcl/rt/grouped_uniform_grid.hpp>
 #include <prtcl/rt/integral_grid.hpp>
 #include <prtcl/rt/math/kernel/cubic_spline_kernel.hpp>
@@ -12,7 +13,6 @@
 #include <prtcl/rt/math/mixed_math_policy.hpp>
 #include <prtcl/rt/neighborhood.hpp>
 #include <prtcl/rt/save_vtk.hpp>
-#include <prtcl/rt/triangle_mesh.hpp>
 #include <prtcl/rt/vector_data_policy.hpp>
 #include <prtcl/rt/virtual_clock.hpp>
 
@@ -20,7 +20,6 @@
 
 #include <prtcl/rt/sample_surface.hpp>
 #include <prtcl/rt/sample_volume.hpp>
-#include <prtcl/rt/triangle_mesh.hpp>
 
 #include <prtcl/schemes/boundary.hpp>
 #include <prtcl/schemes/sesph.hpp>

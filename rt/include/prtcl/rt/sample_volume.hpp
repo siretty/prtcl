@@ -3,8 +3,8 @@
 #include <prtcl/core/remove_cvref.hpp>
 
 #include <prtcl/rt/geometry/axis_aligned_box.hpp>
+#include <prtcl/rt/geometry/triangle_mesh.hpp>
 #include <prtcl/rt/integral_grid.hpp>
-#include <prtcl/rt/triangle_mesh.hpp>
 
 #include <array>
 #include <random>

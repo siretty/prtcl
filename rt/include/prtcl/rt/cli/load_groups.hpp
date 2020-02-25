@@ -4,7 +4,6 @@
 
 #include "../sample_surface.hpp"
 #include "../sample_volume.hpp"
-#include "../triangle_mesh.hpp"
 
 #include <fstream>
 #include <iostream>
