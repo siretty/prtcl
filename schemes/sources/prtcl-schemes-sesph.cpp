@@ -306,7 +306,7 @@ int main(int argc_, char **argv_) {
                   min_distance = std::min(min_distance, o::norm(x[i] - x_n[j]));
                 });
 
-            if (min_distance > static_cast<real>(h)) {
+            if (min_distance > static_cast<real>(1.1L * h)) {
               spawned_positions.emplace_back(x[i]);
               spawned_velocities.emplace_back(v_init);
             }

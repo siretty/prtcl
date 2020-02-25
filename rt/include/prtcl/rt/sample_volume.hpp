@@ -45,7 +45,7 @@ void sample_volume(
   integral_grid<N_> grid;
   for (size_t n = 0; n < N_; ++n) {
     grid.extents[n] =
-        static_cast<size_t>(std::round(delta[n] / p_.maximum_sample_distance));
+        static_cast<size_t>(std::floor(delta[n] / p_.maximum_sample_distance));
     step[n] = delta[n] / grid.extents[n];
   }
 
