@@ -308,8 +308,7 @@ int main(int argc_, char **argv_) {
 
         spawned = true;
 
-        size_t const old_size = group.size();
-        group.resize(old_size + spawned_positions.size());
+        auto indices = group.create(spawned_positions.size());
 
         auto rho0 = group.get_uniform<nd_dtype::real>("rest_density")[0];
         auto x = group.get_varying<nd_dtype::real, N>("position");
@@ -317,10 +316,9 @@ int main(int argc_, char **argv_) {
         auto m = group.get_varying<nd_dtype::real>("mass");
 
         for (size_t i = 0; i < spawned_positions.size(); ++i) {
-          x[old_size + i] = spawned_positions[i];
-          v[old_size + i] = spawned_velocities[i];
-          m[old_size + i] =
-              static_cast<real>(prtcl::core::constpow(h, N)) * rho0;
+          x[indices[i]] = spawned_positions[i];
+          v[indices[i]] = spawned_velocities[i];
+          m[indices[i]] = static_cast<real>(prtcl::core::constpow(h, N)) * rho0;
         }
 
         // std::cerr << "spawned " << spawned_positions.size()
