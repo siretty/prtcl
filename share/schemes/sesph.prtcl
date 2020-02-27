@@ -2,8 +2,6 @@
 let fluid = particle_selector types {fluid} tags {};
 let boundary = particle_selector types {boundary} tags {};
 
-let dynamic = particle_selector types {fluid} tags {dynamic};
-
 let x = field position : varying real[];
 let v = field velocity : varying real[];
 let a = field acceleration : varying real[];
@@ -83,19 +81,6 @@ procedure compute_acceleration {
         *
           kernel_gradient_h(x[f] - x[f_b], h[_]);                                             
     }
-  }
-}
-
-let dt = field time_step : global real;
-
-let max_speed  = field maximum_speed : global real;
-
-procedure sesph_advect {
-  foreach dynamic particle i {
-    compute v[i] += dt[_] * a[i];
-    compute x[i] += dt[_] * v[i];
-
-    reduce max_speed[_] max= norm(v[i]);
   }
 }
 

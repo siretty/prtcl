@@ -1,5 +1,5 @@
 
-let dynamic = particle_selector types {fluid} tags {dynamic};
+let dynamic = particle_selector types {} tags {dynamic};
 
 let x = field position : varying real[];
 let v = field velocity : varying real[];

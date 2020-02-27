@@ -1,6 +1,9 @@
 {
   "name_value": {
     "model": {
+      "parameters": {
+        "time_step": 0.0001
+      },
       "group": {
         "f": {
           "type": "fluid",
@@ -12,9 +15,9 @@
               "volume": {
                 "what": "triangle_mesh",
                 "file_type": "obj",
-                "file_path": "share/models/unitsphere.obj",
-                "scaling":     { "0": 10, "1": 10, "2": 10, "adaptive": true },
-                "translation": { "0": 0, "1": 35, "2": 0, "adaptive": true }
+                "file_path": "share/models/unitcube.obj",
+                "scaling":     { "0": 20.5, "1": 3.5, "2": 20.5, "adaptive": true },
+                "translation": { "0": -10, "1": 35, "2": -10, "adaptive": true }
               }
             }
           }

@@ -46,7 +46,7 @@ protected:
     std::ostringstream ss;
     ss << qualified_nd_dtype(nd_type.type)
        << (nd_type.shape.empty() ? "" : ", ")
-       << join(nd_type.shape, ", ", [](auto n) -> std::string {
+       << join(nd_type.shape, ", ", "", [](auto n) -> std::string {
             return n == 0 ? "N" : boost::lexical_cast<std::string>(n);
           });
     return ss.str();
@@ -541,9 +541,11 @@ public:
 
     out() << _hpp_header;
 
-    outi() << join(_namespaces, " ", [](auto ns_) {
+    outi() << join(_namespaces, " ", "", [](auto ns_) {
       return "namespace " + ns_ + " {";
     }) << nl;
+
+    out() << nl;
 
     outi() << "template <" << nl;
     {
@@ -781,13 +783,19 @@ public:
             auto selector =
                 alias_to_particle_selector.search(selector_alias).value();
 
-            outi() << "if ("
+            outi() << "if (("
                    << join(
-                          selector.type_disjunction, " or ",
+                          selector.type_disjunction, " or ", "true",
                           [](auto type_name) {
                             return "group.get_type() == \"" + type_name + "\"";
                           })
-                   << ")"
+                   << ") and ("
+                   << join(
+                          selector.tag_conjunction, " and ", "true",
+                          [](auto tag_name) {
+                            return "group.has_tag(\"" + tag_name + "\")";
+                          })
+                   << "))"
                    << " {" << nl;
             // TODO: test tags
             {
@@ -846,13 +854,19 @@ public:
                 alias_to_particle_selector.search(selector_alias).value();
 
             out() << nl;
-            outi() << "if ("
+            outi() << "if (("
                    << join(
-                          selector.type_disjunction, " or ",
+                          selector.type_disjunction, " or ", "true",
                           [](auto type_name) {
                             return "group.get_type() == \"" + type_name + "\"";
                           })
-                   << ")"
+                   << ") and ("
+                   << join(
+                          selector.tag_conjunction, " and ", "true",
+                          [](auto tag_name) {
+                            return "group.has_tag(\"" + tag_name + "\")";
+                          })
+                   << "))"
                    << " {" << nl;
             // TODO: test tags
             {
@@ -945,9 +959,10 @@ public:
 
     out() << nl;
 
-    outi() << join(_namespaces | boost::adaptors::reversed, " ", [](auto ns_) {
-      return "} /* namespace " + ns_ + "*/";
-    }) << nl;
+    outi() << join(
+                  _namespaces | boost::adaptors::reversed, " ", "",
+                  [](auto ns_) { return "} /* namespace " + ns_ + "*/"; })
+           << nl;
 
     out() << _hpp_footer;
 

@@ -55,43 +55,54 @@ protected:
 
   // {{{ join(range, separator[, transform])
 
-  template <typename Range_, typename Separator_, typename Transform_>
+  template <
+      typename Range_, typename Separator_, typename Empty_,
+      typename Transform_>
   struct join_type {
     template <typename CharT_, typename Traits_>
     friend std::basic_ostream<CharT_, Traits_> &operator<<(
         std::basic_ostream<CharT_, Traits_> &stream_, join_type const &self_) {
       auto first = boost::begin(self_._range);
       auto last = boost::end(self_._range);
-      if (first != last) {
+      if (first == last) {
+        // range is empty
+        stream_ << self_._empty;
+      } else {
+        // range is not empty
         stream_ << self_._transform(*first);
         ++first;
-      }
-      for (; first != last; ++first) {
-        stream_ << self_._separator;
-        stream_ << self_._transform(*first);
+        for (; first != last; ++first) {
+          stream_ << self_._separator;
+          stream_ << self_._transform(*first);
+        }
       }
       return stream_;
     }
 
     Range_ const &_range;
     Separator_ const &_separator;
+    Empty_ const &_empty;
     Transform_ _transform;
   };
 
-  template <typename Range_, typename Separator_, typename Transform_>
+  template <
+      typename Range_, typename Separator_, typename Empty_,
+      typename Transform_>
   static auto join(
-      Range_ const &range_, Separator_ const &separator_,
+      Range_ const &range_, Separator_ const &separator_, Empty_ const &empty_,
       Transform_ transform_) {
-    return join_type<Range_, Separator_, Transform_>{range_, separator_,
-                                                     transform_};
+    return join_type<Range_, Separator_, Empty_, Transform_>{
+        range_, separator_, empty_, transform_};
   }
 
-  template <typename Range_, typename Separator_>
-  static auto join(Range_ const &range_, Separator_ const &separator_) {
+  template <typename Range_, typename Separator_, typename Empty_>
+  static auto join(
+      Range_ const &range_, Separator_ const &separator_,
+      Empty_ const &empty_) {
     auto identity = [](auto &&x) -> decltype(auto) {
       return std::forward<decltype(x)>(x);
     };
-    return join(range_, separator_, identity);
+    return join(range_, separator_, empty_, identity);
   }
 
   // }}}

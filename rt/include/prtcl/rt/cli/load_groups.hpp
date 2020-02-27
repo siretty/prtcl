@@ -52,6 +52,52 @@ void load_model_groups_from_cli(command_line_interface &cli_, Model_ &model_) {
     // }}}
   };
 
+  auto handle_model_parameters = [&get_vector, &model_](auto tree) {
+    // {{{ implementation
+    model_.template add_global<nd_dtype::real>("smoothing_scale")[0] =
+        tree.get("smoothing_scale", static_cast<real>(0.025));
+
+    model_.template add_global<nd_dtype::real>("time_step")[0] =
+        tree.get("time_step", static_cast<real>(0.00001));
+    model_.template add_global<nd_dtype::real>("maximum_time_step")[0] =
+        tree.get(
+            "maximum_time_step",
+            30 * model_.template add_global<nd_dtype::real>("time_step")[0]);
+
+    model_.template add_global<nd_dtype::real>("maximum_cfl")[0] =
+        tree.get("maximum_cfl", static_cast<real>(0.7));
+
+    auto const h =
+        model_.template get_global<nd_dtype::real>("smoothing_scale")[0];
+
+    rvec default_gravity = c::template zeros<nd_dtype::real, N>();
+    default_gravity[N > 1 ? 1 : 0] = static_cast<real>(-9.81);
+
+    model_.template add_global<nd_dtype::real, N>("gravity")[0] =
+        get_vector(tree, "gravity", default_gravity, h);
+    // }}}
+  };
+
+  auto handle_fluid_parameters = [&model_](auto tree, auto &group) {
+    // {{{ implementation
+    group.template add_uniform<nd_dtype::real>("rest_density")[0] =
+        tree.get("rest_density", static_cast<real>(1000));
+
+    group.template add_uniform<nd_dtype::real>("compressibility")[0] =
+        tree.get("compressibility", static_cast<real>(10'000'000));
+
+    group.template add_uniform<nd_dtype::real>("viscosity")[0] =
+        tree.get("viscosity", static_cast<real>(0.01));
+    // }}}
+  };
+
+  auto handle_boundary_parameters = [&model_](auto tree, auto &group) {
+    // {{{ implementation
+    group.template add_uniform<nd_dtype::real>("viscosity")[0] =
+        tree.get("viscosity", static_cast<real>(0.1));
+    // }}}
+  };
+
   auto handle_sample = [&get_vector, &model_](auto tree, auto it) {
     // {{{ implementation
     // get the smoothing scale from the model
@@ -228,6 +274,8 @@ void load_model_groups_from_cli(command_line_interface &cli_, Model_ &model_) {
   };
 
   auto handle_model_group = [&handle_sample, &handle_source, &append_samples,
+                             &handle_fluid_parameters,
+                             &handle_boundary_parameters,
                              &model_](auto group_name, auto group_tree) {
     // {{{ implementation
     // fetch the group type with a default
@@ -237,8 +285,23 @@ void load_model_groups_from_cli(command_line_interface &cli_, Model_ &model_) {
     std::cerr << "  type " << group_type << std::endl;
 
     // add the group to the model
-    auto &group = model_.add_group(
-        group_name, group_tree.template get<std::string>("type"));
+    auto &group = model_.add_group(group_name, group_type);
+
+    { // load parameters for group
+      // TODO: HACK: implement proper defaults
+      boost::property_tree::ptree params;
+      if (auto params_opt = group_tree.get_child_optional("parameters"))
+        params = params_opt.value();
+      if (group_type == "fluid")
+        handle_fluid_parameters(params, group);
+      if (group_type == "boundary")
+        handle_boundary_parameters(params, group);
+    }
+
+    // add the group tags
+    for (auto [it, last] = group_tree.equal_range("tag"); it != last; ++it)
+      group.add_tag(it->second.template get_value<std::string>());
+
     // add the position field to the group
     group.template add_varying<nd_dtype::real, N>("position");
 
@@ -262,6 +325,15 @@ void load_model_groups_from_cli(command_line_interface &cli_, Model_ &model_) {
   auto &nv = cli_.name_value();
   for (auto [it, last] = nv.equal_range("model"); it != last; ++it) {
     auto &model = it->second;
+
+    { // load parameters (_must_ be done before loading the groups)
+      // TODO: HACK: implement proper defaults
+      boost::property_tree::ptree params;
+      if (auto params_opt = model.get_child_optional("parameters"))
+        params = params_opt.value();
+      handle_model_parameters(params);
+    }
+
     for (auto [it, last] = model.equal_range("group"); it != last; ++it) {
       auto &groups = it->second;
       for (auto &[group_name, group_tree] : groups) {

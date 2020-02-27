@@ -50,6 +50,8 @@ DE_Add_Catch2_Test(
   # allow tests to be profiled with tracy
   #${tracy_INLCUDE_DIR}/TracyClient.cpp
 
+  ${_PRJ}/tests/prtcl/rt/virtual_clock.cpp
+
   ${_PRJ}/tests/prtcl/rt/eigen_math_policy.cpp
   ${_PRJ}/tests/prtcl/rt/vector_data_policy.cpp
   ${_PRJ}/tests/prtcl/rt/math/kernel/cubic_spline_kernel.cpp

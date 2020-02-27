@@ -84,19 +84,25 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
       o::kernel_gradient_h(c::template ones<nd_dtype::real, 1>(), h);
 
   CHECK(grad_at_pones_d1[0] < 0);
-  CHECK(o::cmin(grad_at_pones_d1) == o::cmax(grad_at_pones_d1));
+  CHECK(
+      o::minimum_component(grad_at_pones_d1) ==
+      o::maximum_component(grad_at_pones_d1));
 
   auto grad_at_pones_d2 =
       o::kernel_gradient_h(c::template ones<nd_dtype::real, 2>(), h);
 
   CHECK(grad_at_pones_d2[0] < 0);
-  CHECK(o::cmin(grad_at_pones_d2) == o::cmax(grad_at_pones_d2));
+  CHECK(
+      o::minimum_component(grad_at_pones_d2) ==
+      o::maximum_component(grad_at_pones_d2));
 
   auto grad_at_pones_d3 =
       o::kernel_gradient_h(c::template ones<nd_dtype::real, 3>(), h);
 
   CHECK(grad_at_pones_d3[0] < 0);
-  CHECK(o::cmin(grad_at_pones_d3) == o::cmax(grad_at_pones_d3));
+  CHECK(
+      o::minimum_component(grad_at_pones_d3) ==
+      o::maximum_component(grad_at_pones_d3));
 
   SECTION("integrate kernel") {
     auto const error_goal = static_cast<real>(.0001);

@@ -26,35 +26,67 @@ struct sample_volume_parameters {
   long double maximum_sample_distance;
 };
 
+/// Sample particles in an AAB aligned to a grid with spacing of
+/// p_.maximum_sample_distance centered in the box.
 template <typename ModelPolicy_, size_t N_, typename OutputIt_>
 void sample_volume(
     axis_aligned_box<ModelPolicy_, N_> const &aab_, OutputIt_ it_,
     sample_volume_parameters const &p_) {
   using math_policy = typename ModelPolicy_::math_policy;
   using c = typename math_policy::constants;
+  using o = typename math_policy::operations;
   using rvec = typename math_policy::template nd_dtype_t<nd_dtype::real, 3>;
 
-  auto const delta = aab_.hi - aab_.lo;
-  rvec step;
-
-  // TODO: introduce a "fit" parameter that determines if the particles are
-  // aligned to the sides of the box, otherwise float them in regualr distances
-  // in the center of the box (avoids problems with sampling fluid that
-  // "explodes")
+  auto const delta = aab_.hi() - aab_.lo();
+  rvec step, offset;
 
   integral_grid<N_> grid;
   for (size_t n = 0; n < N_; ++n) {
     grid.extents[n] =
         static_cast<size_t>(std::floor(delta[n] / p_.maximum_sample_distance));
-    step[n] = delta[n] / grid.extents[n];
+    step[n] = p_.maximum_sample_distance;
+    offset[n] =
+        ((grid.extents[n] + 1) * p_.maximum_sample_distance - delta[n]) / 2;
   }
 
   rvec g_vec;
   for (auto const &g_arr : grid) {
     g_vec = c::template from_array<nd_dtype::real>(g_arr);
-    *(it_++) = aab_.lo + (g_vec.array() * step.array()).matrix();
+    *(it_++) = aab_.lo() + o::cmul(g_vec, step) + offset;
   }
 }
+
+// template <typename ModelPolicy_, size_t N_, typename OutputIt_>
+// void sample_volume(
+//    axis_aligned_box<ModelPolicy_, N_> const &aab_, OutputIt_ it_,
+//    sample_volume_parameters const &p_) {
+//  using math_policy = typename ModelPolicy_::math_policy;
+//  using c = typename math_policy::constants;
+//  using rvec = typename math_policy::template nd_dtype_t<nd_dtype::real, 3>;
+//
+//  auto const delta = aab_.hi() - aab_.lo();
+//  rvec step;
+//
+//  // TODO: introduce a "fit" parameter that determines if the particles are
+//  // aligned to the sides of the box, otherwise float them in regualr
+//  distances
+//  // in the center of the box (avoids problems with sampling fluid that
+//  // "explodes")
+//
+//  integral_grid<N_> grid;
+//  for (size_t n = 0; n < N_; ++n) {
+//    grid.extents[n] =
+//        static_cast<size_t>(std::floor(delta[n] /
+//        p_.maximum_sample_distance));
+//    step[n] = delta[n] / grid.extents[n];
+//  }
+//
+//  rvec g_vec;
+//  for (auto const &g_arr : grid) {
+//    g_vec = c::template from_array<nd_dtype::real>(g_arr);
+//    *(it_++) = aab_.lo() + (g_vec.array() * step.array()).matrix();
+//  }
+//}
 
 template <typename ModelPolicy_, typename OutputIt_>
 void sample_volume(

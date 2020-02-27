@@ -17,6 +17,7 @@
 #endif
 
 namespace prtcl { namespace schemes {
+
 template <
   typename ModelPolicy_
 >
@@ -88,7 +89,7 @@ public:
     global_data::_require(m_);
     
     for (auto &group : m_.groups()) {
-      if (group.get_type() == "fluid") {
+      if ((true) and (group.has_tag("dynamic"))) {
         dynamic_data::_require(group);
       }
     }
@@ -106,7 +107,7 @@ public:
     for (size_t i = 0; i < groups.size(); ++i) {
       auto &group = groups[static_cast<typename decltype(groups)::difference_type>(i)];
 
-      if (group.get_type() == "fluid") {
+      if ((true) and (group.has_tag("dynamic"))) {
         auto &data = _data.by_group_type.dynamic.emplace_back();
         data._load(group);
         data._index = i;

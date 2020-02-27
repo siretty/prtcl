@@ -54,6 +54,24 @@ public:
   std::string_view get_type() const { return _group_type; }
 
 public:
+  auto tags() const { return boost::make_iterator_range(_group_tags); }
+
+  bool has_tag(std::string const &tag_) const {
+    return _group_tags.contains(tag_);
+  }
+
+  auto &add_tag(std::string const &tag_) {
+    _group_tags.insert(tag_);
+    return *this;
+  }
+
+  auto &remove_tag(std::string const &tag_) {
+    if (auto it = _group_tags.find(tag_); it != _group_tags.end())
+      _group_tags.erase(it);
+    return *this;
+  }
+
+public:
   size_t size() const { return _size; }
 
 public:
@@ -191,6 +209,8 @@ public:
 private:
   std::string _group_name;
   std::string _group_type;
+  boost::container::flat_set<std::string> _group_tags;
+
   size_t _size = 0;
   std::unordered_map<std::string, std::unique_ptr<nd_data_base>> _uniform;
   std::unordered_map<std::string, std::unique_ptr<nd_data_base>> _varying;

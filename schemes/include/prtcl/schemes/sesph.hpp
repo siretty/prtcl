@@ -17,6 +17,7 @@
 #endif
 
 namespace prtcl { namespace schemes {
+
 template <
   typename ModelPolicy_
 >
@@ -40,52 +41,17 @@ public:
 
 private:
   struct global_data {
-    nd_dtype_data_ref_t<nd_dtype::real> time_step;
     nd_dtype_data_ref_t<nd_dtype::real, N> gravity;
     nd_dtype_data_ref_t<nd_dtype::real> smoothing_scale;
-    nd_dtype_data_ref_t<nd_dtype::real> maximum_speed;
 
     static void _require(model_type &m_) {
-      m_.template add_global<nd_dtype::real>("time_step");
       m_.template add_global<nd_dtype::real, N>("gravity");
       m_.template add_global<nd_dtype::real>("smoothing_scale");
-      m_.template add_global<nd_dtype::real>("maximum_speed");
     }
 
     void _load(model_type const &m_) {
-      time_step = m_.template get_global<nd_dtype::real>("time_step");
       gravity = m_.template get_global<nd_dtype::real, N>("gravity");
       smoothing_scale = m_.template get_global<nd_dtype::real>("smoothing_scale");
-      maximum_speed = m_.template get_global<nd_dtype::real>("maximum_speed");
-    }
-  };
-
-private:
-  struct dynamic_data {
-    // particle count of the selected group
-    size_t _count;
-    // index of the selected group
-    size_t _index;
-
-    // varying fields
-    nd_dtype_data_ref_t<nd_dtype::real, N> acceleration;
-    nd_dtype_data_ref_t<nd_dtype::real, N> velocity;
-    nd_dtype_data_ref_t<nd_dtype::real, N> position;
-
-    static void _require(group_type &g_) {
-      // varying fields
-      g_.template add_varying<nd_dtype::real, N>("acceleration");
-      g_.template add_varying<nd_dtype::real, N>("velocity");
-      g_.template add_varying<nd_dtype::real, N>("position");
-    }
-
-    void _load(group_type const &g_) {
-      _count = g_.size();
-
-      // varying fields
-      acceleration = g_.template get_varying<nd_dtype::real, N>("acceleration");
-      velocity = g_.template get_varying<nd_dtype::real, N>("velocity");
-      position = g_.template get_varying<nd_dtype::real, N>("position");
     }
   };
 
@@ -185,13 +151,10 @@ public:
     global_data::_require(m_);
     
     for (auto &group : m_.groups()) {
-      if (group.get_type() == "fluid") {
-        dynamic_data::_require(group);
-      }
-      if (group.get_type() == "fluid") {
+      if ((group.get_type() == "fluid") and (true)) {
         fluid_data::_require(group);
       }
-      if (group.get_type() == "boundary") {
+      if ((group.get_type() == "boundary") and (true)) {
         boundary_data::_require(group);
       }
     }
@@ -203,7 +166,6 @@ public:
 
     _data.global._load(m_);
 
-    _data.by_group_type.dynamic.clear();
     _data.by_group_type.fluid.clear();
     _data.by_group_type.boundary.clear();
 
@@ -211,19 +173,13 @@ public:
     for (size_t i = 0; i < groups.size(); ++i) {
       auto &group = groups[static_cast<typename decltype(groups)::difference_type>(i)];
 
-      if (group.get_type() == "fluid") {
-        auto &data = _data.by_group_type.dynamic.emplace_back();
-        data._load(group);
-        data._index = i;
-      }
-
-      if (group.get_type() == "fluid") {
+      if ((group.get_type() == "fluid") and (true)) {
         auto &data = _data.by_group_type.fluid.emplace_back();
         data._load(group);
         data._index = i;
       }
 
-      if (group.get_type() == "boundary") {
+      if ((group.get_type() == "boundary") and (true)) {
         auto &data = _data.by_group_type.boundary.emplace_back();
         data._load(group);
         data._index = i;
@@ -235,7 +191,6 @@ private:
   struct {
     global_data global;
     struct {
-      std::vector<dynamic_data> dynamic;
       std::vector<fluid_data> fluid;
       std::vector<boundary_data> boundary;
     } by_group_type;
@@ -245,7 +200,6 @@ private:
     std::vector<std::vector<size_t>> neighbors;
 
     // reductions
-    nd_dtype_t<nd_dtype::real> rd_maximum_speed;
   };
 
   std::vector<per_thread_type> _per_thread;
@@ -366,50 +320,6 @@ public:
           }
         }
       }
-    } // pragma omp parallel
-  }
-
-public:
-  template <typename NHood_>
-  void sesph_advect(NHood_ const &nhood_) {
-    // alias for the global data
-    auto &g = _data.global;
-
-    // alias for the math_policy member types
-    using l = typename math_policy::literals;
-    using c = typename math_policy::constants;
-    using o = typename math_policy::operations;
-
-    _Pragma("omp parallel") {
-      _Pragma("omp single") {
-        auto const thread_count = static_cast<size_t>(omp_get_num_threads());
-        _per_thread.resize(thread_count);
-      } // pragma omp single
-
-      auto const thread_index = static_cast<size_t>(omp_get_thread_num());
-
-      // select and initialize this threads reduction variable
-      auto &rd_maximum_speed = _per_thread[thread_index].rd_maximum_speed;
-      rd_maximum_speed = c::template negative_infinity<nd_dtype::real>();
-
-      for (auto &p : _data.by_group_type.dynamic) {
-#pragma omp for
-        for (size_t i = 0; i < p._count; ++i) {
-          // no neighbours neccessary
-
-          p.velocity[i] += (g.time_step[0] * p.acceleration[i]);
-
-          p.position[i] += (g.time_step[0] * p.velocity[i]);
-
-          rd_maximum_speed = o::max(rd_maximum_speed, o::norm(p.velocity[i]));
-        }
-      }
-
-      _Pragma("omp critical") {
-        // combine all reduction variables
-
-        g.maximum_speed[0] = o::max(rd_maximum_speed);
-      } // pragma omp critical
     } // pragma omp parallel
   }
 };

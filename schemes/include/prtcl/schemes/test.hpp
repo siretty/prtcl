@@ -17,6 +17,7 @@
 #endif
 
 namespace prtcl { namespace schemes {
+
 template <
   typename ModelPolicy_
 >
@@ -89,10 +90,10 @@ public:
     global_data::_require(m_);
     
     for (auto &group : m_.groups()) {
-      if (group.get_type() == "particles") {
+      if ((group.get_type() == "particles") and (true)) {
         particles_data::_require(group);
       }
-      if (group.get_type() == "neighbors") {
+      if ((group.get_type() == "neighbors") and (true)) {
         neighbors_data::_require(group);
       }
     }
@@ -111,13 +112,13 @@ public:
     for (size_t i = 0; i < groups.size(); ++i) {
       auto &group = groups[static_cast<typename decltype(groups)::difference_type>(i)];
 
-      if (group.get_type() == "particles") {
+      if ((group.get_type() == "particles") and (true)) {
         auto &data = _data.by_group_type.particles.emplace_back();
         data._load(group);
         data._index = i;
       }
 
-      if (group.get_type() == "neighbors") {
+      if ((group.get_type() == "neighbors") and (true)) {
         auto &data = _data.by_group_type.neighbors.emplace_back();
         data._load(group);
         data._index = i;

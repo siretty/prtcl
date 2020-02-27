@@ -181,11 +181,27 @@ public:
           .matrix();
     }
 
-    template <typename Arg_> static decltype(auto) cmax(Arg_ &&arg_) {
+    template <typename Arg_> static decltype(auto) cabs(Arg_ &&arg_) {
+      return arg_.abs();
+    }
+
+    template <typename LHS_, typename RHS_>
+    static decltype(auto) cmax(LHS_ &&lhs_, RHS_ &&rhs_) {
+      return std::forward<LHS_>(lhs_).max(std::forward<RHS_>(rhs_));
+    }
+
+    template <typename LHS_, typename RHS_>
+    static decltype(auto) cmin(LHS_ &&lhs_, RHS_ &&rhs_) {
+      return std::forward<LHS_>(lhs_).max(std::forward<RHS_>(rhs_));
+    }
+
+    template <typename Arg_>
+    static decltype(auto) maximum_component(Arg_ &&arg_) {
       return std::forward<Arg_>(arg_).maxCoeff();
     }
 
-    template <typename Arg_> static decltype(auto) cmin(Arg_ &&arg_) {
+    template <typename Arg_>
+    static decltype(auto) minimum_component(Arg_ &&arg_) {
       return std::forward<Arg_>(arg_).minCoeff();
     }
 
