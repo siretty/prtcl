@@ -83,6 +83,7 @@ public:
   }
 
 public:
+  auto &clock() { return *_clock; }
   auto const &clock() const { return *_clock; }
 
 public:
@@ -134,6 +135,12 @@ public:
     _schedule.erase(first, _schedule.end());
     // merge the next schedule
     _schedule.merge(_next_schedule);
+    _next_schedule.clear();
+  }
+
+public:
+  void clear() {
+    _schedule.clear();
     _next_schedule.clear();
   }
 

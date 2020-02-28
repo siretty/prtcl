@@ -2,9 +2,8 @@
 
 #include "common.hpp"
 
-#include "basic_source.hpp"
-#include "nd_data_base.hpp"
 #include "log/trace.hpp"
+#include "nd_data_base.hpp"
 
 #include <algorithm>
 #include <boost/range/iterator_range_core.hpp>
@@ -21,6 +20,7 @@
 #include <boost/container/flat_set.hpp>
 
 #include <boost/range/adaptors.hpp>
+#include <boost/range/algorithm/copy.hpp>
 #include <boost/range/algorithm/copy_backward.hpp>
 #include <boost/range/algorithm/set_algorithm.hpp>
 #include <boost/range/irange.hpp>
@@ -45,8 +45,6 @@ private:
   template <nd_dtype DType_, size_t... Ns_>
   using nd_dtype_data_ref_t =
       typename data_policy::template nd_dtype_data_ref_t<DType_, Ns_...>;
-
-  using source_type = basic_source<model_policy>;
 
 public:
   std::string_view get_name() const { return _group_name; }
@@ -87,9 +85,15 @@ private:
   std::vector<size_t> _destroy_perm;
 
 public:
+  bool dirty() const { return _dirty; }
+  void dirty(bool value) { _dirty = value; }
+
+public:
   auto create(size_t count) {
     PRTCL_RT_LOG_TRACE_SCOPED("group create particles");
 
+    // set the dirty flag if particles were created
+    _dirty = _dirty or (count > 0);
     // store the current size of this group
     size_t old_size = size();
     // resize so that there is enough space for the new particles
@@ -103,6 +107,9 @@ public:
 
     if (boost::size(indices) == 0)
       return;
+
+    // set the dirty flag if particles were erased
+    _dirty = true;
     // ensure the permutation buffer is big enough
     _destroy_perm.resize(size());
     // copy and sort the indices that are to be destroyed
@@ -170,16 +177,8 @@ public:
   }
 
 public:
-  auto &add_source() { return *_sources.emplace_back(new source_type{}); }
-
-  auto sources() const {
-    return _sources | boost::adaptors::transformed(
-                          [](auto &ptr_) -> auto & { return *ptr_.get(); });
-  }
-
-public:
   template <typename Range_> void permute(Range_ const &range_) {
-      PRTCL_RT_LOG_TRACE_SCOPED("group permute");
+    PRTCL_RT_LOG_TRACE_SCOPED("group permute");
 #pragma omp single
     {
       // create indexed access to the varying data
@@ -220,10 +219,11 @@ private:
   size_t _size = 0;
   std::unordered_map<std::string, std::unique_ptr<nd_data_base>> _uniform;
   std::unordered_map<std::string, std::unique_ptr<nd_data_base>> _varying;
-  std::vector<std::unique_ptr<source_type>> _sources;
 
   std::vector<std::vector<size_t>> _per_thread_perm;
   std::vector<nd_data_base *> _to_permute;
+
+  bool _dirty = false;
 };
 
 } // namespace prtcl::rt

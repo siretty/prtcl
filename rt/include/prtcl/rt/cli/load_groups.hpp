@@ -2,6 +2,7 @@
 
 #include "command_line_interface.hpp"
 
+#include "../basic_source.hpp"
 #include "../sample_surface.hpp"
 #include "../sample_volume.hpp"
 
@@ -22,11 +23,14 @@ struct bad_file_format : std::runtime_error {
   using std::runtime_error::runtime_error;
 };
 
-template <typename Model_>
-void load_model_groups_from_cli(command_line_interface &cli_, Model_ &model_) {
+template <typename Model_, typename SourceIt_>
+void load_model_groups_from_cli(
+    command_line_interface &cli_, Model_ &model_, SourceIt_ source_it) {
   using model_policy = typename Model_::model_policy;
   using type_policy = typename model_policy::type_policy;
   using math_policy = typename model_policy::math_policy;
+
+  using source_type = basic_source<model_policy>;
 
   using c = typename math_policy::constants;
 
@@ -36,8 +40,6 @@ void load_model_groups_from_cli(command_line_interface &cli_, Model_ &model_) {
   using rvec = typename math_policy::template nd_dtype_t<nd_dtype::real, N>;
 
   using triangle_mesh_type = triangle_mesh<model_policy>;
-
-  std::unordered_multimap<std::string, std::vector<rvec>> sources;
 
   auto get_vector = [](auto tree, auto name, auto init, auto h) {
     // {{{ implementation
@@ -231,30 +233,22 @@ void load_model_groups_from_cli(command_line_interface &cli_, Model_ &model_) {
     // }}}
   };
 
-  auto handle_source = [&handle_sample, &get_vector,
-                        &model_](auto tree, auto &source, auto &samples) {
+  auto handle_source = [&source_it, &handle_sample, &get_vector,
+                        &model_](auto tree, auto &group) {
     // {{{ implementation
     // get the smoothing scale from the model
     auto const h =
         model_.template get_global<nd_dtype::real>("smoothing_scale")[0];
 
+    rvec center =
+        get_vector(tree, "center", c::template zeros<nd_dtype::real, N>(), h);
     rvec velocity =
-        get_vector(tree, "velocity", c::template zeros<nd_dtype::real, N>(), h);
+        get_vector(tree, "velocity", c::template ones<nd_dtype::real, N>(), h);
+    real radius = tree.get("radius", 3 * h);
+    size_t remaining = tree.get("count", size_t{10000});
 
-    samples.clear();
-    for (auto [it, last] = tree.equal_range("sample"); it != last; ++it) {
-      handle_sample(it->second, std::back_inserter(samples));
-      std::cerr << "no. source samples " << samples.size() << std::endl;
-    }
-
-    source.resize(samples.size());
-
-    auto v = source.get_initial_velocity();
-    v[0] = velocity;
-
-    auto x = source.get_spawn_positions();
-    for (size_t i = 0; i < samples.size(); ++i)
-      x[i] = samples[i];
+    (source_it++) =
+        source_type{model_, group, center, velocity, radius, remaining};
     // }}}
   };
 
@@ -318,7 +312,7 @@ void load_model_groups_from_cli(command_line_interface &cli_, Model_ &model_) {
     append_samples(group, samples);
 
     for (auto [it, last] = group_tree.equal_range("source"); it != last; ++it)
-      handle_source(it->second, group.add_source(), samples);
+      handle_source(it->second, group);
     // }}}
   };
 
@@ -341,6 +335,6 @@ void load_model_groups_from_cli(command_line_interface &cli_, Model_ &model_) {
       }
     }
   }
-} // namespace prtcl::rt
+}
 
 } // namespace prtcl::rt

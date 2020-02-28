@@ -2,7 +2,13 @@
 
 #include "common.hpp"
 
+#include "basic_group.hpp"
+#include "basic_model.hpp"
+#include "log/logger.hpp"
 #include "nd_data_base.hpp"
+#include "virtual_clock.hpp"
+
+#include <prtcl/core/constpow.hpp>
 
 #include <memory>
 #include <string>
@@ -10,6 +16,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include <cmath>
 #include <cstddef>
 
 #include <boost/range/algorithm/copy.hpp>
@@ -27,6 +34,9 @@ private:
   using math_policy = typename ModelPolicy_::math_policy;
   using data_policy = typename ModelPolicy_::data_policy;
 
+  using o = typename math_policy::operations;
+  using l = typename math_policy::literals;
+
   template <nd_dtype DType_, size_t... Ns_>
   using nd_dtype_data_t =
       typename data_policy::template nd_dtype_data_t<DType_, Ns_...>;
@@ -37,38 +47,129 @@ private:
 
   static constexpr auto N = model_policy::dimensionality;
 
-public:
-  size_t size() const { return _spawn_positions->size(); }
+  using real = typename type_policy::real;
+  using rvec = typename math_policy::template nd_dtype_t<nd_dtype::real, N>;
+
+  using model_type = basic_model<model_policy>;
+  using group_type = basic_group<model_policy>;
+
+  using scheduler_type = virtual_scheduler<real>;
+  using duration = typename scheduler_type::duration;
+
+  static_assert(2 <= N and N <= 3, "");
 
 public:
-  void resize(size_t size_) { _spawn_positions->resize(size_); }
+  basic_source() = delete;
 
-public:
-  auto get_spawn_positions() const {
-    return nd_dtype_data_ref_t<nd_dtype::real, N>{*_spawn_positions};
-  }
+  basic_source(basic_source const &) = default;
+  basic_source &operator=(basic_source const &) = default;
 
-public:
-  auto get_initial_velocity() const {
-    return nd_dtype_data_ref_t<nd_dtype::real, N>{*_initial_velocity};
-  }
-
-public:
   basic_source(basic_source &&) = default;
   basic_source &operator=(basic_source &&) = default;
 
-  basic_source()
-      : _spawn_positions{std::make_unique<
-            nd_dtype_data_t<nd_dtype::real, N>>()},
-        _initial_velocity{
-            std::make_unique<nd_dtype_data_t<nd_dtype::real, N>>()} {
-    // TODO: validate name and type
-    _initial_velocity->resize(1);
+  basic_source(
+      model_type &model, group_type &target_group, rvec center, rvec velocity,
+      real radius, size_t remaining)
+      : _model{&model}, _target_group{&target_group}, _center{center},
+        _velocity{velocity}, _radius{radius}, _remaining{remaining} {
+    // compute the (virtual) time between spawns
+    auto const h =
+        _model->template get_global<nd_dtype::real>("smoothing_scale")[0];
+    _regular_spawn_interval = duration{h / o::norm(velocity)};
+  }
+
+public:
+  auto operator()(virtual_scheduler<real> &scheduler_, duration delay) {
+    auto const h =
+        _model->template get_global<nd_dtype::real>("smoothing_scale")[0];
+
+    rvec const orientation = o::normalized(_velocity);
+    rvec const delta_x = (_regular_spawn_interval + delay).count() * _velocity;
+
+    _position.clear();
+
+    if constexpr (N == 2) {
+      throw "not implemented yet";
+    }
+
+    // sample from the plane through origin with normal orientation
+    if constexpr (N == 3) {
+      std::array<rvec, 3> unit_vectors = {
+          l::template narray<nd_dtype::real, 3>({{1, 0, 0}}),
+          l::template narray<nd_dtype::real, 3>({{0, 1, 0}}),
+          l::template narray<nd_dtype::real, 3>({{0, 0, 1}}),
+      };
+      // choose a unit vector wich is not linearly dependent on orientation
+      rvec tmp;
+      real const dot_limit = (1 + 1 / std::sqrt(real{3})) / 2;
+      for (size_t n = 0; n < unit_vectors.size(); ++n) {
+        tmp = unit_vectors[n];
+        auto const dot_value = o::dot(orientation, tmp);
+        if (std::abs(dot_value) <= dot_limit) {
+          break;
+        }
+      }
+
+      rvec const d1 = o::normalized(o::cross(orientation, tmp));
+      rvec const d2 = o::normalized(o::cross(orientation, d1));
+
+      int const half_extent = std::floor(_radius / h);
+      for (int i1 = -half_extent; i1 <= half_extent; ++i1) {
+        for (int i2 = -half_extent; i2 <= half_extent; ++i2) {
+          // sample a regular grid
+          rvec local_x = (i1 * h) * d1 + (i2 * h) * d2;
+          // filter out any positions not inside the radius
+          if (o::norm(local_x) > _radius)
+            continue;
+          // accept the positions that were not filtered
+          _position.push_back(_center + local_x + delta_x);
+        }
+      }
+    }
+
+    // create the new particles
+    auto indices = _target_group->create(_position.size());
+    // fetch target group fields
+    auto rho0 =
+        _target_group->template get_uniform<nd_dtype::real>("rest_density")[0];
+    auto x = _target_group->template get_varying<nd_dtype::real, N>("position");
+    auto v = _target_group->template get_varying<nd_dtype::real, N>("velocity");
+    auto m = _target_group->template get_varying<nd_dtype::real>("mass");
+    // initialize created particles
+    for (size_t i = 0; i < _position.size(); ++i) {
+      x[indices[i]] = _position[i];
+      v[indices[i]] = _velocity;
+      m[indices[i]] = static_cast<real>(prtcl::core::constpow(h, N)) * rho0;
+    }
+
+    // adjust the remaining particle count
+    _remaining -= _position.size();
+    _position.clear();
+
+    log::debug(
+        "app", "source", "created ", indices.size(), " of ", _remaining,
+        " particles in group ", _target_group->get_name());
+
+    // reschedule if this source is not finished
+    if (_remaining > 0) {
+      auto after = _regular_spawn_interval - delay;
+      log::debug("app", "source", "rescheduling after ", after.count(), "s");
+      return scheduler_.reschedule_after(after);
+    } else {
+      log::debug("app", "source", "source exhausted, not rescheduling");
+      return scheduler_.do_nothing();
+    }
   }
 
 private:
-  std::unique_ptr<nd_dtype_data_t<nd_dtype::real, N>> _spawn_positions;
-  std::unique_ptr<nd_dtype_data_t<nd_dtype::real, N>> _initial_velocity;
+  model_type *_model;
+  group_type *_target_group;
+  rvec _center, _velocity;
+  real _radius;
+  size_t _remaining;
+  std::vector<rvec> _position;
+
+  duration _regular_spawn_interval;
 };
 
 } // namespace prtcl::rt
