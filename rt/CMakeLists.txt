@@ -65,7 +65,7 @@ DE_Add_Our_Include_Directories( prtcl-rt-tests include sources )
 target_compile_definitions(
   prtcl-rt-tests
   PUBLIC
-    PRTCL_RT_LOG_TRACE_TRACY
+    #PRTCL_RT_LOG_TRACE_TRACY
 )
 target_include_directories(
   prtcl-rt-tests
@@ -92,7 +92,7 @@ prtcl_add_executable(
 target_compile_definitions(
   prtcl-sample-mesh
   PUBLIC
-    PRTCL_RT_LOG_TRACE_TRACY
+    #PRTCL_RT_LOG_TRACE_TRACY
 )
 target_include_directories(
   prtcl-sample-mesh

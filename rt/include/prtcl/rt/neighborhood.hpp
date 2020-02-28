@@ -10,6 +10,8 @@
 
 #include <iostream>
 
+#include <boost/container/flat_set.hpp>
+
 namespace prtcl::rt {
 
 template <typename GridType_> class neighbourhood {
@@ -34,6 +36,9 @@ private:
   struct group_data_type {
     bool has_position;
     nd_dtype_data_ref_t<nd_dtype::real, dimensionality> position;
+    boost::container::flat_set<std::string> tags;
+
+    bool has_tag(std::string const &tag) const { return tags.contains(tag); }
 
     friend auto get_element_count(group_data_type const &g_) {
       return g_.position.size();
@@ -78,6 +83,9 @@ public:
       _data.groups[i].has_position =
           group.template has_varying<nd_dtype::real, dimensionality>(
               "position");
+      _data.groups[i].tags.clear();
+      _data.groups[i].tags.insert(
+          boost::begin(group.tags()), boost::end(group.tags()));
       if (_data.groups[i].has_position) {
         _data.groups[i].position =
             group.template get_varying<nd_dtype::real, dimensionality>(

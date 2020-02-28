@@ -38,6 +38,43 @@ public:
 
   void set_radius(real radius) { _nsearch.set_radius(radius); }
 
+private:
+  template <typename GroupedVectorData>
+  void rebuild(GroupedVectorData const &x) {
+    // reset the neighborhood search
+    auto radius = _nsearch.radius();
+    _nsearch = CompactNSearch::NeighborhoodSearch(radius, false);
+
+    // add all groups
+    for (size_t g = 0; g < get_group_count(x); ++g) {
+      auto &group = get_group_ref(x, g);
+      size_t group_size = get_element_count(group);
+
+      log::debug(
+          "neighbor", "grid", "adding group ", g, " with ", group_size,
+          " elements");
+
+      if (group_size == 0) {
+        _nsearch.add_point_set(
+            /* x */ nullptr,
+            /* n */ 0,
+            /* is_dynamic */ group.has_tag("dynamic"),
+            /* can see others */ true,
+            /* seen by others */ true,
+            /* user_data */ nullptr);
+      } else {
+        auto &first = get_element_ref(group, 0);
+        _nsearch.add_point_set(
+            /* x */ &first[0],
+            /* n */ group_size,
+            /* is_dynamic */ group.has_tag("dynamic"),
+            /* can see others */ true,
+            /* seen by others */ true,
+            /* user_data */ nullptr);
+      }
+    }
+  }
+
 public:
   // update(GroupedVectorData) {{{
 
@@ -47,39 +84,33 @@ public:
 
     size_t current_group_count = get_group_count(x);
 
-    if (_nsearch.n_point_sets() > current_group_count)
-      throw "internal error: removing groups is not supported";
+    // rebuild if the number of groups has changed
+    if (_nsearch.n_point_sets() != current_group_count)
+      rebuild(x);
 
-    // add new point sets if neccessary
-    if (_nsearch.n_point_sets() < current_group_count) {
-      for (size_t g = _nsearch.n_point_sets(); g < current_group_count; ++g) {
-        auto &group = get_group_ref(x, g);
-        size_t group_size = get_element_count(group);
-
-        log::debug(
-            "neighbor", "grid", "adding group ", g, " with ", group_size,
-            " elements");
-
-        if (group_size == 0) {
-          _nsearch.add_point_set(nullptr, 0, true, true, true, nullptr);
-        } else {
-          auto &first = get_element_ref(group, 0);
-          _nsearch.add_point_set(
-              &first[0], group_size, true, true, true, nullptr);
-        }
-      }
-    }
-
-    // resize point sets if neccessary
+    // rebuild if any group got smaller
     for (size_t g = 0; g < get_group_count(x); ++g) {
       size_t point_set_size = _nsearch.point_set(g).n_points();
 
       auto &group = get_group_ref(x, g);
       size_t group_size = get_element_count(group);
 
-      if (group_size != point_set_size) {
+      if (group_size < point_set_size) {
+        rebuild(x);
+        break;
+      }
+    }
+
+    // otherwise resize the respective point set
+    for (size_t g = 0; g < get_group_count(x); ++g) {
+      size_t point_set_size = _nsearch.point_set(g).n_points();
+
+      auto &group = get_group_ref(x, g);
+      size_t group_size = get_element_count(group);
+
+      if (group_size > point_set_size) {
         log::debug(
-            "neighbor", "grid", "resizing group ", g, " from ", point_set_size,
+            "neighbor", "grid", "group grew ", g, " from ", point_set_size,
             " to ", group_size, " elements");
 
         auto &first = get_element_ref(group, 0);

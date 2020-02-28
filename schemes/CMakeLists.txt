@@ -69,7 +69,7 @@ DE_Add_Our_Include_Directories( prtcl-schemes-tests include sources )
 target_compile_definitions(
   prtcl-schemes-tests
   PUBLIC
-    PRTCL_RT_LOG_TRACE_TRACY
+    #PRTCL_RT_LOG_TRACE_TRACY
 )
 target_include_directories(
   prtcl-schemes-tests
@@ -103,7 +103,7 @@ PRTCL_Add_Target_CXX_FLAGS_OptimizeForNative( prtcl-schemes-sesph )
 target_compile_definitions(
   prtcl-schemes-sesph
   PUBLIC
-    PRTCL_RT_LOG_TRACE_TRACY
+    #PRTCL_RT_LOG_TRACE_TRACY
 )
 target_include_directories(
   prtcl-schemes-sesph
