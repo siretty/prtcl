@@ -1,9 +1,12 @@
 
 #pragma once
 
+#include <prtcl/rt/common.hpp>
+
 #include <prtcl/rt/basic_group.hpp>
 #include <prtcl/rt/basic_model.hpp>
-#include <prtcl/rt/common.hpp>
+
+#include <prtcl/rt/log/trace.hpp>
 
 #include <vector>
 
@@ -158,6 +161,8 @@ public:
     using o = typename math_policy::operations;
 
     _Pragma("omp parallel") {
+      PRTCL_RT_LOG_TRACE_SCOPED("foreach_particle", "p=particles");
+
       _Pragma("omp single") {
         auto const thread_count = static_cast<size_t>(omp_get_num_threads());
         _per_thread.resize(thread_count);
@@ -179,6 +184,8 @@ public:
       }
 
       _Pragma("omp critical") {
+        PRTCL_RT_LOG_TRACE_SCOPED("reduction");
+
         // combine all reduction variables
 
         g.global_particle_count[0] += rd_global_particle_count;
@@ -198,6 +205,8 @@ public:
     using o = typename math_policy::operations;
 
     _Pragma("omp parallel") {
+      PRTCL_RT_LOG_TRACE_SCOPED("foreach_particle", "p=particles");
+
       _Pragma("omp single") {
         auto const thread_count = static_cast<size_t>(omp_get_num_threads());
         _per_thread.resize(thread_count);
@@ -228,15 +237,23 @@ public:
             neighbors[n_index].push_back(j);
           });
 
-          for (auto &n : _data.by_group_type.neighbors) {
-            for (auto const j : neighbors[n._index]) {
-              rd_global_neighbor_count += l::template narray<nd_dtype::integer>({1});
+          {// foreach neighbors neighbor j
+            PRTCL_RT_LOG_TRACE_SCOPED("foreach_neighbor", "n=neighbors");
+
+            for (auto &n : _data.by_group_type.neighbors) {
+              PRTCL_RT_LOG_TRACE_PLOT_NUMBER("neighbor count", static_cast<int64_t>(neighbors[n._index].size()));
+
+              for (auto const j : neighbors[n._index]) {
+                rd_global_neighbor_count += l::template narray<nd_dtype::integer>({1});
+              }
             }
           }
         }
       }
 
       _Pragma("omp critical") {
+        PRTCL_RT_LOG_TRACE_SCOPED("reduction");
+
         // combine all reduction variables
 
         g.global_neighbor_count[0] += rd_global_neighbor_count;

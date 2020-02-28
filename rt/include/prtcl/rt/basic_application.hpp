@@ -4,11 +4,14 @@
 #include <prtcl/rt/basic_type_policy.hpp>
 #include <prtcl/rt/cli/load_groups.hpp>
 #include <prtcl/rt/eigen_math_policy.hpp>
+#include <prtcl/rt/external/compact_n_search_grid.hpp>
 #include <prtcl/rt/filesystem/getcwd.hpp>
 #include <prtcl/rt/geometry/axis_aligned_box.hpp>
 #include <prtcl/rt/geometry/triangle_mesh.hpp>
 #include <prtcl/rt/grouped_uniform_grid.hpp>
 #include <prtcl/rt/integral_grid.hpp>
+#include <prtcl/rt/log/logger.hpp>
+#include <prtcl/rt/log/trace.hpp>
 #include <prtcl/rt/math/kernel/cubic_spline_kernel.hpp>
 #include <prtcl/rt/math/kernel_math_policy_mixin.hpp>
 #include <prtcl/rt/math/mixed_math_policy.hpp>
@@ -101,6 +104,10 @@ template <typename ModelPolicy_>
 void save_group(
     std::string output_dir, prtcl::rt::basic_group<ModelPolicy_> const &group,
     std::optional<size_t> frame = std::nullopt) {
+  PRTCL_RT_LOG_TRACE_SCOPED(
+      "save_group", "group=", group.get_name(),
+      " frame=", (frame ? std::to_string(frame.value()) : std::string{"-"}));
+
   auto file_name =
       std::string{group.get_name()} +
       (frame ? "." + std::to_string(frame.value()) : std::string{}) + ".vtk";
@@ -117,8 +124,11 @@ public:
 
   using model_policy = ModelPolicy_;
   using model_type = prtcl::rt::basic_model<model_policy>;
+
   using neighborhood_type =
-      prtcl::rt::neighbourhood<prtcl::rt::grouped_uniform_grid<model_policy>>;
+      prtcl::rt::neighbourhood<prtcl::rt::compact_n_search_grid<model_policy>>;
+  // using neighborhood_type =
+  //    prtcl::rt::neighbourhood<prtcl::rt::grouped_uniform_grid<model_policy>>;
 
 public:
   virtual ~basic_application() {}
@@ -134,6 +144,47 @@ protected:
   virtual void on_step(model_type &, neighborhood_type &) {}
   virtual void on_step_done(model_type &, neighborhood_type &) {}
   virtual void on_frame_done(model_type &, neighborhood_type &) {}
+
+private:
+  void do_require_schemes(model_type &model) {
+    PRTCL_RT_LOG_TRACE_SCOPED("do_require_schemes");
+    this->on_require_schemes(model);
+  }
+
+  void do_load_schemes(model_type &model) {
+    PRTCL_RT_LOG_TRACE_SCOPED("do_load_schemes");
+    this->on_load_schemes(model);
+  }
+
+  void do_prepare_simulation(model_type &model, neighborhood_type &nhood) {
+    PRTCL_RT_LOG_TRACE_SCOPED("do_prepare_simulation");
+    this->on_prepare_simulation(model, nhood);
+  }
+
+  void do_prepare_frame(model_type &model, neighborhood_type &nhood) {
+    PRTCL_RT_LOG_TRACE_SCOPED("do_prepare_frame");
+    this->on_prepare_frame(model, nhood);
+  }
+
+  void do_prepare_step(model_type &model, neighborhood_type &nhood) {
+    PRTCL_RT_LOG_TRACE_SCOPED("do_prepare_step");
+    this->on_prepare_step(model, nhood);
+  }
+
+  void do_step(model_type &model, neighborhood_type &nhood) {
+    PRTCL_RT_LOG_TRACE_SCOPED("do_step");
+    this->on_step(model, nhood);
+  }
+
+  void do_step_done(model_type &model, neighborhood_type &nhood) {
+    PRTCL_RT_LOG_TRACE_SCOPED("do_step_done");
+    this->on_step_done(model, nhood);
+  }
+
+  void do_frame_done(model_type &model, neighborhood_type &nhood) {
+    PRTCL_RT_LOG_TRACE_SCOPED("do_frame_done");
+    this->on_frame_done(model, nhood);
+  }
 
 private:
   using type_policy = typename model_policy::type_policy;
@@ -162,7 +213,7 @@ public:
 
     prtcl::rt::load_model_groups_from_cli(cli, model);
 
-    this->on_require_schemes(model);
+    this->do_require_schemes(model);
 
     // -----
 
@@ -206,9 +257,9 @@ public:
 
     nhood.permute(model);
 
-    this->on_load_schemes(model);
+    this->do_load_schemes(model);
 
-    this->on_prepare_simulation(model, nhood);
+    this->do_prepare_simulation(model, nhood);
 
     auto cwd = ::prtcl::rt::filesystem::getcwd();
     auto output_dir = cwd + "/" + "output";
@@ -282,8 +333,10 @@ public:
 
       auto frame_done = clock->now() + duration{seconds_per_frame};
 
-      std::cout << "START OF FRAME #" << frame + 1 << '\n';
       while (clock->now() < frame_done) {
+        PRTCL_RT_LOG_TRACE_SCOPED(
+            "step", "t=", clock->now().time_since_epoch().count());
+
         // update the neighborhood
         nhood.update();
 
@@ -356,13 +409,13 @@ public:
           nhood.load(model);
           nhood.update();
 
-          this->on_load_schemes(model);
+          this->do_load_schemes(model);
         }
 
         model.template get_global<nd_dtype::real>("maximum_speed")[0] = 0;
 
         // run all computational steps
-        this->on_step(model, nhood);
+        this->do_step(model, nhood);
 
         // fetch the maximum speed of any fluid particle
         auto max_speed = static_cast<long double>(
@@ -379,14 +432,14 @@ public:
             std::min<real>(max_cfl * h / max_speed, max_time_step);
       }
 
-      std::cerr << "current max_speed = "
-                << model.template get_global<nd_dtype::real>("maximum_speed")[0]
-                << std::endl;
-      std::cerr << "current time_step = "
-                << model.template get_global<nd_dtype::real>("time_step")[0]
-                << std::endl;
+      log::debug(
+          "app", "main", "current max_speed = ",
+          model.template get_global<nd_dtype::real>("maximum_speed")[0]);
+      log::debug(
+          "app", "main", "current time_step = ",
+          model.template get_global<nd_dtype::real>("time_step")[0]);
 
-      std::cout << "CLOSE OF FRAME #" << frame + 1 << '\n' << '\n';
+      PRTCL_RT_LOG_TRACE_CFRAME_MARK();
     }
   }
 };

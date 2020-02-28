@@ -4,6 +4,7 @@
 
 #include "basic_source.hpp"
 #include "nd_data_base.hpp"
+#include "log/trace.hpp"
 
 #include <algorithm>
 #include <boost/range/iterator_range_core.hpp>
@@ -87,6 +88,8 @@ private:
 
 public:
   auto create(size_t count) {
+    PRTCL_RT_LOG_TRACE_SCOPED("group create particles");
+
     // store the current size of this group
     size_t old_size = size();
     // resize so that there is enough space for the new particles
@@ -96,6 +99,8 @@ public:
   }
 
   template <typename IndexRange> void erase(IndexRange const &indices) {
+    PRTCL_RT_LOG_TRACE_SCOPED("group erase particles");
+
     if (boost::size(indices) == 0)
       return;
     // ensure the permutation buffer is big enough
@@ -174,6 +179,7 @@ public:
 
 public:
   template <typename Range_> void permute(Range_ const &range_) {
+      PRTCL_RT_LOG_TRACE_SCOPED("group permute");
 #pragma omp single
     {
       // create indexed access to the varying data

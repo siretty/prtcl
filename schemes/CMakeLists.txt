@@ -58,8 +58,7 @@ target_link_libraries( prtcl-schemes
 DE_Add_Catch2_Test(
   prtcl-schemes-tests test_main
 
-  # allow tests to be profiled with tracy
-  #${tracy_INLCUDE_DIR}/TracyClient.cpp
+  ${_TRACY_CPP} # tracing
 
   ${_PRJ}/tests/prtcl/schemes/test_counting_particles.cpp
 )
@@ -70,13 +69,12 @@ DE_Add_Our_Include_Directories( prtcl-schemes-tests include sources )
 target_compile_definitions(
   prtcl-schemes-tests
   PUBLIC
-    TRACY_ENABLE
-    CATCH_CONFIG_ENABLE_BENCHMARKING
+    PRTCL_RT_LOG_TRACE_TRACY
 )
 target_include_directories(
   prtcl-schemes-tests
   PUBLIC
-    ${tracy_INLCUDE_DIR}
+    ${_TRACY_DIR}
 )
 target_link_libraries(
   prtcl-schemes-tests
@@ -92,8 +90,7 @@ target_link_libraries(
 add_executable(
   prtcl-schemes-sesph
 
-  # allow tests to be profiled with tracy
-  #${tracy_INLCUDE_DIR}/TracyClient.cpp
+  ${_TRACY_CPP} # tracing
 
   ${_PRJ}/sources/prtcl-schemes-sesph.cpp
 )
@@ -106,13 +103,12 @@ PRTCL_Add_Target_CXX_FLAGS_OptimizeForNative( prtcl-schemes-sesph )
 target_compile_definitions(
   prtcl-schemes-sesph
   PUBLIC
-    TRACY_ENABLE
-    CATCH_CONFIG_ENABLE_BENCHMARKING
+    PRTCL_RT_LOG_TRACE_TRACY
 )
 target_include_directories(
   prtcl-schemes-sesph
   PUBLIC
-    ${tracy_INLCUDE_DIR}
+    ${_TRACY_DIR}
 )
 target_link_libraries(
   prtcl-schemes-sesph

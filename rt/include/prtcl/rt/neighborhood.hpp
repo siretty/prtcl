@@ -3,6 +3,7 @@
 #include "common.hpp"
 
 #include "basic_model.hpp"
+#include "log/trace.hpp"
 
 #include <iterator>
 #include <vector>
@@ -64,6 +65,8 @@ public:
 
 public:
   void load(model_type &model_) {
+    PRTCL_RT_LOG_TRACE_SCOPED("neighorhood load");
+
     // resize the groups data
     _data.groups.resize(model_.groups().size());
     // iterate over all groups
@@ -84,10 +87,16 @@ public:
   }
 
 public:
-  void update() { _grid.update(_data); }
+  void update() {
+    PRTCL_RT_LOG_TRACE_SCOPED("neighorhood update");
+
+    _grid.update(_data);
+  }
 
 public:
   void permute(model_type &model_) {
+    PRTCL_RT_LOG_TRACE_SCOPED("neighorhood permute");
+
     // resize all permutation storage
     _perm.resize(model_.groups().size());
     // resize the permutation iterators
@@ -106,10 +115,13 @@ public:
       for (size_t i = 0; i < model_.groups().size(); ++i)
         model_.groups()[i].permute(_perm[i]);
     }
+    // update the grid with the permuted positions
+    _grid.update(_data);
   }
 
 public:
   template <typename Fn> void neighbors(size_t g_, size_t i_, Fn &&fn) const {
+    PRTCL_RT_LOG_TRACE_SCOPED("neighbor search", "g=", g_, " i=", i_);
     if (_data.groups[g_].has_position)
       _grid.neighbors(g_, i_, _data, std::forward<Fn>(fn));
   }

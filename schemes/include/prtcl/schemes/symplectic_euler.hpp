@@ -1,9 +1,12 @@
 
 #pragma once
 
+#include <prtcl/rt/common.hpp>
+
 #include <prtcl/rt/basic_group.hpp>
 #include <prtcl/rt/basic_model.hpp>
-#include <prtcl/rt/common.hpp>
+
+#include <prtcl/rt/log/trace.hpp>
 
 #include <vector>
 
@@ -145,6 +148,8 @@ public:
     using o = typename math_policy::operations;
 
     _Pragma("omp parallel") {
+      PRTCL_RT_LOG_TRACE_SCOPED("foreach_particle", "p=dynamic");
+
       _Pragma("omp single") {
         auto const thread_count = static_cast<size_t>(omp_get_num_threads());
         _per_thread.resize(thread_count);
@@ -170,6 +175,8 @@ public:
       }
 
       _Pragma("omp critical") {
+        PRTCL_RT_LOG_TRACE_SCOPED("reduction");
+
         // combine all reduction variables
 
         g.maximum_speed[0] = o::max(rd_maximum_speed);

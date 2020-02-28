@@ -1,9 +1,12 @@
 
 #pragma once
 
+#include <prtcl/rt/common.hpp>
+
 #include <prtcl/rt/basic_group.hpp>
 #include <prtcl/rt/basic_model.hpp>
-#include <prtcl/rt/common.hpp>
+
+#include <prtcl/rt/log/trace.hpp>
 
 #include <vector>
 
@@ -217,6 +220,8 @@ public:
     using o = typename math_policy::operations;
 
     _Pragma("omp parallel") {
+      PRTCL_RT_LOG_TRACE_SCOPED("foreach_particle", "p=fluid");
+
       _Pragma("omp single") {
         auto const thread_count = static_cast<size_t>(omp_get_num_threads());
         _per_thread.resize(thread_count);
@@ -245,15 +250,27 @@ public:
 
           p.density[i] = l::template narray<nd_dtype::real>({0});
 
-          for (auto &n : _data.by_group_type.fluid) {
-            for (auto const j : neighbors[n._index]) {
-              p.density[i] += (n.mass[j] * o::kernel_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
+          {// foreach fluid neighbor f_f
+            PRTCL_RT_LOG_TRACE_SCOPED("foreach_neighbor", "n=fluid");
+
+            for (auto &n : _data.by_group_type.fluid) {
+              PRTCL_RT_LOG_TRACE_PLOT_NUMBER("neighbor count", static_cast<int64_t>(neighbors[n._index].size()));
+
+              for (auto const j : neighbors[n._index]) {
+                p.density[i] += (n.mass[j] * o::kernel_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
+              }
             }
           }
 
-          for (auto &n : _data.by_group_type.boundary) {
-            for (auto const j : neighbors[n._index]) {
-              p.density[i] += (n.volume[j] * p.rest_density[0] * o::kernel_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
+          {// foreach boundary neighbor f_b
+            PRTCL_RT_LOG_TRACE_SCOPED("foreach_neighbor", "n=boundary");
+
+            for (auto &n : _data.by_group_type.boundary) {
+              PRTCL_RT_LOG_TRACE_PLOT_NUMBER("neighbor count", static_cast<int64_t>(neighbors[n._index].size()));
+
+              for (auto const j : neighbors[n._index]) {
+                p.density[i] += (n.volume[j] * p.rest_density[0] * o::kernel_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
+              }
             }
           }
 
@@ -275,6 +292,8 @@ public:
     using o = typename math_policy::operations;
 
     _Pragma("omp parallel") {
+      PRTCL_RT_LOG_TRACE_SCOPED("foreach_particle", "p=fluid");
+
       _Pragma("omp single") {
         auto const thread_count = static_cast<size_t>(omp_get_num_threads());
         _per_thread.resize(thread_count);
@@ -303,19 +322,31 @@ public:
 
           p.acceleration[i] = g.gravity[0];
 
-          for (auto &n : _data.by_group_type.fluid) {
-            for (auto const j : neighbors[n._index]) {
-              p.acceleration[i] += ((p.viscosity[0] * (n.mass[j] / n.density[j]) * o::dot((p.velocity[i] - n.velocity[j]), (p.position[i] - n.position[j])) / (o::norm_squared((p.position[i] - n.position[j])) + (l::template narray<nd_dtype::real>({0.01}) * g.smoothing_scale[0] * g.smoothing_scale[0]))) * o::kernel_gradient_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
+          {// foreach fluid neighbor f_f
+            PRTCL_RT_LOG_TRACE_SCOPED("foreach_neighbor", "n=fluid");
 
-              p.acceleration[i] -= (n.mass[j] * ((p.pressure[i] / (p.density[i] * p.density[i])) + (n.pressure[j] / (n.density[j] * n.density[j]))) * o::kernel_gradient_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
+            for (auto &n : _data.by_group_type.fluid) {
+              PRTCL_RT_LOG_TRACE_PLOT_NUMBER("neighbor count", static_cast<int64_t>(neighbors[n._index].size()));
+
+              for (auto const j : neighbors[n._index]) {
+                p.acceleration[i] += ((p.viscosity[0] * (n.mass[j] / n.density[j]) * o::dot((p.velocity[i] - n.velocity[j]), (p.position[i] - n.position[j])) / (o::norm_squared((p.position[i] - n.position[j])) + (l::template narray<nd_dtype::real>({0.01}) * g.smoothing_scale[0] * g.smoothing_scale[0]))) * o::kernel_gradient_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
+
+                p.acceleration[i] -= (n.mass[j] * ((p.pressure[i] / (p.density[i] * p.density[i])) + (n.pressure[j] / (n.density[j] * n.density[j]))) * o::kernel_gradient_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
+              }
             }
           }
 
-          for (auto &n : _data.by_group_type.boundary) {
-            for (auto const j : neighbors[n._index]) {
-              p.acceleration[i] += ((n.viscosity[0] * n.volume[j] * o::dot((p.velocity[i] - n.velocity[j]), (p.position[i] - n.position[j])) / (o::norm_squared((p.position[i] - n.position[j])) + (l::template narray<nd_dtype::real>({0.01}) * g.smoothing_scale[0] * g.smoothing_scale[0]))) * o::kernel_gradient_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
+          {// foreach boundary neighbor f_b
+            PRTCL_RT_LOG_TRACE_SCOPED("foreach_neighbor", "n=boundary");
 
-              p.acceleration[i] -= (l::template narray<nd_dtype::real>({0.7}) * n.volume[j] * p.rest_density[0] * (l::template narray<nd_dtype::real>({2}) * p.pressure[i] / (p.density[i] * p.density[i])) * o::kernel_gradient_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
+            for (auto &n : _data.by_group_type.boundary) {
+              PRTCL_RT_LOG_TRACE_PLOT_NUMBER("neighbor count", static_cast<int64_t>(neighbors[n._index].size()));
+
+              for (auto const j : neighbors[n._index]) {
+                p.acceleration[i] += ((n.viscosity[0] * n.volume[j] * o::dot((p.velocity[i] - n.velocity[j]), (p.position[i] - n.position[j])) / (o::norm_squared((p.position[i] - n.position[j])) + (l::template narray<nd_dtype::real>({0.01}) * g.smoothing_scale[0] * g.smoothing_scale[0]))) * o::kernel_gradient_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
+
+                p.acceleration[i] -= (l::template narray<nd_dtype::real>({0.7}) * n.volume[j] * p.rest_density[0] * (l::template narray<nd_dtype::real>({2}) * p.pressure[i] / (p.density[i] * p.density[i])) * o::kernel_gradient_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
+              }
             }
           }
         }

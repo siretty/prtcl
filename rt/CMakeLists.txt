@@ -47,9 +47,6 @@ target_link_libraries( prtcl-rt
 DE_Add_Catch2_Test(
   prtcl-rt-tests test_main
 
-  # allow tests to be profiled with tracy
-  #${tracy_INLCUDE_DIR}/TracyClient.cpp
-
   ${_PRJ}/tests/prtcl/rt/virtual_clock.cpp
 
   ${_PRJ}/tests/prtcl/rt/eigen_math_policy.cpp
@@ -58,6 +55,8 @@ DE_Add_Catch2_Test(
 
   ${_PRJ}/tests/prtcl/rt/cli/parse_args_to_ptree.cpp
   ${_PRJ}/tests/prtcl/rt/cli/command_line_interface.cpp
+
+  ${_TRACY_CPP} # tracing
 )
 DE_CXX17_Target( prtcl-rt-tests )
 DE_Common_Diagnostics_CXX_Target( prtcl-rt-tests )
@@ -66,13 +65,12 @@ DE_Add_Our_Include_Directories( prtcl-rt-tests include sources )
 target_compile_definitions(
   prtcl-rt-tests
   PUBLIC
-    TRACY_ENABLE
-    CATCH_CONFIG_ENABLE_BENCHMARKING
+    PRTCL_RT_LOG_TRACE_TRACY
 )
 target_include_directories(
   prtcl-rt-tests
   PUBLIC
-    ${tracy_INLCUDE_DIR}
+    ${_TRACY_DIR}
 )
 target_link_libraries(
   prtcl-rt-tests
@@ -87,10 +85,24 @@ prtcl_add_executable(
   prtcl-sample-mesh
   TYPE STATIC
   SOURCES
+    ${_TRACY_CPP} # tracing
+
     ${_SRC}/prtcl-sample-mesh/main.cpp
+)
+target_compile_definitions(
+  prtcl-sample-mesh
+  PUBLIC
+    PRTCL_RT_LOG_TRACE_TRACY
+)
+target_include_directories(
+  prtcl-sample-mesh
+  PUBLIC
+    ${_TRACY_DIR}
 )
 target_link_libraries( prtcl-sample-mesh
   PUBLIC prtcl-rt
   PUBLIC Eigen3::Eigen
+  PUBLIC Threads::Threads
+  PUBLIC ${CMAKE_DL_LIBS}
 )
 
