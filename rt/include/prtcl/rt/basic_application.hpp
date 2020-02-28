@@ -5,7 +5,6 @@
 #include <prtcl/rt/basic_type_policy.hpp>
 #include <prtcl/rt/cli/load_groups.hpp>
 #include <prtcl/rt/eigen_math_policy.hpp>
-#include <prtcl/rt/external/compact_n_search_grid.hpp>
 #include <prtcl/rt/filesystem/getcwd.hpp>
 #include <prtcl/rt/geometry/axis_aligned_box.hpp>
 #include <prtcl/rt/geometry/triangle_mesh.hpp>
