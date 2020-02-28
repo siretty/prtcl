@@ -63,6 +63,18 @@ private:
   };
 
 public:
+  void rebuild(model_type &model) {
+    PRTCL_RT_LOG_TRACE_SCOPED("neighorhood rebuild");
+
+    auto radius = _grid.get_radius();
+    _grid = grid_type{radius};
+
+    load(model);
+    update();
+    permute(model);
+  }
+
+public:
   void set_radius(real radius_) {
     // TODO: automatically update when the radius changes
     _grid.set_radius(radius_);

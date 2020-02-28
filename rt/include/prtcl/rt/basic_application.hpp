@@ -125,10 +125,10 @@ public:
   using model_policy = ModelPolicy_;
   using model_type = prtcl::rt::basic_model<model_policy>;
 
-  using neighborhood_type =
-      prtcl::rt::neighbourhood<prtcl::rt::compact_n_search_grid<model_policy>>;
   // using neighborhood_type =
-  //    prtcl::rt::neighbourhood<prtcl::rt::grouped_uniform_grid<model_policy>>;
+  //    prtcl::rt::neighbourhood<prtcl::rt::compact_n_search_grid<model_policy>>;
+  using neighborhood_type =
+      prtcl::rt::neighbourhood<prtcl::rt::grouped_uniform_grid<model_policy>>;
 
 public:
   virtual ~basic_application() {}
@@ -252,10 +252,7 @@ public:
     nhood.set_radius(math_policy::operations::kernel_support_radius(
         model.template get_global<nd_dtype::real>("smoothing_scale")[0]));
 
-    nhood.load(model);
-    nhood.update();
-
-    nhood.permute(model);
+    nhood.rebuild(model);
 
     this->do_load_schemes(model);
 
@@ -304,6 +301,8 @@ public:
 
       // remove particles by permuting them to the end and resizing the storage
       if (0 == frame % 4) {
+        bool particles_were_erased = false;
+
         // {{{ implementation
         for (size_t group_index = 0; group_index < model.groups().size();
              ++group_index) {
@@ -320,12 +319,20 @@ public:
             if (not position_in_domain(x[i]))
               remove_idxs.push_back(i);
 
-          group.erase(remove_idxs);
+          if (remove_idxs.size() > 0) {
+            group.erase(remove_idxs);
+            particles_were_erased = true;
+          }
         }
-
-        // reload the neighborhood structure after removing particles
-        nhood.load(model);
         // }}}
+
+        // in case particles were erased ...
+        if (particles_were_erased) {
+          // ... and reload the schemes
+          this->do_load_schemes(model);
+          // ... rebuild the neighborhood
+          nhood.rebuild(model);
+        }
       }
 
       auto h = static_cast<long double>(
