@@ -1,0 +1,43 @@
+
+let fluid = particle_selector types {fluid} tags {};
+
+let x = field position : varying real[];
+let a = field acceleration : varying real[];
+
+let rho = field density : varying real;
+let m = field mass : varying real;
+
+let rho0 = field rest_density : uniform real;
+
+let h = field smoothing_scale : global real;
+
+let k = field surface_tension : uniform real;
+let c = field he14_color_field : varying real;
+let d = field he14_color_field_gradient : varying real[];
+
+procedure compute_color_field {
+  foreach fluid particle i {
+    compute c[i] = m[i] / rho[i] * kernel_h(zeros<real[]>, h[_]);
+    foreach fluid neighbor j {
+      compute c[i] += m[j] / rho[j] * kernel_h(x[i] - x[j], h[_]);
+    }
+  }
+}
+
+procedure compute_color_field_gradient {
+  foreach fluid particle i {
+    compute d[i] = zeros<real[]>;
+    foreach fluid neighbor j {
+      compute d[i] += m[j] / rho[j] * c[j] * kernel_gradient_h(x[i] - x[j], h[_]);
+    }
+  }
+}
+
+procedure compute_acceleration {
+  foreach fluid particle i {
+    foreach fluid neighbor j {
+      compute a[i] += (0.25 * k[i] / rho[i]) * m[j] / rho[j] * (norm_squared(d[i]) + norm_squared(d[j])) * kernel_gradient_h(x[i] - x[j], h[_]);
+    }
+  }
+}
+

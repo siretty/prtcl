@@ -1,0 +1,36 @@
+
+let fluid = particle_selector types {fluid} tags {};
+
+let x = field position : varying real[];
+let a = field acceleration : varying real[];
+
+let rho = field density : varying real;
+let m = field mass : varying real;
+
+let rho0 = field rest_density : uniform real;
+
+let h = field smoothing_scale : global real;
+
+let gamma = field surface_tension : uniform real;
+let n = field aat13_particle_normal : varying real[];
+
+procedure compute_particle_normal {
+  foreach fluid particle i {
+    compute n[i] = zeros<real[]>;
+    foreach fluid neighbor j {
+      compute n[i] += kernel_support_radius(h[_]) * m[j] / rho[j] * kernel_gradient_h(x[i] - x[j], h[_]);
+    }
+  }
+}
+
+procedure compute_acceleration {
+  foreach fluid particle i {
+    foreach fluid neighbor j {
+      // cohesion
+      compute a[i] -= (2 * rho0[i] / (rho[i] + rho[j])) * gamma[i] * m[j] * aat13_cohesion_h(norm(x[i] - x[j]), h[_]) * (x[i] - x[j]) / norm(x[i] - x[j]);
+      // curvature
+      compute a[i] -= (2 * rho0[i] / (rho[i] + rho[j])) * gamma[i] * (n[i] - n[j]);
+    }
+  }
+}
+

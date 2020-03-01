@@ -92,6 +92,9 @@ void load_model_groups_from_cli(
 
     group.template add_uniform<nd_dtype::real>("viscosity")[0] =
         tree.get("viscosity", static_cast<real>(0.01));
+
+    group.template add_uniform<nd_dtype::real>("surface_tension")[0] =
+        tree.get("surface_tension", static_cast<real>(1));
     // }}}
   };
 
