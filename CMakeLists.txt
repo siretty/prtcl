@@ -16,6 +16,11 @@ list( APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/deps/prefix" )
 list( APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" )
 
 
+# setup the main tracy directory
+set( _TRACY_DIR ${CMAKE_SOURCE_DIR}/deps/sources/tracy )
+set( _TRACY_CPP ${CMAKE_SOURCE_DIR}/rt/sources/prtcl/rt/log/trace.cpp )
+
+
 find_package( Catch2 REQUIRED )
 
 

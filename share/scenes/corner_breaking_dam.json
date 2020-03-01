@@ -13,7 +13,7 @@
             "volume": {
               "what": "triangle_mesh",
               "file_type": "obj",
-              "file_path": "share/models/unitsphere.obj",
+              "file_path": "share/models/unitcube.obj",
               "scaling" :     { "0": 16, "1": 16, "2": 16, "adaptive": true },
               "translation" : { "0": 16, "1": 16, "2": 16, "adaptive": true }
             }

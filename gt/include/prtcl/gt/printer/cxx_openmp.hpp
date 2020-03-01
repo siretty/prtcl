@@ -83,9 +83,12 @@ private:
   static constexpr char const *_hpp_header = R"HEADER(
 #pragma once
 
+#include <prtcl/rt/common.hpp>
+
 #include <prtcl/rt/basic_group.hpp>
 #include <prtcl/rt/basic_model.hpp>
-#include <prtcl/rt/common.hpp>
+
+#include <prtcl/rt/log/trace.hpp>
 
 #include <vector>
 
@@ -116,18 +119,8 @@ public:
 
   //! Print a literal. TODO: debug format
   void operator()(ast::math::literal const &arg_) {
-    // {{{ implementation
     out() << "l::template narray<" << nd_template_args(arg_.type) << ">({"
           << arg_.value << "})";
-    // TODO: remove after testing
-    // if (not arg_.type.shape.empty())
-    //  throw "not implemented";
-    //// out() << arg_.type << '{' << arg_.value << '}';
-    // if (arg_.type.shape.empty())
-    //  out() << "static_cast<nd_dtype_t<" << nd_template_args(arg_.type) <<
-    //  ">>("
-    //        << arg_.value << ")";
-    // }}}
   }
 
   //! Print access to a field (eg. x[f]).
@@ -291,24 +284,42 @@ public:
     else
       cur_neighbor = loop_type{arg_.selector_name, arg_.neighbor_index_name};
 
-    outi() << "for (auto &n : _data.by_group_type." << arg_.selector_name
-           << ") {" << nl;
+    outi() << '{' << "// foreach " << arg_.selector_name << " neighbor "
+           << arg_.neighbor_index_name << nl;
     {
       increase_indent();
 
-      outi() << "for (auto const j : neighbors[n._index]) {" << nl;
+      outi() << "PRTCL_RT_LOG_TRACE_SCOPED(\"foreach_neighbor\", \"n="
+             << arg_.selector_name << "\");" << nl;
+      out() << nl;
+
+      outi() << "for (auto &n : _data.by_group_type." << arg_.selector_name
+             << ") {" << nl;
       {
         increase_indent();
 
-        // iterate over all child nodes
-        bool first_iteration = true;
-        for (auto const &statement : arg_.statements) {
-          if (not first_iteration)
-            out() << nl;
-          else
-            first_iteration = false;
-          (*this)(statement);
+        outi() << "PRTCL_RT_LOG_TRACE_PLOT_NUMBER(\"neighbor count\", "
+                  "static_cast<int64_t>(neighbors[n._index].size()));"
+               << nl;
+        out() << nl;
+
+        outi() << "for (auto const j : neighbors[n._index]) {" << nl;
+        {
+          increase_indent();
+
+          // iterate over all child nodes
+          bool first_iteration = true;
+          for (auto const &statement : arg_.statements) {
+            if (not first_iteration)
+              out() << nl;
+            else
+              first_iteration = false;
+            (*this)(statement);
+          }
+
+          decrease_indent();
         }
+        outi() << "}" << nl;
 
         decrease_indent();
       }
@@ -316,7 +327,7 @@ public:
 
       decrease_indent();
     }
-    outi() << "}" << nl;
+    outi() << '}' << nl;
 
     if (not cur_neighbor)
       throw "internal error: neighbor loop was already unset";
@@ -339,6 +350,10 @@ public:
           return std::holds_alternative<ast::stmt::foreach_neighbor>(
               statement_);
         });
+
+    outi() << "PRTCL_RT_LOG_TRACE_SCOPED(\"foreach_particle\", \"p="
+           << arg_.selector_name << "\");" << nl;
+    out() << nl;
 
     outi() << cxx_inline_pragma("omp single") << " {" << nl;
     {
@@ -445,6 +460,9 @@ public:
       outi() << cxx_inline_pragma("omp critical") << " {" << nl;
       {
         increase_indent();
+
+        outi() << "PRTCL_RT_LOG_TRACE_SCOPED(\"reduction\");" << nl;
+        out() << nl;
 
         outi() << "// combine all reduction variables" << nl;
         for (auto const &reduce : reductions.items()) {

@@ -3,11 +3,14 @@
 #include "common.hpp"
 
 #include "basic_model.hpp"
+#include "log/trace.hpp"
 
 #include <iterator>
 #include <vector>
 
 #include <iostream>
+
+#include <boost/container/flat_set.hpp>
 
 namespace prtcl::rt {
 
@@ -33,6 +36,9 @@ private:
   struct group_data_type {
     bool has_position;
     nd_dtype_data_ref_t<nd_dtype::real, dimensionality> position;
+    boost::container::flat_set<std::string> tags;
+
+    bool has_tag(std::string const &tag) const { return tags.contains(tag); }
 
     friend auto get_element_count(group_data_type const &g_) {
       return g_.position.size();
@@ -57,6 +63,18 @@ private:
   };
 
 public:
+  void rebuild(model_type &model) {
+    PRTCL_RT_LOG_TRACE_SCOPED("neighorhood rebuild");
+
+    auto radius = _grid.get_radius();
+    _grid = grid_type{radius};
+
+    load(model);
+    update();
+    permute(model);
+  }
+
+public:
   void set_radius(real radius_) {
     // TODO: automatically update when the radius changes
     _grid.set_radius(radius_);
@@ -64,6 +82,8 @@ public:
 
 public:
   void load(model_type &model_) {
+    PRTCL_RT_LOG_TRACE_SCOPED("neighorhood load");
+
     // resize the groups data
     _data.groups.resize(model_.groups().size());
     // iterate over all groups
@@ -75,6 +95,9 @@ public:
       _data.groups[i].has_position =
           group.template has_varying<nd_dtype::real, dimensionality>(
               "position");
+      _data.groups[i].tags.clear();
+      _data.groups[i].tags.insert(
+          boost::begin(group.tags()), boost::end(group.tags()));
       if (_data.groups[i].has_position) {
         _data.groups[i].position =
             group.template get_varying<nd_dtype::real, dimensionality>(
@@ -84,10 +107,16 @@ public:
   }
 
 public:
-  void update() { _grid.update(_data); }
+  void update() {
+    PRTCL_RT_LOG_TRACE_SCOPED("neighorhood update");
+
+    _grid.update(_data);
+  }
 
 public:
   void permute(model_type &model_) {
+    PRTCL_RT_LOG_TRACE_SCOPED("neighorhood permute");
+
     // resize all permutation storage
     _perm.resize(model_.groups().size());
     // resize the permutation iterators
@@ -106,10 +135,13 @@ public:
       for (size_t i = 0; i < model_.groups().size(); ++i)
         model_.groups()[i].permute(_perm[i]);
     }
+    // update the grid with the permuted positions
+    _grid.update(_data);
   }
 
 public:
   template <typename Fn> void neighbors(size_t g_, size_t i_, Fn &&fn) const {
+    PRTCL_RT_LOG_TRACE_SCOPED("neighbor search", "g=", g_, " i=", i_);
     if (_data.groups[g_].has_position)
       _grid.neighbors(g_, i_, _data, std::forward<Fn>(fn));
   }

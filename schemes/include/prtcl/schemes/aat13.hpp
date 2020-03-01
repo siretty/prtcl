@@ -1,9 +1,12 @@
 
 #pragma once
 
+#include <prtcl/rt/common.hpp>
+
 #include <prtcl/rt/basic_group.hpp>
 #include <prtcl/rt/basic_model.hpp>
-#include <prtcl/rt/common.hpp>
+
+#include <prtcl/rt/log/trace.hpp>
 
 #include <vector>
 
@@ -159,6 +162,8 @@ public:
     using o = typename math_policy::operations;
 
     _Pragma("omp parallel") {
+      PRTCL_RT_LOG_TRACE_SCOPED("foreach_particle", "p=fluid");
+
       _Pragma("omp single") {
         auto const thread_count = static_cast<size_t>(omp_get_num_threads());
         _per_thread.resize(thread_count);
@@ -187,9 +192,15 @@ public:
 
           p.aat13_particle_normal[i] = c::template zeros<nd_dtype::real, N>();
 
-          for (auto &n : _data.by_group_type.fluid) {
-            for (auto const j : neighbors[n._index]) {
-              p.aat13_particle_normal[i] += (o::kernel_support_radius(g.smoothing_scale[0]) * n.mass[j] / n.density[j] * o::kernel_gradient_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
+          {// foreach fluid neighbor j
+            PRTCL_RT_LOG_TRACE_SCOPED("foreach_neighbor", "n=fluid");
+
+            for (auto &n : _data.by_group_type.fluid) {
+              PRTCL_RT_LOG_TRACE_PLOT_NUMBER("neighbor count", static_cast<int64_t>(neighbors[n._index].size()));
+
+              for (auto const j : neighbors[n._index]) {
+                p.aat13_particle_normal[i] += (o::kernel_support_radius(g.smoothing_scale[0]) * n.mass[j] / n.density[j] * o::kernel_gradient_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
+              }
             }
           }
         }
@@ -209,6 +220,8 @@ public:
     using o = typename math_policy::operations;
 
     _Pragma("omp parallel") {
+      PRTCL_RT_LOG_TRACE_SCOPED("foreach_particle", "p=fluid");
+
       _Pragma("omp single") {
         auto const thread_count = static_cast<size_t>(omp_get_num_threads());
         _per_thread.resize(thread_count);
@@ -235,11 +248,17 @@ public:
             neighbors[n_index].push_back(j);
           });
 
-          for (auto &n : _data.by_group_type.fluid) {
-            for (auto const j : neighbors[n._index]) {
-              p.acceleration[i] -= ((l::template narray<nd_dtype::real>({2}) * p.rest_density[0] / (p.density[i] + n.density[j])) * p.surface_tension[0] * n.mass[j] * o::aat13_cohesion_h(o::norm((p.position[i] - n.position[j])), g.smoothing_scale[0]) * (p.position[i] - n.position[j]) / o::norm((p.position[i] - n.position[j])));
+          {// foreach fluid neighbor j
+            PRTCL_RT_LOG_TRACE_SCOPED("foreach_neighbor", "n=fluid");
 
-              p.acceleration[i] -= ((l::template narray<nd_dtype::real>({2}) * p.rest_density[0] / (p.density[i] + n.density[j])) * p.surface_tension[0] * (p.aat13_particle_normal[i] - n.aat13_particle_normal[j]));
+            for (auto &n : _data.by_group_type.fluid) {
+              PRTCL_RT_LOG_TRACE_PLOT_NUMBER("neighbor count", static_cast<int64_t>(neighbors[n._index].size()));
+
+              for (auto const j : neighbors[n._index]) {
+                p.acceleration[i] -= ((l::template narray<nd_dtype::real>({2}) * p.rest_density[0] / (p.density[i] + n.density[j])) * p.surface_tension[0] * n.mass[j] * o::aat13_cohesion_h(o::norm((p.position[i] - n.position[j])), g.smoothing_scale[0]) * (p.position[i] - n.position[j]) / o::norm((p.position[i] - n.position[j])));
+
+                p.acceleration[i] -= ((l::template narray<nd_dtype::real>({2}) * p.rest_density[0] / (p.density[i] + n.density[j])) * p.surface_tension[0] * (p.aat13_particle_normal[i] - n.aat13_particle_normal[j]));
+              }
             }
           }
         }

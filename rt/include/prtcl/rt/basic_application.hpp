@@ -1,6 +1,7 @@
 #pragma once
 
 #include <prtcl/rt/basic_model_policy.hpp>
+#include <prtcl/rt/basic_source.hpp>
 #include <prtcl/rt/basic_type_policy.hpp>
 #include <prtcl/rt/cli/load_groups.hpp>
 #include <prtcl/rt/eigen_math_policy.hpp>
@@ -9,6 +10,8 @@
 #include <prtcl/rt/geometry/triangle_mesh.hpp>
 #include <prtcl/rt/grouped_uniform_grid.hpp>
 #include <prtcl/rt/integral_grid.hpp>
+#include <prtcl/rt/log/logger.hpp>
+#include <prtcl/rt/log/trace.hpp>
 #include <prtcl/rt/math/kernel/cubic_spline_kernel.hpp>
 #include <prtcl/rt/math/kernel_math_policy_mixin.hpp>
 #include <prtcl/rt/math/mixed_math_policy.hpp>
@@ -34,6 +37,8 @@
 #include <cstdlib>
 
 #include <unistd.h>
+
+#include <boost/algorithm/cxx11/any_of.hpp>
 
 namespace prtcl::rt {
 
@@ -101,6 +106,10 @@ template <typename ModelPolicy_>
 void save_group(
     std::string output_dir, prtcl::rt::basic_group<ModelPolicy_> const &group,
     std::optional<size_t> frame = std::nullopt) {
+  PRTCL_RT_LOG_TRACE_SCOPED(
+      "save_group", "group=", group.get_name(),
+      " frame=", (frame ? std::to_string(frame.value()) : std::string{"-"}));
+
   auto file_name =
       std::string{group.get_name()} +
       (frame ? "." + std::to_string(frame.value()) : std::string{}) + ".vtk";
@@ -116,7 +125,12 @@ public:
   using base_type = basic_application;
 
   using model_policy = ModelPolicy_;
-  using model_type = prtcl::rt::basic_model<model_policy>;
+  using model_type = basic_model<model_policy>;
+  using group_type = basic_group<model_policy>;
+  using source_type = basic_source<model_policy>;
+
+  // using neighborhood_type =
+  //    prtcl::rt::neighbourhood<prtcl::rt::compact_n_search_grid<model_policy>>;
   using neighborhood_type =
       prtcl::rt::neighbourhood<prtcl::rt::grouped_uniform_grid<model_policy>>;
 
@@ -136,6 +150,47 @@ protected:
   virtual void on_frame_done(model_type &, neighborhood_type &) {}
 
 private:
+  void do_require_schemes(model_type &model) {
+    PRTCL_RT_LOG_TRACE_SCOPED("do_require_schemes");
+    this->on_require_schemes(model);
+  }
+
+  void do_load_schemes(model_type &model) {
+    PRTCL_RT_LOG_TRACE_SCOPED("do_load_schemes");
+    this->on_load_schemes(model);
+  }
+
+  void do_prepare_simulation(model_type &model, neighborhood_type &nhood) {
+    PRTCL_RT_LOG_TRACE_SCOPED("do_prepare_simulation");
+    this->on_prepare_simulation(model, nhood);
+  }
+
+  void do_prepare_frame(model_type &model, neighborhood_type &nhood) {
+    PRTCL_RT_LOG_TRACE_SCOPED("do_prepare_frame");
+    this->on_prepare_frame(model, nhood);
+  }
+
+  void do_prepare_step(model_type &model, neighborhood_type &nhood) {
+    PRTCL_RT_LOG_TRACE_SCOPED("do_prepare_step");
+    this->on_prepare_step(model, nhood);
+  }
+
+  void do_step(model_type &model, neighborhood_type &nhood) {
+    PRTCL_RT_LOG_TRACE_SCOPED("do_step");
+    this->on_step(model, nhood);
+  }
+
+  void do_step_done(model_type &model, neighborhood_type &nhood) {
+    PRTCL_RT_LOG_TRACE_SCOPED("do_step_done");
+    this->on_step_done(model, nhood);
+  }
+
+  void do_frame_done(model_type &model, neighborhood_type &nhood) {
+    PRTCL_RT_LOG_TRACE_SCOPED("do_frame_done");
+    this->on_frame_done(model, nhood);
+  }
+
+private:
   using type_policy = typename model_policy::type_policy;
   using math_policy = typename model_policy::math_policy;
 
@@ -151,18 +206,36 @@ private:
   using real = typename type_policy::real;
   using rvec = typename math_policy::template nd_dtype_t<nd_dtype::real, N>;
 
+  using scheduler_type = virtual_scheduler<real>;
+  using duration = typename scheduler_type::duration;
+
 public:
   int main(int argc_, char **argv_) {
+    scheduler_type scheduler;
+    auto &clock = scheduler.clock();
+
+    // collect command line arguments
     prtcl::rt::command_line_interface cli{argc_, argv_};
 
     // dump parameters and scene description
     boost::property_tree::write_json(std::cout, cli.name_value());
 
     model_type model;
+    std::vector<source_type> sources;
 
-    prtcl::rt::load_model_groups_from_cli(cli, model);
+    prtcl::rt::load_model_groups_from_cli(
+        cli, model, std::back_inserter(sources));
 
-    this->on_require_schemes(model);
+    log::info(
+        "app", "basic_application", "registered ", sources.size(),
+        " particle source(s)");
+
+    // hand over all sources to the scheduler
+    for (auto &source : sources)
+      scheduler.schedule(duration{.1}, source);
+    sources.clear();
+
+    this->do_require_schemes(model);
 
     // -----
 
@@ -188,8 +261,8 @@ public:
       // }}}
     }
 
-    auto position_in_domain = [lo = rvec{b_lo - 0.1 * (b_hi - b_lo)},
-                               hi = rvec{b_hi + 0.1 * (b_hi - b_lo)}] //
+    auto position_in_domain = [lo = rvec{b_lo - 5 * (b_hi - b_lo)},
+                               hi = rvec{b_hi + 5 * (b_hi - b_lo)}] //
         (auto const &x) {
           return (lo.array() <= x.array()).all() and
                  (x.array() <= hi.array()).all();
@@ -201,14 +274,11 @@ public:
     nhood.set_radius(math_policy::operations::kernel_support_radius(
         model.template get_global<nd_dtype::real>("smoothing_scale")[0]));
 
-    nhood.load(model);
-    nhood.update();
+    nhood.rebuild(model);
 
-    nhood.permute(model);
+    this->do_load_schemes(model);
 
-    this->on_load_schemes(model);
-
-    this->on_prepare_simulation(model, nhood);
+    this->do_prepare_simulation(model, nhood);
 
     auto cwd = ::prtcl::rt::filesystem::getcwd();
     auto output_dir = cwd + "/" + "output";
@@ -225,9 +295,6 @@ public:
 
     size_t const fps = 30;
     size_t const max_frame = 60 * fps;
-
-    auto clock = std::make_shared<prtcl::rt::virtual_clock<long double>>();
-    using duration = typename decltype(clock)::element_type::duration;
 
     auto const seconds_per_frame = (1.0L / fps);
 
@@ -247,12 +314,10 @@ public:
       if (frame == max_frame)
         break;
 
-      // permute the particles according to the neighborhood
-      if (0 == frame % 4)
-        nhood.permute(model);
-
       // remove particles by permuting them to the end and resizing the storage
       if (0 == frame % 4) {
+        bool particles_were_erased = false;
+
         // {{{ implementation
         for (size_t group_index = 0; group_index < model.groups().size();
              ++group_index) {
@@ -269,100 +334,57 @@ public:
             if (not position_in_domain(x[i]))
               remove_idxs.push_back(i);
 
-          group.erase(remove_idxs);
+          if (remove_idxs.size() > 0) {
+            group.erase(remove_idxs);
+            particles_were_erased = true;
+          }
         }
-
-        // reload the neighborhood structure after removing particles
-        nhood.load(model);
         // }}}
+
+        // in case particles were erased ...
+        if (particles_were_erased) {
+          // ... and reload the schemes
+          this->do_load_schemes(model);
+          // ... rebuild the neighborhood
+          nhood.rebuild(model);
+
+          for (auto &group : model.groups())
+            group.dirty(false);
+        }
       }
 
       auto h = static_cast<long double>(
           model.template get_global<nd_dtype::real>("smoothing_scale")[0]);
 
-      auto frame_done = clock->now() + duration{seconds_per_frame};
+      auto frame_done = clock.now() + duration{seconds_per_frame};
 
-      std::cout << "START OF FRAME #" << frame + 1 << '\n';
-      while (clock->now() < frame_done) {
-        // update the neighborhood
-        nhood.update();
+      while (clock.now() < frame_done) {
+        PRTCL_RT_LOG_TRACE_SCOPED(
+            "step", "t=", clock.now().time_since_epoch().count());
 
-        bool spawned = false;
+        if (boost::algorithm::any_of(model.groups(), [](auto const &group) {
+              return group.dirty();
+            })) {
+          this->do_load_schemes(model);
+          nhood.rebuild(model);
 
-        // spawn new particles from each groups sources
-        for (auto &group : model.groups()) {
-          // {{{ implementation
-          if (group.get_type() != "fluid")
-            continue;
-
-          spawned_positions.clear();
-          spawned_velocities.clear();
-
-          for (auto &source : group.sources()) {
-            rvec const v_init = source.get_initial_velocity()[0];
-
-            auto x = source.get_spawn_positions();
-            for (size_t i = 0; i < source.size(); ++i) {
-              real min_distance =
-                  c::template positive_infinity<nd_dtype::real>();
-              nhood.neighbors(
-                  x[i], [&model, &min_distance, &x, i](size_t g, size_t j) {
-                    auto &g_n = model.get_group(g);
-                    auto x_n =
-                        g_n.template get_varying<nd_dtype::real, N>("position");
-                    min_distance =
-                        std::min(min_distance, o::norm(x[i] - x_n[j]));
-                  });
-
-              if (min_distance > static_cast<real>(1.1L * h)) {
-                spawned_positions.emplace_back(x[i]);
-                spawned_velocities.emplace_back(v_init);
-              }
-            }
-          }
-
-          if (spawned_positions.size() == 0)
-            continue;
-
-          spawned = true;
-
-          auto indices = group.create(spawned_positions.size());
-
-          auto rho0 =
-              group.template get_uniform<nd_dtype::real>("rest_density")[0];
-          auto x = group.template get_varying<nd_dtype::real, N>("position");
-          auto v = group.template get_varying<nd_dtype::real, N>("velocity");
-          auto m = group.template get_varying<nd_dtype::real>("mass");
-
-          for (size_t i = 0; i < spawned_positions.size(); ++i) {
-            x[indices[i]] = spawned_positions[i];
-            v[indices[i]] = spawned_velocities[i];
-            m[indices[i]] =
-                static_cast<real>(prtcl::core::constpow(h, N)) * rho0;
-          }
-
-          // std::cerr << "spawned " << spawned_positions.size()
-          //          << " particles in group " << group.get_name() <<
-          //          std::endl;
-
-          // }}}
-        }
-
-        // if new particles were spawned, reload the neighborhood and the
-        // schemes
-        if (spawned) {
-          // std::cerr << "reloading neighborhood and schemes" << std::endl;
-
-          nhood.load(model);
+          for (auto &group : model.groups())
+            group.dirty(false);
+        } else {
+          // update the neighborhood
           nhood.update();
 
-          this->on_load_schemes(model);
+          // permute the particles according to the neighborhood
+          if (0 == frame % 8) {
+            nhood.permute(model);
+            nhood.update();
+          }
         }
 
         model.template get_global<nd_dtype::real>("maximum_speed")[0] = 0;
 
         // run all computational steps
-        this->on_step(model, nhood);
+        this->do_step(model, nhood);
 
         // fetch the maximum speed of any fluid particle
         auto max_speed = static_cast<long double>(
@@ -371,22 +393,27 @@ public:
         auto dt = static_cast<long double>(
             model.template get_global<nd_dtype::real>("time_step")[0]);
 
-        // advance the simulation clock
-        clock->advance(dt);
+        // advance the simulation clock and run schedule
+        clock.advance(dt);
+        scheduler.tick();
 
         // modify the timestep
+        auto next_time_step = max_time_step;
+        if (max_speed > 0)
+          next_time_step =
+              std::min<real>(max_cfl * h / max_speed, max_time_step);
         model.template get_global<nd_dtype::real>("time_step")[0] =
-            std::min<real>(max_cfl * h / max_speed, max_time_step);
+            next_time_step;
       }
 
-      std::cerr << "current max_speed = "
-                << model.template get_global<nd_dtype::real>("maximum_speed")[0]
-                << std::endl;
-      std::cerr << "current time_step = "
-                << model.template get_global<nd_dtype::real>("time_step")[0]
-                << std::endl;
+      log::debug(
+          "app", "main", "current max_speed = ",
+          model.template get_global<nd_dtype::real>("maximum_speed")[0]);
+      log::debug(
+          "app", "main", "current time_step = ",
+          model.template get_global<nd_dtype::real>("time_step")[0]);
 
-      std::cout << "CLOSE OF FRAME #" << frame + 1 << '\n' << '\n';
+      PRTCL_RT_LOG_TRACE_CFRAME_MARK();
     }
   }
 };

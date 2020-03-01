@@ -1,9 +1,12 @@
 
 #pragma once
 
+#include <prtcl/rt/common.hpp>
+
 #include <prtcl/rt/basic_group.hpp>
 #include <prtcl/rt/basic_model.hpp>
-#include <prtcl/rt/common.hpp>
+
+#include <prtcl/rt/log/trace.hpp>
 
 #include <vector>
 
@@ -138,6 +141,8 @@ public:
     using o = typename math_policy::operations;
 
     _Pragma("omp parallel") {
+      PRTCL_RT_LOG_TRACE_SCOPED("foreach_particle", "p=boundary");
+
       _Pragma("omp single") {
         auto const thread_count = static_cast<size_t>(omp_get_num_threads());
         _per_thread.resize(thread_count);
@@ -166,9 +171,15 @@ public:
 
           p.volume[i] = l::template narray<nd_dtype::real>({0});
 
-          for (auto &n : _data.by_group_type.boundary) {
-            for (auto const j : neighbors[n._index]) {
-              p.volume[i] += o::kernel_h((p.position[i] - n.position[j]), g.smoothing_scale[0]);
+          {// foreach boundary neighbor b_b
+            PRTCL_RT_LOG_TRACE_SCOPED("foreach_neighbor", "n=boundary");
+
+            for (auto &n : _data.by_group_type.boundary) {
+              PRTCL_RT_LOG_TRACE_PLOT_NUMBER("neighbor count", static_cast<int64_t>(neighbors[n._index].size()));
+
+              for (auto const j : neighbors[n._index]) {
+                p.volume[i] += o::kernel_h((p.position[i] - n.position[j]), g.smoothing_scale[0]);
+              }
             }
           }
 

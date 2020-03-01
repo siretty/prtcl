@@ -8,6 +8,8 @@
 #include <prtcl/schemes/sesph.hpp>
 #include <prtcl/schemes/symplectic_euler.hpp>
 
+#include <iostream>
+
 template <typename ModelPolicy_>
 class sesph_application final
     : public prtcl::rt::basic_application<ModelPolicy_> {
@@ -89,7 +91,9 @@ using model_policy = prtcl::rt::basic_model_policy<
     prtcl::rt::vector_data_policy, N>;
 
 int main(int argc_, char **argv_) {
-  sesph_application<model_policy> application;
+  std::cerr << "PRESS [ENTER] TO START";
+  std::getchar();
 
+  sesph_application<model_policy> application;
   application.main(argc_, argv_);
 }

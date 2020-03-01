@@ -2,7 +2,7 @@
   "name_value": {
     "model": {
       "parameters": {
-        "time_step": 0.0001
+        "maximum_time_step": 0.0002
       },
       "group": {
         "f": {
@@ -10,12 +10,18 @@
           "tag": "dynamic",
           "tag": "density",
           "parameters": {
-            "surface_tension": 1,
+            "surface_tension": 0.1,
             "viscosity": 1
           },
           "source": {
-            "center": { "0": 0, "1": 30, "2": 0, "adaptive": true },
-            "velocity": { "0": 0, "1": -10, "2": 0, "adaptive": true }
+            "center": { "0": -18, "1": 60, "2": -18, "adaptive": true },
+            "velocity": { "0": 0, "1": -70, "2": 70, "adaptive": true },
+            "count": 10000
+          },
+          "source": {
+            "center": { "0": 18, "1": 60, "2": 18, "adaptive": true },
+            "velocity": { "0": -70, "1": -70, "2": 0, "adaptive": true },
+            "count": 10000
           }
         },
         "b": {
