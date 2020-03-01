@@ -3,6 +3,8 @@
 #include "command_line_interface.hpp"
 
 #include "../basic_source.hpp"
+#include "../initialize_particles.hpp"
+#include "../log/logger.hpp"
 #include "../sample_surface.hpp"
 #include "../sample_volume.hpp"
 
@@ -278,11 +280,18 @@ void load_model_groups_from_cli(
     // fetch the group type with a default
     auto group_type = group_tree.template get<std::string>("type", "particle");
 
-    std::cerr << "group " << group_name << std::endl;
-    std::cerr << "  type " << group_type << std::endl;
+    log::debug(
+        "app", "setup_model", "group ", group_name, " with type ", group_type);
 
     // add the group to the model
     auto &group = model_.add_group(group_name, group_type);
+
+    // add the group tags
+    for (auto [it, last] = group_tree.equal_range("tag"); it != last; ++it)
+      group.add_tag(it->second.template get_value<std::string>());
+
+    // initialize the group fields (without initializing any particles)
+    initialize_particles(model_, group, boost::irange(0, 0));
 
     { // load parameters for group
       // TODO: HACK: implement proper defaults
@@ -294,10 +303,6 @@ void load_model_groups_from_cli(
       if (group_type == "boundary")
         handle_boundary_parameters(params, group);
     }
-
-    // add the group tags
-    for (auto [it, last] = group_tree.equal_range("tag"); it != last; ++it)
-      group.add_tag(it->second.template get_value<std::string>());
 
     // add the position field to the group
     group.template add_varying<nd_dtype::real, N>("position");
