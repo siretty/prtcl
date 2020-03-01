@@ -21,7 +21,7 @@ namespace prtcl { namespace schemes {
 template <
   typename ModelPolicy_
 >
-class sesph {
+class he14 {
 public:
   using model_policy = ModelPolicy_;
   using type_policy = typename model_policy::type_policy;
@@ -41,23 +41,14 @@ public:
 
 private:
   struct global_data {
-    nd_dtype_data_ref_t<nd_dtype::real, N> gravity;
     nd_dtype_data_ref_t<nd_dtype::real> smoothing_scale;
-    nd_dtype_data_ref_t<nd_dtype::real> density;
-    nd_dtype_data_ref_t<nd_dtype::real, N> position;
 
     static void _require(model_type &m_) {
-      m_.template add_global<nd_dtype::real, N>("gravity");
       m_.template add_global<nd_dtype::real>("smoothing_scale");
-      m_.template add_global<nd_dtype::real>("density");
-      m_.template add_global<nd_dtype::real, N>("position");
     }
 
     void _load(model_type const &m_) {
-      gravity = m_.template get_global<nd_dtype::real, N>("gravity");
       smoothing_scale = m_.template get_global<nd_dtype::real>("smoothing_scale");
-      density = m_.template get_global<nd_dtype::real>("density");
-      position = m_.template get_global<nd_dtype::real, N>("position");
     }
   };
 
@@ -69,30 +60,26 @@ private:
     size_t _index;
 
     // uniform fields
-    nd_dtype_data_ref_t<nd_dtype::real> compressibility;
-    nd_dtype_data_ref_t<nd_dtype::real> viscosity;
-    nd_dtype_data_ref_t<nd_dtype::real> rest_density;
+    nd_dtype_data_ref_t<nd_dtype::real> surface_tension;
 
     // varying fields
     nd_dtype_data_ref_t<nd_dtype::real, N> acceleration;
+    nd_dtype_data_ref_t<nd_dtype::real> he14_color_field;
+    nd_dtype_data_ref_t<nd_dtype::real, N> he14_color_field_gradient;
     nd_dtype_data_ref_t<nd_dtype::real> mass;
-    nd_dtype_data_ref_t<nd_dtype::real> pressure;
     nd_dtype_data_ref_t<nd_dtype::real> density;
-    nd_dtype_data_ref_t<nd_dtype::real, N> velocity;
     nd_dtype_data_ref_t<nd_dtype::real, N> position;
 
     static void _require(group_type &g_) {
       // uniform fields
-      g_.template add_uniform<nd_dtype::real>("compressibility");
-      g_.template add_uniform<nd_dtype::real>("viscosity");
-      g_.template add_uniform<nd_dtype::real>("rest_density");
+      g_.template add_uniform<nd_dtype::real>("surface_tension");
 
       // varying fields
       g_.template add_varying<nd_dtype::real, N>("acceleration");
+      g_.template add_varying<nd_dtype::real>("he14_color_field");
+      g_.template add_varying<nd_dtype::real, N>("he14_color_field_gradient");
       g_.template add_varying<nd_dtype::real>("mass");
-      g_.template add_varying<nd_dtype::real>("pressure");
       g_.template add_varying<nd_dtype::real>("density");
-      g_.template add_varying<nd_dtype::real, N>("velocity");
       g_.template add_varying<nd_dtype::real, N>("position");
     }
 
@@ -100,51 +87,14 @@ private:
       _count = g_.size();
 
       // uniform fields
-      compressibility = g_.template get_uniform<nd_dtype::real>("compressibility");
-      viscosity = g_.template get_uniform<nd_dtype::real>("viscosity");
-      rest_density = g_.template get_uniform<nd_dtype::real>("rest_density");
+      surface_tension = g_.template get_uniform<nd_dtype::real>("surface_tension");
 
       // varying fields
       acceleration = g_.template get_varying<nd_dtype::real, N>("acceleration");
+      he14_color_field = g_.template get_varying<nd_dtype::real>("he14_color_field");
+      he14_color_field_gradient = g_.template get_varying<nd_dtype::real, N>("he14_color_field_gradient");
       mass = g_.template get_varying<nd_dtype::real>("mass");
-      pressure = g_.template get_varying<nd_dtype::real>("pressure");
       density = g_.template get_varying<nd_dtype::real>("density");
-      velocity = g_.template get_varying<nd_dtype::real, N>("velocity");
-      position = g_.template get_varying<nd_dtype::real, N>("position");
-    }
-  };
-
-private:
-  struct boundary_data {
-    // particle count of the selected group
-    size_t _count;
-    // index of the selected group
-    size_t _index;
-
-    // uniform fields
-    nd_dtype_data_ref_t<nd_dtype::real> viscosity;
-
-    // varying fields
-    nd_dtype_data_ref_t<nd_dtype::real> volume;
-    nd_dtype_data_ref_t<nd_dtype::real, N> position;
-
-    static void _require(group_type &g_) {
-      // uniform fields
-      g_.template add_uniform<nd_dtype::real>("viscosity");
-
-      // varying fields
-      g_.template add_varying<nd_dtype::real>("volume");
-      g_.template add_varying<nd_dtype::real, N>("position");
-    }
-
-    void _load(group_type const &g_) {
-      _count = g_.size();
-
-      // uniform fields
-      viscosity = g_.template get_uniform<nd_dtype::real>("viscosity");
-
-      // varying fields
-      volume = g_.template get_varying<nd_dtype::real>("volume");
       position = g_.template get_varying<nd_dtype::real, N>("position");
     }
   };
@@ -157,9 +107,6 @@ public:
       if ((group.get_type() == "fluid") and (true)) {
         fluid_data::_require(group);
       }
-      if ((group.get_type() == "boundary") and (true)) {
-        boundary_data::_require(group);
-      }
     }
   }
   
@@ -170,7 +117,6 @@ public:
     _data.global._load(m_);
 
     _data.by_group_type.fluid.clear();
-    _data.by_group_type.boundary.clear();
 
     auto groups = m_.groups();
     for (size_t i = 0; i < groups.size(); ++i) {
@@ -178,12 +124,6 @@ public:
 
       if ((group.get_type() == "fluid") and (true)) {
         auto &data = _data.by_group_type.fluid.emplace_back();
-        data._load(group);
-        data._index = i;
-      }
-
-      if ((group.get_type() == "boundary") and (true)) {
-        auto &data = _data.by_group_type.boundary.emplace_back();
         data._load(group);
         data._index = i;
       }
@@ -195,7 +135,6 @@ private:
     global_data global;
     struct {
       std::vector<fluid_data> fluid;
-      std::vector<boundary_data> boundary;
     } by_group_type;
   } _data;
 
@@ -210,7 +149,7 @@ private:
 
 public:
   template <typename NHood_>
-  void compute_density_and_pressure(NHood_ const &nhood_) {
+  void compute_color_field(NHood_ const &nhood_) {
     // alias for the global data
     auto &g = _data.global;
 
@@ -246,21 +185,63 @@ public:
             neighbors[n_index].push_back(j);
           });
 
-          p.density[i] = l::template narray<nd_dtype::real>({0});
+          p.he14_color_field[i] = (p.mass[i] / p.density[i] * o::kernel_h(c::template zeros<nd_dtype::real, N>(), g.smoothing_scale[0]));
 
           for (auto &n : _data.by_group_type.fluid) {
             for (auto const j : neighbors[n._index]) {
-              p.density[i] += (n.mass[j] * o::kernel_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
+              p.he14_color_field[i] += (n.mass[j] / n.density[j] * o::kernel_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
             }
           }
+        }
+      }
+    } // pragma omp parallel
+  }
 
-          for (auto &n : _data.by_group_type.boundary) {
+public:
+  template <typename NHood_>
+  void compute_color_field_gradient(NHood_ const &nhood_) {
+    // alias for the global data
+    auto &g = _data.global;
+
+    // alias for the math_policy member types
+    using l = typename math_policy::literals;
+    using c = typename math_policy::constants;
+    using o = typename math_policy::operations;
+
+    _Pragma("omp parallel") {
+      _Pragma("omp single") {
+        auto const thread_count = static_cast<size_t>(omp_get_num_threads());
+        _per_thread.resize(thread_count);
+      } // pragma omp single
+
+      auto const thread_index = static_cast<size_t>(omp_get_thread_num());
+
+      // select and resize the neighbor storage for the current thread
+      auto &neighbors = _per_thread[thread_index].neighbors;
+      neighbors.resize(_group_count);
+
+      for (auto &pgn : neighbors)
+        pgn.reserve(100);
+
+      for (auto &p : _data.by_group_type.fluid) {
+#pragma omp for
+        for (size_t i = 0; i < p._count; ++i) {
+          // clean up the neighbor storage
+          for (auto &pgn : neighbors)
+            pgn.clear();
+
+          // find all neighbors of (p, i)
+          nhood_.neighbors(p._index, i, [&neighbors](auto n_index, auto j) {
+            neighbors[n_index].push_back(j);
+          });
+
+          p.he14_color_field_gradient[i] = c::template zeros<nd_dtype::real, N>();
+
+          for (auto &n : _data.by_group_type.fluid) {
             for (auto const j : neighbors[n._index]) {
-              p.density[i] += (n.volume[j] * p.rest_density[0] * o::kernel_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
+              p.he14_color_field_gradient[i] += (n.mass[j] / n.density[j] * n.he14_color_field[j] * o::kernel_gradient_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
             }
           }
-
-          p.pressure[i] = (p.compressibility[0] * o::max(l::template narray<nd_dtype::real>({0}), ((p.density[i] / p.rest_density[0]) - l::template narray<nd_dtype::real>({1}))));
         }
       }
     } // pragma omp parallel
@@ -304,21 +285,9 @@ public:
             neighbors[n_index].push_back(j);
           });
 
-          p.acceleration[i] = g.gravity[0];
-
           for (auto &n : _data.by_group_type.fluid) {
             for (auto const j : neighbors[n._index]) {
-              p.acceleration[i] -= (((p.viscosity[0] / g.smoothing_scale[0]) * (n.mass[j] / n.density[j]) * (p.velocity[i] - n.velocity[j])) * o::kernel_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
-
-              p.acceleration[i] -= (n.mass[j] * ((p.pressure[i] / (p.density[i] * p.density[i])) + (n.pressure[j] / (n.density[j] * n.density[j]))) * o::kernel_gradient_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
-            }
-          }
-
-          for (auto &n : _data.by_group_type.boundary) {
-            for (auto const j : neighbors[n._index]) {
-              p.acceleration[i] -= (((n.viscosity[0] / g.smoothing_scale[0]) * (p.rest_density[0] * n.volume[j] / p.density[i]) * p.velocity[i]) * o::kernel_h((p.position[i] - p.position[i]), g.smoothing_scale[0]));
-
-              p.acceleration[i] -= (l::template narray<nd_dtype::real>({0.7}) * n.volume[j] * p.rest_density[0] * (l::template narray<nd_dtype::real>({2}) * p.pressure[i] / (p.density[i] * p.density[i])) * o::kernel_gradient_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
+              p.acceleration[i] += ((l::template narray<nd_dtype::real>({0.25}) * p.surface_tension[0] / p.density[i]) * n.mass[j] / n.density[j] * (o::norm_squared(p.he14_color_field_gradient[i]) + o::norm_squared(n.he14_color_field_gradient[j])) * o::kernel_gradient_h((p.position[i] - n.position[j]), g.smoothing_scale[0]));
             }
           }
         }

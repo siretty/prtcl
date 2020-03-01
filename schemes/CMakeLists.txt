@@ -37,6 +37,8 @@ prtcl_generate_scheme_header( test )
 prtcl_generate_scheme_header( boundary )
 prtcl_generate_scheme_header( sesph )
 prtcl_generate_scheme_header( symplectic_euler )
+prtcl_generate_scheme_header( aat13 )
+prtcl_generate_scheme_header( he14 )
 
 
 prtcl_add_library(
@@ -48,6 +50,8 @@ prtcl_add_library(
     ${_INC}/prtcl/schemes/boundary.hpp
     ${_INC}/prtcl/schemes/sesph.hpp
     ${_INC}/prtcl/schemes/symplectic_euler.hpp
+    ${_INC}/prtcl/schemes/aat13.hpp
+    ${_INC}/prtcl/schemes/he14.hpp
 )
 target_include_directories( prtcl-schemes INTERFACE ${_INC} )
 target_link_libraries( prtcl-schemes

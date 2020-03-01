@@ -9,13 +9,17 @@
           "type": "fluid",
           "tag": "dynamic",
           "tag": "density",
+          "parameters": {
+            "surface_tension": 1,
+            "viscosity": 1
+          },
           "sample": {
             "volume": {
               "what": "triangle_mesh",
               "file_type": "obj",
-              "file_path": "share/models/unitsphere.obj",
-              "scaling" :     { "0": 16, "1": 16, "2": 16, "adaptive": true },
-              "translation" : { "0": 16, "1": 16, "2": 16, "adaptive": true }
+              "file_path": "share/models/unitcube.obj",
+              "scaling" :     { "0": 8, "1": 24, "2": 8, "adaptive": true },
+              "translation" : { "0": 8, "1": 8, "2": 8, "adaptive": true }
             }
           }
         },
@@ -23,12 +27,15 @@
           "type": "boundary",
           "tag": "static",
           "tag": "volume",
+          "parameters": {
+            "viscosity": 0.01
+          },
           "sample": {
             "surface": {
               "what": "triangle_mesh",
               "file_type": "obj",
               "file_path": "share/models/unitcube.obj",
-              "scaling" :     { "0": 36, "1": 68, "2": 36, "adaptive": true },
+              "scaling" :     { "0": 20, "1": 36, "2": 20, "adaptive": true },
               "translation" : { "0": -2, "1": -2, "2": -2, "adaptive": true }
             }
           }
@@ -37,3 +44,4 @@
     }
   }
 }
+
