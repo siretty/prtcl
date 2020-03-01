@@ -21,6 +21,8 @@
 
 #include <boost/range/algorithm/copy.hpp>
 
+#include <boost/math/constants/constants.hpp>
+
 #include <omp.h>
 
 namespace prtcl::rt {
@@ -92,6 +94,12 @@ public:
       throw "not implemented yet";
     }
 
+    // get pi as real
+    auto const pi = boost::math::constants::pi<real>();
+    // compute the spawning twistangle
+    auto const twist_step = 2 * _radius * pi / h;
+    real const twist = _age * twist_step;
+
     // sample from the plane through origin with normal orientation
     if constexpr (N == 3) {
       std::array<rvec, 3> unit_vectors = {
@@ -117,7 +125,8 @@ public:
       for (int i1 = -half_extent; i1 <= half_extent; ++i1) {
         for (int i2 = -half_extent; i2 <= half_extent; ++i2) {
           // sample a regular grid
-          rvec local_x = (i1 * h) * d1 + (i2 * h) * d2;
+          rvec local_x =
+              (i1 * h) * d1 * std::cos(twist) + (i2 * h) * d2 * std::sin(twist);
           // filter out any positions not inside the radius
           if (o::norm(local_x) > _radius)
             continue;
@@ -150,6 +159,9 @@ public:
         "app", "source", "created ", indices.size(), " of ", _remaining,
         " particles in group ", _target_group->get_name());
 
+    // increase age
+    ++_age;
+
     // reschedule if this source is not finished
     if (_remaining > 0) {
       auto after = _regular_spawn_interval - delay;
@@ -168,6 +180,7 @@ private:
   real _radius;
   size_t _remaining;
   std::vector<rvec> _position;
+  size_t _age = 0;
 
   duration _regular_spawn_interval;
 };
