@@ -29,10 +29,15 @@ void initialize_particles(
     auto const a =
         group.template add_varying<nd_dtype::real, N>("acceleration");
 
+    auto const t_b =
+        group.template add_varying<nd_dtype::real>("time_of_birth");
+
     for (auto const i : indices) {
       x[i] = c::template zeros<nd_dtype::real, N>();
       v[i] = c::template zeros<nd_dtype::real, N>();
       a[i] = c::template zeros<nd_dtype::real, N>();
+
+      t_b[i] = c::template zeros<nd_dtype::real>();
     }
   }
 

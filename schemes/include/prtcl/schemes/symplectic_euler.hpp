@@ -44,17 +44,23 @@ public:
 
 private:
   struct global_data {
+    nd_dtype_data_ref_t<nd_dtype::real> fade_duration;
     nd_dtype_data_ref_t<nd_dtype::real> time_step;
     nd_dtype_data_ref_t<nd_dtype::real> maximum_speed;
+    nd_dtype_data_ref_t<nd_dtype::real> current_time;
 
     static void _require(model_type &m_) {
+      m_.template add_global<nd_dtype::real>("fade_duration");
       m_.template add_global<nd_dtype::real>("time_step");
       m_.template add_global<nd_dtype::real>("maximum_speed");
+      m_.template add_global<nd_dtype::real>("current_time");
     }
 
     void _load(model_type const &m_) {
+      fade_duration = m_.template get_global<nd_dtype::real>("fade_duration");
       time_step = m_.template get_global<nd_dtype::real>("time_step");
       maximum_speed = m_.template get_global<nd_dtype::real>("maximum_speed");
+      current_time = m_.template get_global<nd_dtype::real>("current_time");
     }
   };
 
@@ -67,12 +73,14 @@ private:
 
     // varying fields
     nd_dtype_data_ref_t<nd_dtype::real, N> acceleration;
+    nd_dtype_data_ref_t<nd_dtype::real> time_of_birth;
     nd_dtype_data_ref_t<nd_dtype::real, N> velocity;
     nd_dtype_data_ref_t<nd_dtype::real, N> position;
 
     static void _require(group_type &g_) {
       // varying fields
       g_.template add_varying<nd_dtype::real, N>("acceleration");
+      g_.template add_varying<nd_dtype::real>("time_of_birth");
       g_.template add_varying<nd_dtype::real, N>("velocity");
       g_.template add_varying<nd_dtype::real, N>("position");
     }
@@ -82,6 +90,7 @@ private:
 
       // varying fields
       acceleration = g_.template get_varying<nd_dtype::real, N>("acceleration");
+      time_of_birth = g_.template get_varying<nd_dtype::real>("time_of_birth");
       velocity = g_.template get_varying<nd_dtype::real, N>("velocity");
       position = g_.template get_varying<nd_dtype::real, N>("position");
     }
@@ -166,7 +175,7 @@ public:
         for (size_t i = 0; i < p._count; ++i) {
           // no neighbours neccessary
 
-          p.velocity[i] += (g.time_step[0] * p.acceleration[i]);
+          p.velocity[i] += (g.time_step[0] * p.acceleration[i] * o::smoothstep(((g.current_time[0] - p.time_of_birth[i]) / g.fade_duration[0])));
 
           p.position[i] += (g.time_step[0] * p.velocity[i]);
 

@@ -303,6 +303,12 @@ public:
     auto const max_time_step =
         model.template get_global<nd_dtype::real>("maximum_time_step")[0];
 
+    // set the current time and the fade duration
+    model.template add_global<nd_dtype::real>("current_time")[0] =
+        clock.now().time_since_epoch().count();
+    model.template add_global<nd_dtype::real>("fade_duration")[0] =
+        static_cast<real>(2 * seconds_per_frame);
+
     for (size_t frame = 0; frame <= max_frame; ++frame) {
       for (auto &group : model.groups()) {
         if ("fluid" != group.get_type())
@@ -404,6 +410,10 @@ public:
               std::min<real>(max_cfl * h / max_speed, max_time_step);
         model.template get_global<nd_dtype::real>("time_step")[0] =
             next_time_step;
+
+        // set the current time
+        model.template get_global<nd_dtype::real>("current_time")[0] =
+            clock.now().time_since_epoch().count();
       }
 
       log::debug(

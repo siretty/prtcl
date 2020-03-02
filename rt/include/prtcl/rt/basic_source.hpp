@@ -94,12 +94,6 @@ public:
       throw "not implemented yet";
     }
 
-    // get pi as real
-    auto const pi = boost::math::constants::pi<real>();
-    // compute the spawning twistangle
-    auto const twist_step = 2 * _radius * pi / h;
-    real const twist = _age * twist_step;
-
     // sample from the plane through origin with normal orientation
     if constexpr (N == 3) {
       std::array<rvec, 3> unit_vectors = {
@@ -121,12 +115,27 @@ public:
       rvec const d1 = o::normalized(o::cross(orientation, tmp));
       rvec const d2 = o::normalized(o::cross(orientation, d1));
 
+      using rvec2 =
+          typename math_policy::template nd_dtype_t<nd_dtype::real, 2>;
+      using rmat2 =
+          typename math_policy::template nd_dtype_t<nd_dtype::real, 2, 2>;
+
+      // get pi as real
+      auto const pi = boost::math::constants::pi<real>();
+      // compute the spawning twistangle
+      auto const twist_step = 2 * pi * (2 * _radius * pi) / h;
+      real const twist = _age * twist_step;
+      // compute the corresponding rotation matrix
+      rmat2 const plane_rotation = l::template narray<nd_dtype::real, 2, 2>(
+          {{{std::cos(twist), -std::sin(twist)},
+            {std::sin(twist), std::cos(twist)}}});
+
       int const half_extent = std::floor(_radius / h);
       for (int i1 = -half_extent; i1 <= half_extent; ++i1) {
         for (int i2 = -half_extent; i2 <= half_extent; ++i2) {
+          rvec2 const plane_x = plane_rotation * rvec2{i1 * h, i2 * h};
           // sample a regular grid
-          rvec local_x =
-              (i1 * h) * d1 * std::cos(twist) + (i2 * h) * d2 * std::sin(twist);
+          rvec local_x = plane_x[0] * d1 + plane_x[1] * d2;
           // filter out any positions not inside the radius
           if (o::norm(local_x) > _radius)
             continue;
@@ -144,11 +153,14 @@ public:
     auto x = _target_group->template get_varying<nd_dtype::real, N>("position");
     auto v = _target_group->template get_varying<nd_dtype::real, N>("velocity");
     auto m = _target_group->template get_varying<nd_dtype::real>("mass");
+    auto t_b =
+        _target_group->template get_varying<nd_dtype::real>("time_of_birth");
     // initialize created particles
     for (size_t i = 0; i < _position.size(); ++i) {
       x[indices[i]] = _position[i];
       v[indices[i]] = _velocity;
       m[indices[i]] = static_cast<real>(prtcl::core::constpow(h, N)) * rho0;
+      t_b[indices[i]] = scheduler_.clock().now().time_since_epoch().count();
     }
 
     // adjust the remaining particle count
@@ -178,7 +190,7 @@ private:
   group_type *_target_group;
   rvec _center, _velocity;
   real _radius;
-  size_t _remaining;
+  ssize_t _remaining;
   std::vector<rvec> _position;
   size_t _age = 0;
 

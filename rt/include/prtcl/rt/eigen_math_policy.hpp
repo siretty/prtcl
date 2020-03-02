@@ -210,6 +210,12 @@ public:
     static decltype(auto) solve_sd(A_ &&a_, B_ &&b_) {
       return std::forward<A_>(a_).ldlt().solve(std::forward<B_>(b_)).eval();
     }
+
+    template <typename Arg_> static decltype(auto) smoothstep(Arg_ &&arg) {
+      real const x =
+          std::min(std::max(std::forward<Arg_>(arg), real{0}), real{1});
+      return x * x * (3 - 2 * x);
+    }
   };
 
 public:
