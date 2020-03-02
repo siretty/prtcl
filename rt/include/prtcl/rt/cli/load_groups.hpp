@@ -250,7 +250,7 @@ void load_model_groups_from_cli(
     rvec velocity =
         get_vector(tree, "velocity", c::template ones<nd_dtype::real, N>(), h);
     real radius = tree.get("radius", 3 * h);
-    size_t remaining = tree.get("count", size_t{10000});
+    ssize_t remaining = tree.get("count", ssize_t{10000});
 
     (source_it++) =
         source_type{model_, group, center, velocity, radius, remaining};

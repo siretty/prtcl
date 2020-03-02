@@ -71,7 +71,7 @@ public:
 
   basic_source(
       model_type &model, group_type &target_group, rvec center, rvec velocity,
-      real radius, size_t remaining)
+      real radius, ssize_t remaining)
       : _model{&model}, _target_group{&target_group}, _center{center},
         _velocity{velocity}, _radius{radius}, _remaining{remaining} {
     // compute the (virtual) time between spawns
