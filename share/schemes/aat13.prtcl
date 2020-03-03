@@ -1,17 +1,21 @@
 
 let fluid = particle_selector types {fluid} tags {};
+let boundary = particle_selector types {boundary} tags {};
 
 let x = field position : varying real[];
 let a = field acceleration : varying real[];
 
 let rho = field density : varying real;
 let m = field mass : varying real;
+let V = field volume : varying real;
 
 let rho0 = field rest_density : uniform real;
 
 let h = field smoothing_scale : global real;
 
 let gamma = field surface_tension : uniform real;
+let beta = field adhesion : uniform real;
+
 let n = field aat13_particle_normal : varying real[];
 
 procedure compute_particle_normal {
@@ -27,9 +31,39 @@ procedure compute_acceleration {
   foreach fluid particle i {
     foreach fluid neighbor j {
       // cohesion
-      compute a[i] -= (2 * rho0[i] / (rho[i] + rho[j])) * gamma[i] * m[j] * aat13_cohesion_h(norm(x[i] - x[j]), h[_]) * (x[i] - x[j]) / norm(x[i] - x[j]);
+      compute a[i] -=
+          (
+              (2 * rho0[i] / (rho[i] + rho[j]))
+            *
+              gamma[i]
+            *
+              m[j]
+            *
+              (x[i] - x[j]) * reciprocal_or_zero(norm(x[i] - x[j]), 1e-9)
+          )
+        *
+          aat13_cohesion_h(norm(x[i] - x[j]), h[_]);
       // curvature
-      compute a[i] -= (2 * rho0[i] / (rho[i] + rho[j])) * gamma[i] * (n[i] - n[j]);
+      compute a[i] -=
+          (
+              (2 * rho0[i] / (rho[i] + rho[j]))
+            *
+              gamma[i]
+          )
+        *
+          (n[i] - n[j]);
+    }
+    foreach boundary neighbor j {
+      compute a[i] -=
+          (
+              beta[j]
+            *
+              rho0[i] * V[j]
+            *
+              (x[i] - x[j]) * reciprocal_or_zero(norm(x[i] - x[j]), 1e-9)
+          )
+        *
+          aat13_adhesion_h(norm(x[i] - x[j]), h[_]);
     }
   }
 }

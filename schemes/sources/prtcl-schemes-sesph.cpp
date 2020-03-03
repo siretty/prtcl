@@ -9,6 +9,7 @@
 #include <prtcl/schemes/symplectic_euler.hpp>
 
 #include <iostream>
+#include <string_view>
 
 template <typename ModelPolicy_>
 class sesph_application final
@@ -54,15 +55,26 @@ public:
     g[0][1] = -9.81;
   }
 
+#define SURFACE_TENSION_AAT13 1
+#define SURFACE_TENSION_He14 2
+
+#define SURFACE_TENSION SURFACE_TENSION_AAT13
+
   void on_step(model_type &, neighborhood_type &nhood) override {
     sesph.compute_density_and_pressure(nhood);
 
+    std::string const st = "AAT13";
+
+#if SURFACE_TENSION == SURFACE_TENSION_AAT13
     // AAT13: Surface Tension
-    //surface_tension.compute_particle_normal(nhood);
+    surface_tension.compute_particle_normal(nhood);
+#endif
+#if SURFACE_TENSION == SURFACE_TENSION_He14
     // He14: Surface Tension
     surface_tension.compute_color_field(nhood);
     surface_tension.compute_color_field_gradient(nhood);
-    
+#endif
+
     sesph.compute_acceleration(nhood);
     // AAT13 + He14: Surface Tension
     surface_tension.compute_acceleration(nhood);
@@ -73,8 +85,12 @@ public:
   prtcl::schemes::boundary<model_policy> boundary;
   prtcl::schemes::sesph<model_policy> sesph;
   prtcl::schemes::symplectic_euler<model_policy> advect;
-  //prtcl::schemes::aat13<model_policy> surface_tension;
+#if SURFACE_TENSION == SURFACE_TENSION_AAT13
+  prtcl::schemes::aat13<model_policy> surface_tension;
+#endif
+#if SURFACE_TENSION == SURFACE_TENSION_He14
   prtcl::schemes::he14<model_policy> surface_tension;
+#endif
 };
 
 constexpr size_t N = 3;

@@ -10,8 +10,8 @@
           "tag": "dynamic",
           "tag": "density",
           "parameters": {
-            "surface_tension": 1,
-            "viscosity": 1
+            "surface_tension": 3,
+            "viscosity": 0.001
           },
           "source": {
             "center": { "0": -18, "1": 60, "2": -18, "adaptive": true },
@@ -29,8 +29,8 @@
           "tag": "static",
           "tag": "volume",
           "parameters": {
-            "surface_tension": 1,
-            "viscosity": 0.1
+            "adhesion": 2,
+            "viscosity": 0.01
           },
           "sample": {
             "surface": {

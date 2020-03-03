@@ -216,6 +216,15 @@ public:
           std::min(std::max(std::forward<Arg_>(arg), real{0}), real{1});
       return x * x * (3 - 2 * x);
     }
+
+    // TODO: this may not be neccessary when
+    template <typename Arg_, typename Eps_>
+    static real reciprocal_or_zero(Arg_ &&arg, Eps_ &&eps) {
+      if (real const x = std::forward<Arg_>(arg); x > std::forward<Eps_>(eps))
+        return 1 / x;
+      else
+        return real{0};
+    }
   };
 
 public:

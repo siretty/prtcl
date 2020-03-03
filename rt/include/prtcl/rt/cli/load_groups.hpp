@@ -100,6 +100,8 @@ void load_model_groups_from_cli(
 
   auto handle_boundary_parameters = [&model_](auto tree, auto &group) {
     // {{{ implementation
+    group.template add_uniform<nd_dtype::real>("adhesion")[0] =
+        tree.get("adhesion", static_cast<real>(0));
     group.template add_uniform<nd_dtype::real>("viscosity")[0] =
         tree.get("viscosity", static_cast<real>(0.1));
     // }}}

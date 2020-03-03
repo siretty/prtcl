@@ -1,11 +1,13 @@
 
 let fluid = particle_selector types {fluid} tags {};
+let boundary = particle_selector types {boundary} tags {};
 
 let x = field position : varying real[];
 let a = field acceleration : varying real[];
 
 let rho = field density : varying real;
 let m = field mass : varying real;
+let V = field volume : varying real;
 
 let rho0 = field rest_density : uniform real;
 
@@ -30,6 +32,7 @@ procedure compute_color_field_gradient {
     foreach fluid neighbor j {
       compute d[i] += m[j] / rho[j] * c[j] * kernel_gradient_h(x[i] - x[j], h[_]);
     }
+    compute d[i] /= c[i];
   }
 }
 
@@ -37,6 +40,9 @@ procedure compute_acceleration {
   foreach fluid particle i {
     foreach fluid neighbor j {
       compute a[i] += (0.25 * k[i] / rho[i]) * m[j] / rho[j] * (norm_squared(d[i]) + norm_squared(d[j])) * kernel_gradient_h(x[i] - x[j], h[_]);
+    }
+    foreach boundary neighbor j {
+      compute a[i] += (0.25 * k[j] / rho[i]) * V[j] * norm_squared(d[i]) * kernel_gradient_h(x[i] - x[j], h[_]);
     }
   }
 }
