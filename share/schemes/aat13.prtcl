@@ -27,7 +27,7 @@ procedure compute_particle_normal {
   }
 }
 
-procedure compute_acceleration {
+procedure accumulate_acceleration {
   foreach fluid particle i {
     foreach fluid neighbor j {
       // cohesion

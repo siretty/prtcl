@@ -181,8 +181,13 @@ public:
           .matrix();
     }
 
+    template <typename Derived_>
+    static decltype(auto) cabs(Eigen::ArrayBase<Derived_> arg_) {
+      return arg_.derived().abs();
+    }
+
     template <typename Arg_> static decltype(auto) cabs(Arg_ &&arg_) {
-      return arg_.abs();
+      return std::abs(std::forward<Arg_>(arg_));
     }
 
     template <typename LHS_, typename RHS_>
@@ -217,11 +222,24 @@ public:
       return x * x * (3 - 2 * x);
     }
 
-    // TODO: this may not be neccessary when
+    // TODO: really neccessary?
     template <typename Arg_, typename Eps_>
     static real reciprocal_or_zero(Arg_ &&arg, Eps_ &&eps) {
-      if (real const x = std::forward<Arg_>(arg); x > std::forward<Eps_>(eps))
+      if (real const x = std::forward<Arg_>(arg);
+          std::abs(x) > std::forward<Eps_>(eps))
         return 1 / x;
+      else
+        return real{0};
+    }
+
+    /// Unit Step / Heaviside Step function (left-continuous variant).
+    ///   x \mapsto
+    ///       1   if x > eps
+    ///       0   otherwise
+    template <typename Arg_, typename Eps_>
+    static real unit_step_l(Arg_ &&arg, Eps_ &&eps) {
+      if (real const x = std::forward<Arg_>(arg); x > std::forward<Eps_>(eps))
+        return real{1};
       else
         return real{0};
     }

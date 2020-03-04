@@ -1,0 +1,13 @@
+
+let fluid = particle_selector types {fluid} tags {};
+
+let a = field acceleration : varying real[];
+
+let g = field gravity : global real[];
+
+procedure initialize_acceleration {
+  foreach fluid particle f {
+    compute a[f] = g[_];
+  }
+}
+

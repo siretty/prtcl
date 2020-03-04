@@ -16,7 +16,12 @@ let max_speed  = field maximum_speed : global real;
 
 procedure advect_symplectic_euler {
   foreach dynamic particle i {
-    compute v[i] += dt[_] * a[i] * smoothstep((t_c[_] - t_b[i]) / d_f[_]);
+    compute v[i] +=
+        dt[_] * a[i]
+      *
+        unit_step_l((t_c[_] - t_b[i]) - d_f[_], 0)
+        // smoothstep((t_c[_] - t_b[i]) / d_f[_])
+      ;
     compute x[i] += dt[_] * v[i];
 
     reduce max_speed[_] max= norm(v[i]);

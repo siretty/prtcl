@@ -1,0 +1,77 @@
+
+let fluid = particle_selector types {fluid} tags {};
+let boundary = particle_selector types {boundary} tags {};
+
+let x = field position : varying real[];
+let v = field velocity : varying real[];
+let a = field acceleration : varying real[];
+
+let rho = field density : varying real;
+let m = field mass : varying real;
+let V = field volume : varying real;
+
+let rho0 = field rest_density : uniform real;
+let nu = field viscosity : uniform real;
+
+let h = field smoothing_scale : global real;
+
+procedure accumulate_acceleration {
+  foreach fluid particle f {
+    foreach fluid neighbor f_f {
+      // accumulate viscosity acceleration
+      compute a[f] += 
+          (
+              10 // HACK: this is actually a dimensionality correction factor (10 in 3D, 8 in 2D)
+            *
+              nu[f]
+            *
+              (m[f_f] / rho[f_f])
+            *
+              dot(v[f] - v[f_f], x[f] - x[f_f])
+            /
+              (norm_squared(x[f] - x[f_f]) + 0.01 * h[_] * h[_])
+          )
+        *
+          kernel_gradient_h(x[f] - x[f_f], h[_]);                                         
+
+      //// XSPH viscosity
+      //compute a[f] -= 
+      //    (
+      //        (nu[f] / h[_]) * (m[f_f] / rho[f_f])
+      //      *
+      //        (v[f] - v[f_f])
+      //    )
+      //  *
+      //    kernel_h(x[f] - x[f_f], h[_]);                                         
+    }
+
+    foreach boundary neighbor f_b {
+      // accumulate viscosity acceleration
+      compute a[f] += 
+          (
+              10 // HACK: this is actually a dimensionality correction factor (10 in 3D, 8 in 2D)
+            *
+              nu[f_b]
+            *
+              rho0[f] * V[f_b] / rho[f]
+            *
+              dot(v[f] - v[f_b], x[f] - x[f_b])
+            /
+              (norm_squared(x[f] - x[f_b]) + 0.01 * h[_] * h[_])
+          )
+        *
+          kernel_gradient_h(x[f] - x[f_b], h[_]);                                         
+
+      //// XSPH viscosity
+      //compute a[f] -= 
+      //    (
+      //        (nu[f_b] / h[_]) * (rho0[f] * V[f_b] / rho[f_f])
+      //      *
+      //        (v[f])
+      //    )
+      //  *
+      //    kernel_h(x[f] - x[f_f], h[_]);                                         
+    }
+  }
+}
+

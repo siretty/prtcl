@@ -71,6 +71,9 @@ void load_model_groups_from_cli(
     model_.template add_global<nd_dtype::real>("maximum_cfl")[0] =
         tree.get("maximum_cfl", static_cast<real>(0.7));
 
+    model_.template add_global<nd_dtype::real>("iisph_relaxation")[0] =
+        tree.get("iisph_relaxation", static_cast<real>(0.5));
+
     auto const h =
         model_.template get_global<nd_dtype::real>("smoothing_scale")[0];
 

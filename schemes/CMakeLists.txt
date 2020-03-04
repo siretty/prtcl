@@ -36,9 +36,12 @@ prtcl_generate_scheme_header( test )
 
 prtcl_generate_scheme_header( boundary )
 prtcl_generate_scheme_header( sesph )
+prtcl_generate_scheme_header( iisph )
 prtcl_generate_scheme_header( symplectic_euler )
 prtcl_generate_scheme_header( aat13 )
 prtcl_generate_scheme_header( he14 )
+prtcl_generate_scheme_header( viscosity )
+prtcl_generate_scheme_header( gravity )
 
 
 prtcl_add_library(
@@ -49,9 +52,12 @@ prtcl_add_library(
 
     ${_INC}/prtcl/schemes/boundary.hpp
     ${_INC}/prtcl/schemes/sesph.hpp
+    ${_INC}/prtcl/schemes/iisph.hpp
     ${_INC}/prtcl/schemes/symplectic_euler.hpp
     ${_INC}/prtcl/schemes/aat13.hpp
     ${_INC}/prtcl/schemes/he14.hpp
+    ${_INC}/prtcl/schemes/viscosity.hpp
+    ${_INC}/prtcl/schemes/gravity.hpp
 )
 target_include_directories( prtcl-schemes INTERFACE ${_INC} )
 target_link_libraries( prtcl-schemes
@@ -116,6 +122,40 @@ target_include_directories(
 )
 target_link_libraries(
   prtcl-schemes-sesph
+  PUBLIC prtcl-schemes
+  PUBLIC prtcl-rt
+  PUBLIC Eigen3::Eigen
+  PUBLIC Threads::Threads
+  PUBLIC OpenMP::OpenMP_CXX
+  PUBLIC ${CMAKE_DL_LIBS}
+)
+
+
+add_executable(
+  prtcl-schemes-iisph
+
+  ${_TRACY_CPP} # tracing
+
+  ${_PRJ}/sources/prtcl-schemes-iisph.cpp
+)
+DE_CXX17_Target( prtcl-schemes-iisph )
+DE_Common_Diagnostics_CXX_Target( prtcl-schemes-iisph )
+DE_LibCXX_Target( prtcl-schemes-iisph )
+DE_Add_Our_Include_Directories( prtcl-schemes-iisph include sources )
+PRTCL_Add_Target_CXX_FLAGS_FastMath( prtcl-schemes-iisph )
+PRTCL_Add_Target_CXX_FLAGS_OptimizeForNative( prtcl-schemes-iisph )
+target_compile_definitions(
+  prtcl-schemes-iisph
+  PUBLIC
+    #PRTCL_RT_LOG_TRACE_TRACY
+)
+target_include_directories(
+  prtcl-schemes-iisph
+  PUBLIC
+    ${_TRACY_DIR}
+)
+target_link_libraries(
+  prtcl-schemes-iisph
   PUBLIC prtcl-schemes
   PUBLIC prtcl-rt
   PUBLIC Eigen3::Eigen

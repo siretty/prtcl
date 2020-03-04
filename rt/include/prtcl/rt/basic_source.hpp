@@ -4,6 +4,7 @@
 
 #include "basic_group.hpp"
 #include "basic_model.hpp"
+#include "initialize_particles.hpp"
 #include "log/logger.hpp"
 #include "nd_data_base.hpp"
 #include "virtual_clock.hpp"
@@ -147,6 +148,8 @@ public:
 
     // create the new particles
     auto indices = _target_group->create(_position.size());
+    initialize_particles(*_model, *_target_group, indices);
+
     // fetch target group fields
     auto rho0 =
         _target_group->template get_uniform<nd_dtype::real>("rest_density")[0];

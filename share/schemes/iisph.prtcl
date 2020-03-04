@@ -1,0 +1,238 @@
+
+let fluid = particle_selector types {fluid} tags {};
+let boundary = particle_selector types {boundary} tags {};
+let dynamic = particle_selector types {} tags {dynamic};
+
+let x = field position : varying real[];
+let v = field velocity : varying real[];
+let a = field acceleration : varying real[];
+
+let rho = field density : varying real;
+let p = field pressure : varying real;
+let m = field mass : varying real;
+let V = field volume : varying real;
+
+let kappa = field compressibility : uniform real;
+let rho0 = field rest_density : uniform real;
+let nu = field viscosity : uniform real;
+
+let mean_rho = field mean_density : uniform real;
+
+let g = field gravity : global real[];
+let h = field smoothing_scale : global real;
+
+let dt = field time_step : global real;
+
+// IISPH
+let c = field iisph_helper_c : varying real[];
+let s = field iisph_source_term : varying real;
+let AA = field iisph_diagonal_element : varying real;
+let Ap = field iisph_right_hand_side : varying real;
+let omega = field iisph_relaxation : global real;
+let aprde = field iisph_aprde : global real;
+let nprde = field iisph_nprde : global integer;
+
+// advect
+let t_b = field time_of_birth : varying real;
+let t_c = field current_time : global real;
+let d_f = field fade_duration : global real;
+let max_speed  = field maximum_speed : global real;
+
+procedure compute_density {
+  foreach fluid particle f {
+    compute rho[f] = 0;
+    foreach fluid neighbor f_f {
+      compute rho[f] +=
+          m[f_f]
+        *
+          kernel_h(x[f] - x[f_f], h[_]);
+    }
+    foreach boundary neighbor f_b {
+      compute rho[f] +=
+          rho0[f] * V[f_b]
+        *
+          kernel_h(x[f] - x[f_b], h[_]);
+    }
+  }
+}
+
+procedure predict_velocity {
+  foreach fluid particle f {
+    compute v[f] += dt[_] * a[f] * unit_step_l((t_c[_] - t_b[f]) - d_f[_], 0);
+  }
+}
+
+procedure setup_a {
+  foreach fluid particle f {
+    // reset the helper variable
+    compute c[f] = zeros<real[]>;
+    foreach fluid neighbor f_f {
+      // accumulate the helper variable
+      compute c[f] -=
+          m[f_f] / (rho[f] * rho[f])
+        *
+          kernel_gradient_h(x[f] - x[f_f], h[_]);
+    }
+    foreach boundary neighbor f_b {
+      // accumulate the helper variable
+      compute c[f] -=
+          // TODO: ensure the correction factor here is needed since it is not used anywhere else 
+          0.7
+        *
+          rho0[f] * V[f_b] / (rho[f] * rho[f])
+        *
+          kernel_gradient_h(x[f] - x[f_b], h[_]);
+    }
+  }
+}
+
+procedure setup_b {
+  foreach fluid particle f {
+    // reset the pressure
+    compute p[f] = 0;
+    // reset the source term
+    compute s[f] = 0;
+    // reset the diagonal element
+    compute AA[f] = 0;
+    foreach fluid neighbor f_f {
+      // accumulate source term
+      compute s[f] +=
+          m[f_f]
+        *
+          dot(
+            v[f] - v[f_f],
+            kernel_gradient_h(x[f] - x[f_f], h[_])
+          );
+      // accumulate first term of the diagonal element
+      compute AA[f] +=
+          m[f_f]
+        *
+          dot(
+            c[f],
+            kernel_gradient_h(x[f] - x[f_f], h[_])
+          );
+      // accumulate second term of the diagonal element
+      compute AA[f] -=
+          m[f_f]
+        *
+          m[f] / (rho[f] * rho[f])
+        *
+          norm_squared(
+            kernel_gradient_h(x[f] - x[f_f], h[_])
+          );
+    }
+    foreach boundary neighbor f_b {
+      // accumulate source term
+      compute s[f] +=
+          rho0[f] * V[f_b]
+        *
+          dot(
+            // HACK: boundaries are currently static, adjust
+            v[f] - zeros<real[]>,
+            kernel_gradient_h(x[f] - x[f_b], h[_])
+          );
+      // accumulate third term of the diagonal element
+      compute AA[f] +=
+          rho0[f] * V[f_b]
+        *
+          dot(
+            c[f],
+            kernel_gradient_h(x[f] - x[f_b], h[_])
+          );
+    }
+    // finalize source term
+    compute s[f] = rho0[f] - rho[f] + dt[_] * rho0[f] / rho[f] * s[f];
+    // finalize diagonal element
+    compute AA[f] *= dt[_] * dt[_] * rho0[f] / rho[f];
+
+    // accumulate the number of particles
+    reduce nprde[_] += integer{1};
+  }
+}
+
+procedure iteration_pressure_acceleration {
+  foreach fluid particle f {
+    // reset the acceleration
+    compute a[f] = zeros<real[]>;
+    foreach fluid neighbor f_f {
+      // accumulate the pressure acceleration
+      compute a[f] -= 
+          m[f_f]
+        *
+          (p[f] / (rho[f] * rho[f]) + p[f_f] / (rho[f_f] * rho[f_f]))
+        *
+          kernel_gradient_h(x[f] - x[f_f], h[_]);                                             
+    }
+    foreach boundary neighbor f_b {
+      // accumulate the pressure acceleration
+      compute a[f] -= 
+          0.7
+        *
+          rho0[f] * V[f_b] 
+        *
+          (2 * p[f] / (rho[f] * rho[f]))
+        *
+          kernel_gradient_h(x[f] - x[f_b], h[_]);                                             
+    }
+  }
+}
+
+procedure iteration_pressure {
+  foreach fluid particle f {
+    // reset the right hand side
+    compute Ap[f] = 0;
+    foreach fluid neighbor f_f {
+      // accumulate the right hand side
+      compute Ap[f] += 
+          m[f_f]
+        *
+          dot(
+            a[f] - a[f_f],
+            kernel_gradient_h(x[f] - x[f_f], h[_])
+          );                                             
+    }
+    foreach boundary neighbor f_b {
+      // accumulate the right hand side
+      compute Ap[f] += 
+          rho0[f] * V[f_b] 
+        *
+          dot(
+            a[f] - zeros<real[]>, // TODO: boundary currently has no acceleration
+            kernel_gradient_h(x[f] - x[f_b], h[_])
+          );                                             
+    }
+    // finalize the right hand side
+    compute Ap[f] *= dt[_] * dt[_] * rho0[f] / rho[f];
+
+    // compute the pressure
+    compute p[f] =
+        max(
+          0,
+            p[f]
+          +
+              omega[_]
+            *
+              (s[f] - Ap[f])
+            *
+              reciprocal_or_zero(AA[f], 1e-9)
+        )
+      *
+        unit_step_l(cabs(AA[f]), 1e-9);
+
+    // accumulate the relative density error
+    reduce aprde[_] +=
+        (Ap[f] - s[f]) / rho0[f]
+      *
+        unit_step_l(p[f], 0);
+  }
+}
+
+procedure advect {
+  foreach dynamic particle i {
+    compute v[i] += dt[_] * a[i] * unit_step_l((t_c[_] - t_b[i]) - d_f[_], 0);
+    compute x[i] += dt[_] * v[i];
+
+    reduce max_speed[_] max= norm(v[i]);
+  }
+}
+

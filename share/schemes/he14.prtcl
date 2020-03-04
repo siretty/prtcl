@@ -36,7 +36,7 @@ procedure compute_color_field_gradient {
   }
 }
 
-procedure compute_acceleration {
+procedure accumulate_acceleration {
   foreach fluid particle i {
     foreach fluid neighbor j {
       compute a[i] += (0.25 * k[i] / rho[i]) * m[j] / rho[j] * (norm_squared(d[i]) + norm_squared(d[j])) * kernel_gradient_h(x[i] - x[j], h[_]);

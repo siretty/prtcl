@@ -42,6 +42,7 @@ void initialize_particles(
   }
 
   if (group_type == "fluid") {
+    // TODO: this is not the right place for setting a uniform
     auto const rho0 =
         group.template add_uniform<nd_dtype::real>("rest_density");
     rho0[0] = 1000;
