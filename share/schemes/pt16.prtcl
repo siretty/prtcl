@@ -76,20 +76,36 @@ procedure compute_velocity_gradient_and_vorticity {
   }
 }
 
-linear_system vorticity_diffusion {
-  diagonal (fluid particle f) {
-    // compute fluid-only density for the vorticity diffusion system
-    local fluid_rho_f : real = zeros<real>;
-    foreach fluid neighbor f_f {
-      compute fluid_rho_f[_] += m[f_f] * kernel_h(x[f] - x[f_f], h[_]);
-    }
-
-    // compute the diagonal element of the vorticity diffusion system
-    return fluid_rho_f[_] - m[f] * kernel_h(zeros<real[]>, h[_]);
-  }
-
-}
-
-linear_system velocity_reconstruction {
-}
+//linear_system vorticity_diffusion {
+//  diagonal (field result) {
+//    foreach fluid particle f {
+//      // compute fluid-only density for the vorticity diffusion system
+//      local fluid_rho_f : real = zeros<real>;
+//      foreach fluid neighbor f_f {
+//        compute fluid_rho_f[_] += m[f_f] * kernel_h(x[f] - x[f_f], h[_]);
+//      }
+//
+//      // compute the diagonal element of the vorticity diffusion system
+//      compute result[f] = fluid_rho_f[_] - m[f] * kernel_h(zeros<real[]>, h[_]);
+//    }
+//  }
+//
+//  product (field omega, field result) {
+//    foreach fluid particle f {
+//      // compute fluid-only density for the vorticity diffusion system
+//      local fluid_rho_f : real = zeros<real>;
+//      foreach fluid neighbor f_f {
+//        compute fluid_rho_f[_] += m[f_f] * kernel_h(x[f] - x[f_f], h[_]);
+//      }
+//
+//      // compute the product at the diagonal element
+//      compute result[f] = (fluid_rho_f - m[f] * kernel_h(zeros<real[]>, h[_])) * omega[f];
+//
+//      // accumulate the off-diagonal elements
+//      foreach fluid particle f_f {
+//        result[f] -= m[f_f] * kernel_h(x[f] - x[f_f], h[_]) * omega[f_f];
+//      }
+//    }
+//  }
+//}
 
