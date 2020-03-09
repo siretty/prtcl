@@ -126,26 +126,32 @@ public:
   //! Print access to a field (eg. x[f]).
   void operator()(ast::math::field_access const &arg_) {
     // {{{ implementation
-    auto field = alias_to_field.search(arg_.field_name).value();
+    if (auto field_opt = alias_to_field.search(arg_.field_name)) {
+      auto field = field_opt.value();
 
-    char group, index;
-    if (field.storage == ast::storage_qualifier::global) {
-      group = 'g';
-      index = '0';
-    } else {
-      if (cur_particle and arg_.index_name == cur_particle->index_name) {
-        group = 'p';
-        index = 'i';
-      }
-      if (cur_neighbor and arg_.index_name == cur_neighbor->index_name) {
-        group = 'n';
-        index = 'j';
-      }
-      if (field.storage == ast::storage_qualifier::uniform)
+      char group, index;
+      if (field.storage == ast::storage_qualifier::global) {
+        group = 'g';
         index = '0';
-    }
+      } else {
+        if (cur_particle and arg_.index_name == cur_particle->index_name) {
+          group = 'p';
+          index = 'i';
+        }
+        if (cur_neighbor and arg_.index_name == cur_neighbor->index_name) {
+          group = 'n';
+          index = 'j';
+        }
+        if (field.storage == ast::storage_qualifier::uniform)
+          index = '0';
+      }
 
-    out() << group << '.' << field.field_name << '[' << index << ']';
+      out() << group << '.' << field.field_name << '[' << index << ']';
+    } else {
+      // assume local if neither varying, uniform or global
+      // TODO: better tracking of fields
+      out() << "l_" << arg_.field_name;
+    }
     // }}}
   }
 
@@ -153,6 +159,12 @@ public:
   void operator()(ast::math::function_call const &arg_) {
     out() << "o::" << arg_.function_name << '(' << sep(arg_.arguments, ", ")
           << ')';
+  }
+
+  //! Print the unary operation.
+  void operator()(ast::math::unary const &arg) {
+    out() << arg.op;
+    (*this)(arg.operand);
   }
 
   //! Print the arithmetic n-ary operation.
@@ -172,6 +184,18 @@ public:
     if (not arg_.right_hand_sides.empty())
       // enclose in braces for multiple operands
       out() << ')';
+    // }}}
+  }
+
+  void operator()(ast::stmt::local const &arg_) {
+    // {{{ implemenetation
+    // format the variable declaration
+    outi() << "nd_dtype_t<" << nd_template_args(arg_.local_type) << "> l_"
+           << arg_.local_name << " = ";
+    // format the initialization
+    (*this)(arg_.expression);
+    // end the statement
+    out() << ';' << nl;
     // }}}
   }
 
@@ -231,11 +255,29 @@ public:
 
   void operator()(ast::stmt::compute const &arg_) {
     // {{{ implemenetation
-    auto field = alias_to_field.search(arg_.field_name).value();
-    if (field.storage != ast::storage_qualifier::varying)
-      throw "internal error: can only compute into varying fields";
 
-    auto lhs = ast::math::field_access{arg_.field_name, arg_.index_name};
+    auto print_assignee = [this, &arg_]() {
+      if (auto field_opt = alias_to_field.search(arg_.field_name)) {
+        auto field = field_opt.value();
+
+        if (field.storage != ast::storage_qualifier::varying)
+          throw "internal error: can only compute into varying fields";
+
+        auto lhs = ast::math::field_access{arg_.field_name, arg_.index_name};
+
+        (*this)(lhs);
+      } else {
+        // assume local if not a field alias
+        // TODO: better handling of local variables
+        out() << "l_" << arg_.field_name << ' ';
+      }
+    };
+
+    // auto field = alias_to_field.search(arg_.field_name).value();
+    // if (field.storage != ast::storage_qualifier::varying)
+    //  throw "internal error: can only compute into varying fields";
+
+    // auto lhs = ast::math::field_access{arg_.field_name, arg_.index_name};
 
     std::string op_str;
     switch (arg_.op) {
@@ -250,18 +292,21 @@ public:
     }
 
     outi();
-    (*this)(lhs);
+    print_assignee();
+    //(*this)(lhs);
     switch (arg_.op) {
     case ast::stmt::compute_op::max_assign:
     case ast::stmt::compute_op::min_assign:
       out() << ' ' << op_str;
-      (*this)(lhs);
+      print_assignee();
+      //(*this)(lhs);
       out() << ", ";
       break;
     default:
       out() << ' ' << arg_.op << ' ';
       break;
     }
+
     (*this)(arg_.expression);
 
     switch (arg_.op) {
@@ -351,30 +396,12 @@ public:
               statement_);
         });
 
+    outi() << "{ // foreach " << arg_.selector_name << " particle "
+           << arg_.particle_index_name << nl;
+    increase_indent();
+
     outi() << "PRTCL_RT_LOG_TRACE_SCOPED(\"foreach_particle\", \"p="
            << arg_.selector_name << "\");" << nl;
-    out() << nl;
-
-    outi() << cxx_inline_pragma("omp single") << " {" << nl;
-    {
-      increase_indent();
-
-      outi() << "auto const thread_count = "
-                "static_cast<size_t>(omp_get_num_threads());"
-             << nl;
-
-      // always resize the vector containing thread local data (eg. global
-      // reductions which are independent of neighbor loops)
-      outi() << "_per_thread.resize(thread_count);" << nl;
-
-      decrease_indent();
-    }
-    outi() << "} // pragma omp single" << nl;
-
-    out() << nl;
-    outi() << "auto const thread_index = "
-              "static_cast<size_t>(omp_get_thread_num());"
-           << nl;
     out() << nl;
 
     if (has_foreach_neighbor_offspring) {
@@ -475,6 +502,10 @@ public:
       outi() << "} // pragma omp critical" << nl;
     }
 
+    decrease_indent();
+    outi() << "} // foreach " << arg_.selector_name << " particle "
+           << arg_.particle_index_name << nl;
+
     if (not cur_particle)
       throw "internal error: particle loop was already unset";
     else
@@ -506,6 +537,27 @@ public:
           out() << nl;
           outi() << cxx_inline_pragma("omp parallel") << " {" << nl;
           increase_indent();
+          outi() << cxx_inline_pragma("omp single") << " {" << nl;
+          {
+            increase_indent();
+
+            outi() << "auto const thread_count = "
+                      "static_cast<size_t>(omp_get_num_threads());"
+                   << nl;
+
+            // always resize the vector containing thread local data (eg. global
+            // reductions which are independent of neighbor loops)
+            outi() << "_per_thread.resize(thread_count);" << nl;
+
+            decrease_indent();
+          }
+          outi() << "} // pragma omp single" << nl;
+
+          out() << nl;
+          outi() << "auto const thread_index = "
+                    "static_cast<size_t>(omp_get_thread_num());"
+                 << nl;
+          out() << nl;
           in_parallel_region = true;
         }
       };
@@ -616,10 +668,13 @@ public:
           increase_indent();
 
           for (auto const &alias : global_field_aliases) {
-            auto field = alias_to_field.search(alias).value();
-            outi() << "nd_dtype_data_ref_t<"
-                   << nd_template_args(field.field_type) << "> "
-                   << field.field_name << ";" << nl;
+            // HACK: local accesses are currently counted in global_field_alias
+            if (auto field_opt = alias_to_field.search(alias)) {
+              auto field = field_opt.value();
+              outi() << "nd_dtype_data_ref_t<"
+                     << nd_template_args(field.field_type) << "> "
+                     << field.field_name << ";" << nl;
+            }
           }
 
           out() << nl;
@@ -629,10 +684,14 @@ public:
             increase_indent();
 
             for (auto const &alias : global_field_aliases) {
-              auto field = alias_to_field.search(alias).value();
-              outi() << "m_.template add_global<"
-                     << nd_template_args(field.field_type) << ">(\""
-                     << field.field_name << "\");" << nl;
+              // HACK: local accesses are currently counted in
+              //       global_field_alias
+              if (auto field_opt = alias_to_field.search(alias)) {
+                auto field = field_opt.value();
+                outi() << "m_.template add_global<"
+                       << nd_template_args(field.field_type) << ">(\""
+                       << field.field_name << "\");" << nl;
+              }
             }
 
             decrease_indent();
@@ -646,11 +705,15 @@ public:
             increase_indent();
 
             for (auto const &alias : global_field_aliases) {
-              auto field = alias_to_field.search(alias).value();
-              outi() << field.field_name << " = "
-                     << "m_.template get_global<"
-                     << nd_template_args(field.field_type) << ">(\""
-                     << field.field_name << "\");" << nl;
+              // HACK: local accesses are currently counted in
+              //       global_field_alias
+              if (auto field_opt = alias_to_field.search(alias)) {
+                auto field = field_opt.value();
+                outi() << field.field_name << " = "
+                       << "m_.template get_global<"
+                       << nd_template_args(field.field_type) << ">(\""
+                       << field.field_name << "\");" << nl;
+              }
             }
 
             decrease_indent();

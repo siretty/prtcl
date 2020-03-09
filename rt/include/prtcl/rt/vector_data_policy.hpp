@@ -54,6 +54,9 @@ public:
   vector_nd_data &operator=(vector_nd_data const &) = default;
 
 public:
+  void swap(vector_nd_data &other) { _data.swap(other.data()); }
+
+public:
   void resize(size_t size_) final { _data.resize(size_); }
 
 public:
@@ -108,6 +111,12 @@ public:
   explicit vector_nd_data_ref(
       vector_nd_data<MathPolicy_, DType_, Ns_...> &owner_)
       : _size{owner_.size()}, _data{owner_.data()} {}
+
+public:
+  void swap(vector_nd_data_ref &other) {
+    std::swap(_size, other._size);
+    std::swap(_data, other._data);
+  }
 
 public:
   // TODO

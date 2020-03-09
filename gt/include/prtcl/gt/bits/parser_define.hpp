@@ -95,12 +95,14 @@ auto const particle_selector_def =                        //
 
 namespace bits {
 
-auto const foreach_neighbor_statement_def = stmt::compute | stmt::reduce;
+auto const foreach_neighbor_statement_def =
+    stmt::local | stmt::compute | stmt::reduce;
 
 auto const foreach_particle_statement_def =
-    stmt::compute | stmt::reduce | stmt::foreach_neighbor;
+    stmt::local | stmt::compute | stmt::reduce | stmt::foreach_neighbor;
 
-auto const procedure_statement_def = stmt::compute | stmt::foreach_particle;
+auto const procedure_statement_def =
+    stmt::local | stmt::compute | stmt::foreach_particle;
 
 } // namespace bits
 
@@ -138,9 +140,15 @@ struct reduce_op_symbols : x3::symbols<ast::stmt::reduce_op> {
 auto const let_def =                   //
     lit("let") > (identifier >> '=' >> //
                   (init::field | init::particle_selector) >> ';');
+
+auto const local_def = //
+    lit("local") >
+    (identifier >> ':' >> nd_type >> '=' >> math::expression >> ';');
+
 auto const compute_def = //
     lit("compute") > (identifier >> '[' >> identifier >> ']' >> compute_op >>
                       math::expression >> ';');
+
 auto const reduce_def = //
     lit("reduce") > (identifier >> '[' >> identifier >> ']' >> reduce_op >>
                      math::expression >> ';');

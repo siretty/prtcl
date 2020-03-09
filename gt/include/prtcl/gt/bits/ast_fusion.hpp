@@ -66,6 +66,11 @@ BOOST_FUSION_ADAPT_STRUCT(     //
     alias_name, initializer    //
 );
 
+BOOST_FUSION_ADAPT_STRUCT(             //
+    prtcl::gt::ast::stmt::local,       //
+    local_name, local_type, expression //
+);
+
 BOOST_FUSION_ADAPT_STRUCT(                 //
     prtcl::gt::ast::stmt::compute,         //
     field_name, index_name, op, expression //

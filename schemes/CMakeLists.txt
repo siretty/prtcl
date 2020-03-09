@@ -40,6 +40,7 @@ prtcl_generate_scheme_header( iisph )
 prtcl_generate_scheme_header( symplectic_euler )
 prtcl_generate_scheme_header( aat13 )
 prtcl_generate_scheme_header( he14 )
+prtcl_generate_scheme_header( pt16 )
 prtcl_generate_scheme_header( viscosity )
 prtcl_generate_scheme_header( gravity )
 
@@ -56,6 +57,7 @@ prtcl_add_library(
     ${_INC}/prtcl/schemes/symplectic_euler.hpp
     ${_INC}/prtcl/schemes/aat13.hpp
     ${_INC}/prtcl/schemes/he14.hpp
+    ${_INC}/prtcl/schemes/pt16.hpp
     ${_INC}/prtcl/schemes/viscosity.hpp
     ${_INC}/prtcl/schemes/gravity.hpp
 )

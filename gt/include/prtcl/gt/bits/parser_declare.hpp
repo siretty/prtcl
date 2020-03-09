@@ -153,6 +153,9 @@ struct reduce_op_symbols;
 /// initializers.
 x3::rule<class let_class, ast::stmt::let> let = "stmt::let";
 
+/// Parse a local statement that creates a constant local variable.
+x3::rule<class compute_class, ast::stmt::local> local = "stmt::local";
+
 /// Parse a compute statement that describes a mathematical expression.
 x3::rule<class compute_class, ast::stmt::compute> compute = "stmt::compute";
 

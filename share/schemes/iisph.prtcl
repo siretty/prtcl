@@ -76,7 +76,7 @@ procedure setup_a {
     foreach boundary neighbor f_b {
       // accumulate the helper variable
       compute c[f] -=
-          // TODO: ensure the correction factor here is needed since it is not used anywhere else 
+          // TODO: check the correction factor
           0.7
         *
           rho0[f] * V[f_b] / (rho[f] * rho[f])

@@ -37,6 +37,7 @@ class particle_selector_to_fields_map {
     }
 
     void operator()(ast::math::field_access const &node_) {
+      // TODO: ignore local accesses
       do_callback(node_.field_name, node_.index_name);
     }
 

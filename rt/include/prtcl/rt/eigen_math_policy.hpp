@@ -137,10 +137,18 @@ public:
       return std::forward<LHS_>(lhs_).cross(std::forward<RHS_>(rhs_));
     }
 
-    // template <typename LHS_, typename RHS_>
-    // static decltype(auto) outer_product(LHS_ &&lhs_, RHS_ &&rhs_) {
-    // TODO: implement outer produce (ie. tensor product)
-    //}
+    template <typename LHS_, typename RHS_>
+    static decltype(auto) outer_product(LHS_ &&lhs_, RHS_ &&rhs_) {
+      return std::forward<LHS_>(lhs_) * std::forward<RHS_>(rhs_).transpose();
+    }
+
+    template <typename Arg_> static decltype(auto) trace(Arg_ &&arg_) {
+      return std::forward<Arg_>(arg_).trace();
+    }
+
+    template <typename Arg_> static decltype(auto) transpose(Arg_ &&arg_) {
+      return std::forward<Arg_>(arg_).transpose();
+    }
 
     template <typename Arg_> static decltype(auto) norm(Arg_ &&arg_) {
       return std::forward<Arg_>(arg_).norm();
@@ -210,6 +218,14 @@ public:
       return std::forward<Arg_>(arg_).minCoeff();
     }
 
+    /// Compute the Penrose-Moore Pseudo-Inverse.
+    template <typename A_> static decltype(auto) invert_pm(A_ &&a_) {
+      return std::forward<A_>(a_)
+          .completeOrthogonalDecomposition()
+          .pseudoInverse()
+          .eval();
+    }
+
     /// Solve a positive- or negative-semi-definite linear system of equation.
     template <typename A_, typename B_>
     static decltype(auto) solve_sd(A_ &&a_, B_ &&b_) {
@@ -243,19 +259,26 @@ public:
       else
         return real{0};
     }
+
+    template <typename Arg_>
+    static nd_dtype_t<nd_dtype::real, 3>
+    vector_from_cross_product_matrix(Arg_ const &arg) {
+      // TODO: assert that arg is 3-dim.
+      return {arg(2, 1), arg(0, 2), arg(1, 0)};
+    }
   };
 
 public:
   struct constants {
     template <nd_dtype DType_, size_t... Ns_> static decltype(auto) zeros() {
-      if constexpr (sizeof...(Ns_))
+      if constexpr (sizeof...(Ns_) >= 1)
         return nd_dtype_t<DType_, Ns_...>::Zero();
       else
         return static_cast<dtype_t<DType_>>(0);
     }
 
     template <nd_dtype DType_, size_t... Ns_> static decltype(auto) ones() {
-      if constexpr (sizeof...(Ns_))
+      if constexpr (sizeof...(Ns_) >= 1)
         return nd_dtype_t<DType_, Ns_...>::Ones();
       else
         return static_cast<dtype_t<DType_>>(1);

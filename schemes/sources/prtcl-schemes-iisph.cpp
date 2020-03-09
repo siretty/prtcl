@@ -10,6 +10,7 @@
 #include <prtcl/schemes/iisph.hpp>
 #include <prtcl/schemes/symplectic_euler.hpp>
 #include <prtcl/schemes/viscosity.hpp>
+#include <prtcl/schemes/pt16.hpp>
 
 #include <iostream>
 #include <string_view>
@@ -39,11 +40,11 @@ public:
 
 public:
   void on_require_schemes(model_type &model) override {
-    require_all(model, boundary, iisph, gravity, viscosity, surface_tension);
+    require_all(model, boundary, iisph, gravity, viscosity, surface_tension, implicit_viscosity);
   }
 
   void on_load_schemes(model_type &model) override {
-    load_all(model, boundary, iisph, gravity, viscosity, surface_tension);
+    load_all(model, boundary, iisph, gravity, viscosity, surface_tension, implicit_viscosity);
 
     for (auto &group : model.groups()) {
       if (group.get_type() == "boundary") {
@@ -125,6 +126,8 @@ public:
     prtcl::rt::log::debug("app", "iisph", "no. iterations ", solver_iteration);
 
     iisph.advect(nhood);
+
+    implicit_viscosity.compute_velocity_gradient_and_vorticity(nhood);
   }
 
   prtcl::schemes::boundary<model_policy> boundary;
@@ -137,6 +140,7 @@ public:
 #if SURFACE_TENSION == SURFACE_TENSION_He14
   prtcl::schemes::he14<model_policy> surface_tension;
 #endif
+  prtcl::schemes::pt16<model_policy> implicit_viscosity;
 };
 
 constexpr size_t N = 3;

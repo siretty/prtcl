@@ -44,7 +44,7 @@ BOOST_SPIRIT_DEFINE(
 
 namespace stmt {
 
-BOOST_SPIRIT_DEFINE(let, compute, reduce);
+BOOST_SPIRIT_DEFINE(let, local, compute, reduce);
 
 BOOST_SPIRIT_DEFINE(foreach_neighbor, foreach_particle, procedure);
 

@@ -73,6 +73,7 @@ enum class compute_op;
 enum class reduce_op;
 
 struct let;
+struct local;
 struct compute;
 struct reduce;
 struct foreach_neighbor;
@@ -279,12 +280,12 @@ operator<<(std::ostream &stream_, particle_selector const &value_) {
 
 namespace bits {
 
-using foreach_neighbor_statement = variant<stmt::compute, stmt::reduce>;
+using foreach_neighbor_statement = variant<stmt::local, stmt::compute, stmt::reduce>;
 
 using foreach_particle_statement =
-    variant<stmt::compute, stmt::reduce, stmt::foreach_neighbor>;
+    variant<stmt::local, stmt::compute, stmt::reduce, stmt::foreach_neighbor>;
 
-using procedure_statement = variant<stmt::compute, stmt::foreach_particle>;
+using procedure_statement = variant<stmt::local, stmt::compute, stmt::foreach_particle>;
 
 } // namespace bits
 
@@ -293,6 +294,12 @@ namespace stmt {
 struct let {
   string alias_name;
   variant<init::field, init::particle_selector> initializer;
+};
+
+struct local {
+  string local_name;
+  nd_type local_type;
+  math::expression expression;
 };
 
 enum class compute_op {
