@@ -18,8 +18,8 @@
               "what": "triangle_mesh",
               "file_type": "obj",
               "file_path": "share/models/unitcube.obj",
-              "scaling" :     { "0": 8, "1": 24, "2": 8, "adaptive": true },
-              "translation" : { "0": 8, "1": 8, "2": 8, "adaptive": true }
+              "scaling" :     { "0": 16, "1": 24, "2": 16, "adaptive": true },
+              "translation" : { "0": 0, "1": 4, "2": 0, "adaptive": true }
             }
           }
         },
@@ -29,15 +29,15 @@
           "tag": "volume",
           "parameters": {
             "adhesion": 2,
-            "viscosity": 0.01
+            "viscosity": 0.001
           },
           "sample": {
             "surface": {
               "what": "triangle_mesh",
               "file_type": "obj",
               "file_path": "share/models/unitcube.obj",
-              "scaling" :     { "0": 20, "1": 36, "2": 20, "adaptive": true },
-              "translation" : { "0": -2, "1": -2, "2": -2, "adaptive": true }
+              "scaling" :     { "0": 23, "1": 36, "2": 23, "adaptive": true },
+              "translation" : { "0": -4, "1": -2, "2": -4, "adaptive": true }
             }
           }
         }

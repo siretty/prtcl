@@ -44,14 +44,6 @@ public:
 
   void on_load_schemes(model_type &model) override {
     load_all(model, boundary, iisph, gravity, viscosity, surface_tension);
-
-    for (auto &group : model.groups()) {
-      if (group.get_type() == "boundary") {
-        std::cerr << "BOUNDARY VISCOSITY: " << group.get_name() << ": "
-                  << group.template get_uniform<nd_dtype::real>("viscosity")[0]
-                  << std::endl;
-      }
-    }
   }
 
   void
@@ -63,6 +55,10 @@ public:
     g[0][1] = -9.81;
 
     model.template get_global<nd_dtype::real>("maximum_time_step")[0] = 0.002;
+  }
+
+  void on_prepare_step(model_type &model, neighborhood_type &) override {
+    //model.template get_global<nd_dtype::real>("fade_duration")[0] = 0;
   }
 
   void on_step(model_type &model, neighborhood_type &nhood) override {
@@ -95,7 +91,7 @@ public:
 
     constexpr int min_solver_iterations = 3;
     constexpr int max_solver_iterations = 2000;
-    constexpr typename model_policy::type_policy::real max_aprde = 0.0001;
+    constexpr typename model_policy::type_policy::real max_aprde = 0.001;
 
     typename model_policy::type_policy::real cur_aprde = 0;
 

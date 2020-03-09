@@ -45,14 +45,6 @@ public:
   void on_load_schemes(model_type &model) override {
     load_all(
         model, boundary, sesph, gravity, viscosity, surface_tension, advect);
-
-    for (auto &group : model.groups()) {
-      if (group.get_type() == "boundary") {
-        std::cerr << "BOUNDARY VISCOSITY: " << group.get_name() << ": "
-                  << group.template get_uniform<nd_dtype::real>("viscosity")[0]
-                  << std::endl;
-      }
-    }
   }
 
   void
