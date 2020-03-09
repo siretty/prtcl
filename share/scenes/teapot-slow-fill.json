@@ -10,18 +10,18 @@
           "tag": "dynamic",
           "tag": "density",
           "parameters": {
-            "surface_tension": 0.5,
-            "viscosity": 0.01
+            "surface_tension": 1,
+            "viscosity": 0.001
           },
           "source": {
             "center": { "0": -18, "1": 60, "2": -18, "adaptive": true },
             "velocity": { "0": 0, "1": -70, "2": 70, "adaptive": true },
-            "count": 10000
+            "count": 100000
           },
           "source": {
             "center": { "0": 18, "1": 60, "2": 18, "adaptive": true },
             "velocity": { "0": -70, "1": -70, "2": 0, "adaptive": true },
-            "count": 10000
+            "count": 100000
           }
         },
         "b": {
@@ -29,8 +29,8 @@
           "tag": "static",
           "tag": "volume",
           "parameters": {
-            "adhesion": 0,
-            "viscosity": 0.05
+            "adhesion": 2,
+            "viscosity": 0.001
           },
           "sample": {
             "surface": {

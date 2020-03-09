@@ -55,7 +55,8 @@ procedure accumulate_acceleration {
             *
               rho0[f] * V[f_b] / rho[f]
             *
-              dot(v[f] - v[f_b], x[f] - x[f_b])
+              // TODO: fix velocity for boundaries
+              dot(v[f] - zeros<real[]>, x[f] - x[f_b])
             /
               (norm_squared(x[f] - x[f_b]) + 0.01 * h[_] * h[_])
           )

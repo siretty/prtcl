@@ -390,7 +390,9 @@ public:
         model.template get_global<nd_dtype::real>("maximum_speed")[0] = 0;
 
         // run all computational steps
+        this->do_prepare_step(model, nhood);
         this->do_step(model, nhood);
+        this->do_step_done(model, nhood);
 
         // fetch the maximum speed of any fluid particle
         auto max_speed = static_cast<long double>(
