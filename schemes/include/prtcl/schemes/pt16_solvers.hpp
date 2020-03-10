@@ -12,6 +12,8 @@
 
 #include <omp.h>
 
+#include <Eigen/Eigen>
+
 #if defined(__GNUG__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
@@ -21,6 +23,142 @@
 
 namespace prtcl {
 namespace schemes {
+
+template <typename, typename> class SystemMatrix;
+
+} // namespace schemes
+} // namespace prtcl
+
+namespace Eigen {
+namespace internal {
+
+template <typename ModelPolicy_, typename ProductF_>
+struct traits<prtcl::schemes::SystemMatrix<ModelPolicy_, ProductF_>>
+    : public Eigen::internal::traits<
+          Eigen::SparseMatrix<typename ModelPolicy_::type_policy::real>> {};
+
+} // namespace internal
+} // namespace Eigen
+
+namespace prtcl {
+namespace schemes {
+
+/// Adaptor for a linear system specified by a functor following
+/// https://eigen.tuxfamily.org/dox/group__MatrixfreeSolverExample.html
+template <typename ModelPolicy_, typename ProductF_>
+class SystemMatrix
+    : public Eigen::EigenBase<SystemMatrix<ModelPolicy_, ProductF_>> {
+  using self_type = SystemMatrix<ModelPolicy_, ProductF_>;
+
+  using model_policy = ModelPolicy_;
+  using type_policy = typename model_policy::type_policy;
+
+public:
+  using Scalar = typename type_policy::real;
+  using RealScalar = typename type_policy::real;
+  using StorageIndex = int;
+
+  enum {
+    ColsAtCompileTime = Eigen::Dynamic,
+    MaxColsAtCompileTime = Eigen::Dynamic,
+    IsRowMajor = false
+  };
+
+  Eigen::Index outerSize() const { return static_cast<Eigen::Index>(_size); }
+
+  Eigen::Index rows() const { return outerSize(); }
+  Eigen::Index cols() const { return outerSize(); }
+
+  template <typename Rhs>
+  Eigen::Product<self_type, Rhs, Eigen::AliasFreeProduct>
+  operator*(const Eigen::MatrixBase<Rhs> &x) const {
+    return Eigen::Product<self_type, Rhs, Eigen::AliasFreeProduct>(
+        *this, x.derived());
+  }
+
+  SystemMatrix(size_t size_, ProductF_ functor_)
+      : _size{size_}, _functor{functor_} {}
+
+public:
+  size_t system_size() const { return _size; }
+  auto const &system_functor() const { return _functor; }
+
+private:
+  size_t _size;
+  ProductF_ _functor;
+};
+
+template <typename ModelPolicy_, typename ProductF_>
+auto make_system_matrix(size_t size, ProductF_ &&functor) {
+  return SystemMatrix<
+      ModelPolicy_, std::remove_const_t<std::remove_reference_t<ProductF_>>>{
+      size, std::forward<ProductF_>(functor)};
+}
+
+template <typename SystemMatrix_, typename DiagonalF_> class DiagonalMatrix {
+  using system_matrix_type = SystemMatrix_;
+
+public:
+  using StorageIndex = typename system_matrix_type::StorageIndex;
+  using Scalar = typename system_matrix_type::Scalar;
+
+  enum {
+    ColsAtCompileTime = Eigen::Dynamic,
+    MaxColsAtCompileTime = Eigen::Dynamic
+  };
+
+  DiagonalMatrix() {}
+
+  void init(size_t size_, DiagonalF_ *functor_) {
+    _size = size_;
+    _functor = functor_;
+    _diagonal.resize(_size);
+  }
+
+  Eigen::Index rows() const { return _size; }
+  Eigen::Index cols() const { return _size; }
+
+  Eigen::ComputationInfo info() { return Eigen::Success; }
+
+  template <typename MatType> DiagonalMatrix &analyzePattern(const MatType &) {
+    // nothing to do
+    return *this;
+  }
+
+  template <typename MatType> DiagonalMatrix &factorize(const MatType &) {
+    // nothing to do
+    return *this;
+  }
+
+  template <typename MatType> DiagonalMatrix &compute(const MatType &) {
+#pragma omp parallel
+    {
+#pragma omp for
+      for (size_t i = 0; i < _size; i++) {
+        auto ii = static_cast<Eigen::Index>(i);
+        _diagonal(ii) = 1 / (*_functor)(i);
+      }
+    }
+    return *this;
+  }
+
+  template <typename RightHandSide_, typename Column_>
+  void
+  _solve_impl(const RightHandSide_ &right_hand_side, Column_ &column) const {
+    column = _diagonal.array() * right_hand_side.array();
+  }
+
+  template <typename RightHandSide_>
+  inline const Eigen::Solve<DiagonalMatrix, RightHandSide_>
+  solve(const Eigen::MatrixBase<RightHandSide_> &b) const {
+    return Eigen::Solve<DiagonalMatrix, RightHandSide_>(*this, b.derived());
+  }
+
+private:
+  size_t _size;
+  DiagonalF_ *_functor = nullptr;
+  Eigen::Matrix<Scalar, Eigen::Dynamic, 1> _diagonal;
+};
 
 template <typename ModelPolicy_> class pt16_solvers {
 public:
@@ -180,16 +318,6 @@ private:
 
   using real = dtype_t<nd_dtype::real>;
 
-  std::vector<real> cg_r, cg_y, cg_p, cg_x, cg_Ap;
-
-  void cg_resize(size_t size) {
-    cg_r.resize(size);
-    cg_y.resize(size);
-    cg_p.resize(size);
-    cg_x.resize(size);
-    cg_Ap.resize(size);
-  }
-
 private:
   template <
       typename NHood_, typename Group_, typename IterateF_, typename ProductF_,
@@ -226,22 +354,6 @@ private:
       }
     };
 
-    auto _find_neighbors =
-        [ this, &nhood_ ](auto tid, auto &p, size_t i) -> auto & {
-      auto &neighbors = _per_thread[tid].neighbors;
-
-      // clean up the neighbor storage
-      for (auto &pgn : neighbors)
-        pgn.clear();
-
-      // find all neighbors of (p, i)
-      nhood_.neighbors(p._index, i, [&neighbors](auto n_index, auto j) {
-        neighbors[n_index].push_back(j);
-      });
-
-      return neighbors;
-    };
-
     auto _foreach_particle = [this, &nhood_](auto tid, auto &p, auto f) {
 #pragma omp for
       for (size_t i = 0; i < p._count; ++i) {
@@ -260,92 +372,67 @@ private:
         });
       });
     };
+
+    auto _find_neighbors = [ this, &nhood_ ](auto &p, size_t i) -> auto & {
+      size_t tid = static_cast<size_t>(omp_get_thread_num());
+      auto &neighbors = _per_thread[tid].neighbors;
+
+      // clean up the neighbor storage
+      for (auto &pgn : neighbors)
+        pgn.clear();
+
+      // find all neighbors of (p, i)
+      nhood_.neighbors(p._index, i, [&neighbors](auto n_index, auto j) {
+        neighbors[n_index].push_back(j);
+      });
+
+      return neighbors;
+    };
     // }}}
 
-    real threshold_squared = 0;
+    Eigen::Matrix<real, Eigen::Dynamic, 1> x{p._count};
+    Eigen::Matrix<real, Eigen::Dynamic, 1> b{p._count};
+    Eigen::Matrix<real, Eigen::Dynamic, 1> guess{p._count};
 
-    cg_resize(p._count);
-
-    // r_{0} = A * x_{0} - b
-    // y_{0} = M^{-1} * r_{0}
-    // p_{0} = - y_{0}
     _parallel_foreach_particle_in_group(p, [&, this](auto tid, size_t i) {
-      auto &neighbors = _find_neighbors(tid, p, i);
-      // bind iterate for use in product
-      auto _x = [&](size_t i) { return iterate(p, i, neighbors); };
-      // fetch b[i]
-      real const b = rhs(p, i, neighbors);
-      // compute row-by-row
-      cg_r[i] = product(p, i, neighbors, _x) - b;
-      cg_y[i] = cg_r[i] / diagonal(p, i, neighbors);
-      cg_p[i] = -cg_y[i];
-      // accumulate || b ||^2 in threshold_squared
-#pragma omp atomic
-      threshold_squared += b * b;
+      auto &neighbors = _find_neighbors(p, i);
+      auto ii = static_cast<Eigen::Index>(i);
+      b(ii) = rhs(p, i, neighbors);
+      guess(ii) = iterate(p, i);
     });
-    // finally compute threshold_squared as || b ||^2 * tol^2
-    threshold_squared *= tol * tol;
-    threshold_squared =
-        std::max(threshold_squared, std::numeric_limits<real>::min());
 
-    real r_norm_squared = threshold_squared + 1;
+    auto system_matrix = make_system_matrix<ModelPolicy_>(
+        p._count, [&p, &product, &_find_neighbors](size_t i, auto const &rhs) {
+          auto &neighbors = _find_neighbors(p, i);
+          return product(p, i, neighbors, rhs);
+        });
 
-    size_t iterations = 0;
-    for (; iterations < max_iterations and r_norm_squared > threshold_squared;
-         ++iterations) {
-      // accumulate || r_k ||^2 (reset)
-      r_norm_squared = 0;
+    auto preconditioner_functor = [&p, &diagonal, &_find_neighbors](size_t i) {
+      auto &neighbors = _find_neighbors(p, i);
+      return diagonal(p, i, neighbors);
+    };
 
-      // alpha = r_k^T y_k / ( p_k^T A p_k )
-      real alpha_nom = 0, alpha_den = 0;
+    using SystemMatrixType = decltype(system_matrix);
+    using DiagonalMatrixType =
+        DiagonalMatrix<SystemMatrixType, decltype(preconditioner_functor)>;
+
+    Eigen::ConjugateGradient<
+        SystemMatrixType, Eigen::Lower | Eigen::Upper, DiagonalMatrixType>
+        solver;
+    solver.preconditioner().init(p._count, &preconditioner_functor);
+    solver.setTolerance(tol);
+    solver.setMaxIterations(static_cast<Eigen::Index>(max_iterations));
+    solver.compute(system_matrix);
+    x = solver.solveWithGuess(b, guess);
+
+    if (solver.iterations() > 0) {
       _parallel_foreach_particle_in_group(p, [&, this](auto tid, size_t i) {
-        auto &neighbors = _find_neighbors(tid, p, i);
-        cg_Ap[i] = product(
-            p, i, neighbors, [&cg_p = cg_p](size_t i) { return cg_p[i]; });
-#pragma omp atomic
-        alpha_nom += cg_r[i] * cg_y[i];
-#pragma omp atomic
-        alpha_den += cg_p[i] * cg_Ap[i];
-
-        // accumulate || r_k ||^2
-#pragma omp atomic
-        r_norm_squared += cg_r[i] * cg_r[i];
-      });
-      real const alpha = alpha_nom / alpha_den;
-
-      if (std::sqrt(r_norm_squared) < tol)
-        break;
-
-      // x_{k+1} = x_k + alpha * p_k
-      // r_{k+1} = r_k + alpha * A * p_k
-      // y_{k+1} = M^{-1} * r_{k+1}
-      _parallel_foreach_particle_in_group(p, [&, this](auto tid, size_t i) {
-        auto &neighbors = _find_neighbors(tid, p, i);
-        // bind _iterate for use in _product
-        auto _x = [&](size_t i) -> auto & { return iterate(p, i, neighbors); };
-        // compute row-by-row
-        _x(i) += alpha * cg_p[i];
-        cg_r[i] += alpha * cg_Ap[i];
-        cg_y[i] = cg_r[i] / diagonal(p, i, neighbors);
-      });
-
-      // beta = r_{k+1}^T y_{k+1} / ( r_{k}^T y_{k} )
-      real beta_nom = 0;
-      _parallel_foreach_particle_in_group(p, [&, this](auto tid, size_t i) {
-#pragma omp atomic
-        beta_nom += cg_r[i] * cg_y[i];
-      });
-      real const beta = beta_nom / alpha_nom;
-
-      // p_{k+1} = - y_{k+1} + beta * p_{k}
-      _parallel_foreach_particle_in_group(p, [&, this](auto tid, size_t i) {
-        auto &neighbors = _find_neighbors(tid, p, i);
-        // compute row-by-row
-        cg_p[i] = -cg_y[i] + beta * cg_p[i];
+        auto ii = static_cast<Eigen::Index>(i);
+        iterate(p, i) = x(ii);
       });
     }
 
-    return iterations;
+    return solver.iterations();
   }
 
 public:
@@ -364,7 +451,8 @@ public:
       return p.pt16_vorticity_diffusion_diagonal[f];
     };
 
-    auto product = [&g, &diagonal](auto &p, size_t f, auto &neighbors, auto x) {
+    auto product = [&g, &diagonal](
+                       auto &p, size_t f, auto &neighbors, auto const &x) {
       auto const h = g.smoothing_scale[0];
 
       real result = diagonal(p, f, neighbors) * x(f);
@@ -382,7 +470,7 @@ public:
       return p.pt16_vorticity_diffusion_rhs[f][d];
     };
 
-    auto iterate = [&d](auto &p, size_t f, auto &) -> auto & {
+    auto iterate = [&d](auto &p, size_t f) -> auto & {
       return p.vorticity[f][d];
     };
 
@@ -436,7 +524,7 @@ public:
       return p.pt16_velocity_reconstruction_rhs[f][d];
     };
 
-    auto iterate = [&d](auto &p, size_t f, auto &) -> auto & {
+    auto iterate = [&d](auto &p, size_t f) -> auto & {
       return p.velocity[f][d];
     };
 
@@ -446,7 +534,7 @@ public:
       for (d = 0; d < N; ++d) {
         iterations += solve_cg_dp(
             nhood_, p, iterate, product, rhs, diagonal,
-            1e-5 * p.rest_density[0], 500);
+            10 * 1e-5 * p.rest_density[0], 500);
       }
     }
 
@@ -456,6 +544,39 @@ public:
 
 } // namespace schemes
 } // namespace prtcl
+
+namespace Eigen {
+namespace internal {
+
+/// Implementing the matrix-vector product for the adaptor.
+/// https://eigen.tuxfamily.org/dox/group__MatrixfreeSolverExample.html
+template <typename ModelPolicy_, typename ProductF_, typename Rhs>
+struct generic_product_impl<
+    typename prtcl::schemes::SystemMatrix<ModelPolicy_, ProductF_>, Rhs,
+    SparseShape, DenseShape, GemvProduct>
+    : generic_product_impl_base<
+          prtcl::schemes::SystemMatrix<ModelPolicy_, ProductF_>, Rhs,
+          generic_product_impl<
+              prtcl::schemes::SystemMatrix<ModelPolicy_, ProductF_>, Rhs>> {
+  using lhs_type = prtcl::schemes::SystemMatrix<ModelPolicy_, ProductF_>;
+
+  typedef typename Product<lhs_type, Rhs>::Scalar Scalar;
+
+  template <typename Dest>
+  static void scaleAndAddTo(
+      Dest &dst, const lhs_type &lhs, const Rhs &rhs, const Scalar &alpha) {
+#pragma omp parallel
+    {
+#pragma omp for
+      for (size_t i = 0; i < lhs.system_size(); ++i) {
+        auto ii = static_cast<Eigen::Index>(i);
+        dst(ii) = alpha * lhs.system_functor()(i, rhs);
+      }
+    }
+  }
+};
+} // namespace internal
+} // namespace Eigen
 
 #if defined(__GNUG__)
 #pragma GCC diagnostic pop
