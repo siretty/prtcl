@@ -14,6 +14,35 @@ let d_f = field fade_duration : global real;
 
 let max_speed  = field maximum_speed : global real;
 
+procedure integrate_velocity_with_fade {
+  foreach dynamic particle i {
+    compute v[i] +=
+        dt[_] * a[i]
+      *
+        // accelerations "turn on" after a particle is older than d_f
+        unit_step_l((t_c[_] - t_b[i]) - d_f[_], 0)
+        // accelerations "fade in" until a particle is older than d_f
+        // smoothstep((t_c[_] - t_b[i]) / d_f[_])
+      ;
+  }
+}
+
+procedure integrate_velocity {
+  foreach dynamic particle i {
+    compute v[i] +=
+        dt[_] * a[i];
+  }
+}
+
+procedure integrate_position {
+  foreach dynamic particle i {
+    compute x[i] += dt[_] * v[i];
+
+    reduce max_speed[_] max= norm(v[i]);
+  }
+}
+
+// procedure integrate_with_fade {
 procedure advect_symplectic_euler {
   foreach dynamic particle i {
     compute v[i] +=

@@ -261,9 +261,20 @@ public:
     }
 
     template <typename Arg_>
+    static nd_dtype_t<nd_dtype::real, 3, 3>
+    cross_product_matrix_from_vector(Arg_ const &arg) {
+      real const zero = 0;
+      return literals::template narray<nd_dtype::real, 3, 3>({{
+          {zero, -arg[2], arg[1]},
+          {arg[2], zero, -arg[0]},
+          {-arg[1], arg[0], zero},
+      }});
+    }
+
+    template <typename Arg_>
     static nd_dtype_t<nd_dtype::real, 3>
     vector_from_cross_product_matrix(Arg_ const &arg) {
-      // TODO: assert that arg is 3-dim.
+      // TODO: assert that arg is a 3x3 matrix
       return {arg(2, 1), arg(0, 2), arg(1, 0)};
     }
   };

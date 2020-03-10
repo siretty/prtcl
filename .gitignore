@@ -1,5 +1,6 @@
 
 /deps
 /bld
-schemes/include/*.hpp
+schemes/include/**/*.hpp
+!schemes/include/**/pt16_solvers.hpp
 

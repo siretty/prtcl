@@ -10,7 +10,10 @@ let tvg = field target_velocity_gradient : varying real[][];
 let omega = field vorticity : varying real[];
 
 let omega_diagonal = field pt16_vorticity_diffusion_diagonal : varying real;
+let omega_rhs = field pt16_vorticity_diffusion_rhs : varying real[];
+
 let v_rec_diagonal = field pt16_velocity_reconstruction_diagonal : varying real;
+let v_rec_rhs = field pt16_velocity_reconstruction_rhs : varying real[];
 
 let rho = field density : varying real;
 let p = field pressure : varying real;
@@ -18,7 +21,7 @@ let m = field mass : varying real;
 let V = field volume : varying real;
 
 let rho0 = field rest_density : uniform real;
-let nu = field viscosity : uniform real;
+let xi = field viscosity : uniform real;
 
 let h = field smoothing_scale : global real;
 
@@ -60,7 +63,7 @@ procedure compute_velocity_gradient_and_vorticity {
         *
         V_f[_]
       +
-        nu[f] * S_f[_];
+        xi[f] * S_f[_];
 
     // compute fluid-only density for the vorticity diffusion system
     local fluid_rho_f : real = zeros<real>;
@@ -73,6 +76,47 @@ procedure compute_velocity_gradient_and_vorticity {
 
     // compute the diagonal element of the velocity reconstruction system
     compute v_rec_diagonal[f] = rho[f] - m[f] * kernel_h(zeros<real[]>, h[_]);
+  }
+}
+
+procedure compute_vorticity_rhs {
+  // compute the right-hand-side of the vorticity diffusion system
+  foreach fluid particle f {
+    compute omega_rhs[f] = zeros<real[]>;
+    foreach fluid neighbor f_f {
+      compute omega_rhs[f] +=
+          xi[_]
+        *
+          m[f_f]
+        *
+          (omega[f] - omega[f_f])
+        *
+          kernel_h(x[f] - x[f_f], h[_]);
+    }
+  }
+}
+
+procedure compute_target_velocity_gradient {
+  foreach fluid particle f {
+    // add the target spin rate (from the diffused vorticity) to the velocity gradient
+    compute tvg[f] += cross_product_matrix_from_vector(omega[f] / 2);
+  }
+}
+  
+procedure compute_velocity_reconstruction_rhs {
+  // compute the right-hand-side of the velocity reconstruction system
+  foreach fluid particle f {
+    compute v_rec_rhs[f] = zeros<real[]>;
+    foreach fluid neighbor f_f {
+      compute v_rec_rhs[f] +=
+          m[f_f]
+        *
+          (tvg[f] + tvg[f_f]) / 2
+        *
+          (x[f] - x[f_f])
+        *
+          kernel_h(x[f] - x[f_f], h[_]);
+    }
   }
 }
 
