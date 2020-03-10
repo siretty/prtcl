@@ -244,17 +244,17 @@ public:
     rvec b_lo = c::template most_positive<nd_dtype::real, N>(),
          b_hi = c::template most_negative<nd_dtype::real, N>();
 
-    { // compute boundary aabb
+    { // compute scene aabb
       // {{{
       for (auto &group : model.groups()) {
-        if (group.get_type() != "boundary")
+        if (not group.template has_varying<nd_dtype::real, N>("position"))
           continue;
 
-        auto x_b = group.template get_varying<nd_dtype::real, N>("position");
+        auto x = group.template get_varying<nd_dtype::real, N>("position");
         for (size_t i = 0; i < group.size(); ++i) {
           for (int n = 0; n < N; ++n) {
-            b_lo[n] = std::min(b_lo[n], x_b[i][n]);
-            b_hi[n] = std::max(b_hi[n], x_b[i][n]);
+            b_lo[n] = std::min(b_lo[n], x[i][n]);
+            b_hi[n] = std::max(b_hi[n], x[i][n]);
           }
         }
       }

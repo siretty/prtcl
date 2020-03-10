@@ -19,7 +19,7 @@
 #define SURFACE_TENSION_AAT13 1
 #define SURFACE_TENSION_He14 2
 
-#define SURFACE_TENSION SURFACE_TENSION_AAT13
+#define SURFACE_TENSION 0 // SURFACE_TENSION_AAT13
 
 template <typename ModelPolicy_>
 class iisph_application final
@@ -42,14 +42,20 @@ public:
 public:
   void on_require_schemes(model_type &model) override {
     require_all(
-        model, advect, boundary, iisph, gravity, viscosity, surface_tension,
-        implicit_viscosity, implicit_viscosity_solvers);
+        model, advect, boundary, iisph, gravity, viscosity, implicit_viscosity,
+        implicit_viscosity_solvers);
+#if SURFACE_TENSION != 0
+    surface_tension.require(model);
+#endif
   }
 
   void on_load_schemes(model_type &model) override {
     load_all(
-        model, advect, boundary, iisph, gravity, viscosity, surface_tension,
-        implicit_viscosity, implicit_viscosity_solvers);
+        model, advect, boundary, iisph, gravity, viscosity, implicit_viscosity,
+        implicit_viscosity_solvers);
+#if SURFACE_TENSION != 0
+    surface_tension.load(model);
+#endif
   }
 
   void
@@ -60,7 +66,7 @@ public:
     g[0] = c::template zeros<nd_dtype::real, N>();
     g[0][1] = -9.81;
 
-    model.template get_global<nd_dtype::real>("maximum_time_step")[0] = 0.002;
+    //model.template get_global<nd_dtype::real>("maximum_time_step")[0] = 0.005;
   }
 
   void on_prepare_step(model_type &, neighborhood_type &) override {
@@ -71,7 +77,7 @@ public:
     iisph.compute_density(nhood);
 
     gravity.initialize_acceleration(nhood);
-    viscosity.accumulate_acceleration(nhood);
+    // viscosity.accumulate_acceleration(nhood);
 
 #if SURFACE_TENSION == SURFACE_TENSION_AAT13
     // AAT13: Surface Tension
@@ -82,8 +88,10 @@ public:
     surface_tension.compute_color_field(nhood);
     surface_tension.compute_color_field_gradient(nhood);
 #endif
+#if SURFACE_TENSION != 0
     // AAT13 + He14: Surface Tension
     surface_tension.accumulate_acceleration(nhood);
+#endif
 
     auto aprde = model.template get_global<nd_dtype::real>("iisph_aprde");
     auto nprde = model.template get_global<nd_dtype::integer>("iisph_nprde");
@@ -132,25 +140,59 @@ public:
     // predict the velocity at the next timestep (explicit + pressure)
     advect.integrate_velocity_with_fade(nhood);
 
-    size_t viscosity_iterations = 0;
-    implicit_viscosity.compute_velocity_gradient_and_vorticity(nhood);
-    implicit_viscosity.compute_vorticity_rhs(nhood);
-    viscosity_iterations +=
-        implicit_viscosity_solvers.vorticity_diffusion(nhood);
-    implicit_viscosity.compute_target_velocity_gradient(nhood);
-    implicit_viscosity.compute_velocity_reconstruction_rhs(nhood);
-    // viscosity_iterations +=
-    // implicit_viscosity_solvers.velocity_reconstruction(nhood);
+    { // implicit viscosity
+      auto vg = model.get_group("f").template get_varying<nd_dtype::real, N, N>(
+          "velocity_gradient");
+      auto omega = model.get_group("f").template get_varying<nd_dtype::real, N>(
+          "vorticity");
+      auto omega_dgn =
+          model.get_group("f").template get_varying<nd_dtype::real>(
+              "pt16_vorticity_diffusion_diagonal");
+      auto omega_rhs =
+          model.get_group("f").template get_varying<nd_dtype::real, N>(
+              "pt16_vorticity_diffusion_rhs");
 
-    if (auto omega =
-            model.get_group("f").template get_varying<nd_dtype::real, N>(
-                "vorticity");
-        omega.size() > 0) {
       prtcl::rt::log::debug(
-          "app", "pt16", "vorticity[0] = ", omega[0][0], " ", omega[0][1], " ",
-          omega[0][2]);
-      prtcl::rt::log::debug(
-          "app", "pt16", "no. iterations ", viscosity_iterations);
+          "app", "pt16", "implicit viscosity = ",
+          1 - model.get_group("f").template get_uniform<nd_dtype::real>(
+                  "viscosity")[0]);
+
+      implicit_viscosity.compute_velocity_gradient_and_vorticity(nhood);
+
+      // if (omega.size() > 0) {
+      //  prtcl::rt::log::debug(
+      //      "app", "pt16", "grad v[0] = [[", vg[0](0, 0), " ", vg[0](0, 1), "
+      //      ", omega[0](0, 2), "], [", vg[0](1, 0), " ", vg[0](1, 1), " ",
+      //      vg[0](1, 2), "], [", vg[0](2, 0), " ", vg[0](2, 1), " ",
+      //      vg[0](2, 2), "]]");
+      //  prtcl::rt::log::debug(
+      //      "app", "pt16", "omega[0] = [", omega[0][0], " ", omega[0][1], " ",
+      //      omega[0][2], "]");
+      //  prtcl::rt::log::debug(
+      //      "app", "pt16", "omega_rhs[0] = [", omega_rhs[0][0], " ",
+      //      omega_rhs[0][1], " ", omega_rhs[0][2], "]");
+      //  prtcl::rt::log::debug("app", "pt16", "omega_dgn[0] = ", omega_dgn[0]);
+      //}
+
+      // implicit_viscosity.compute_vorticity_rhs(nhood);
+      // size_t vorticity_iterations =
+      //    implicit_viscosity_solvers.vorticity_diffusion(nhood);
+      // implicit_viscosity.compute_target_velocity_gradient(nhood);
+      // prtcl::rt::log::debug(
+      //    "app", "pt16", "no. iterations (vorticity) ",
+      //    vorticity_iterations);
+      // prtcl::rt::log::debug(
+      //    "app", "pt16", "vorticity[0] = ", omega[0][0], " ", omega[0][1],
+      //    " ", omega[0][2]);
+
+      implicit_viscosity.compute_velocity_reconstruction_rhs(nhood);
+      size_t velocity_iterations =
+          implicit_viscosity_solvers.velocity_reconstruction(nhood);
+
+      if (omega.size() > 0) {
+        prtcl::rt::log::debug(
+            "app", "pt16", "no. iterations (velocity) ", velocity_iterations);
+      }
     }
 
     // integrate the particle position

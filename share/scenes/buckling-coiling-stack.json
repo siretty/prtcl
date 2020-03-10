@@ -1,0 +1,49 @@
+{
+  "name_value": {
+    "model": {
+      "parameters": {
+        "maximum_time_step": 0.001
+      },
+      "group": {
+        "f": {
+          "type": "fluid",
+          "tag": "dynamic",
+          "tag": "density",
+          "parameters": {
+            "surface_tension": 3,
+            "viscosity": 0.01
+          },
+          "sample": {
+            "volume": {
+              "what": "triangle_mesh",
+              "file_type": "obj",
+              "file_path": "share/models/cube.obj",
+              "scaling" :     { "0": 1, "1": 100, "2": 1, "adaptive": true },
+              "translation" : { "0": 0, "1": 101, "2": 0, "adaptive": true }
+            }
+          }
+        },
+        "b": {
+          "type": "boundary",
+          "tag": "static",
+          "tag": "volume",
+          "parameters": {
+            "adhesion": 2,
+            "viscosity": 0.001
+          },
+          "sample": {
+            "volume": {
+              "what": "triangle_mesh",
+              "file_type": "obj",
+              "file_path": "share/models/cube.obj",
+              "scaling" :     { "0": 40, "1": 1, "2": 40, "adaptive": true },
+              "translation" : { "0": 0, "1": -1, "2": 0, "adaptive": true }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+

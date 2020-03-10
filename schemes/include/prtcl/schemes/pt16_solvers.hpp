@@ -47,17 +47,14 @@ public:
 private:
   struct global_data {
     nd_dtype_data_ref_t<nd_dtype::real> smoothing_scale;
-    nd_dtype_data_ref_t<nd_dtype::real> viscosity;
 
     static void _require(model_type &m_) {
       m_.template add_global<nd_dtype::real>("smoothing_scale");
-      m_.template add_global<nd_dtype::real>("viscosity");
     }
 
     void _load(model_type const &m_) {
       smoothing_scale =
           m_.template get_global<nd_dtype::real>("smoothing_scale");
-      viscosity = m_.template get_global<nd_dtype::real>("viscosity");
     }
   };
 
@@ -70,7 +67,6 @@ private:
 
     // uniform fields
     nd_dtype_data_ref_t<nd_dtype::real> rest_density;
-    nd_dtype_data_ref_t<nd_dtype::real> viscosity;
 
     // varying fields
     nd_dtype_data_ref_t<nd_dtype::real> mass;
@@ -87,7 +83,6 @@ private:
     static void _require(group_type &g_) {
       // uniform fields
       g_.template add_uniform<nd_dtype::real>("rest_density");
-      g_.template add_uniform<nd_dtype::real>("viscosity");
 
       // varying fields
       g_.template add_varying<nd_dtype::real>("mass");
@@ -111,7 +106,6 @@ private:
 
       // uniform fields
       rest_density = g_.template get_uniform<nd_dtype::real>("rest_density");
-      viscosity = g_.template get_uniform<nd_dtype::real>("viscosity");
 
       // varying fields
       mass = g_.template get_varying<nd_dtype::real>("mass");
@@ -268,6 +262,8 @@ private:
     };
     // }}}
 
+    real threshold_squared = 0;
+
     cg_resize(p._count);
 
     // r_{0} = A * x_{0} - b
@@ -275,18 +271,29 @@ private:
     // p_{0} = - y_{0}
     _parallel_foreach_particle_in_group(p, [&, this](auto tid, size_t i) {
       auto &neighbors = _find_neighbors(tid, p, i);
-      // bound _iterate for use in _product
+      // bind iterate for use in product
       auto _x = [&](size_t i) { return iterate(p, i, neighbors); };
+      // fetch b[i]
+      real const b = rhs(p, i, neighbors);
       // compute row-by-row
-      cg_r[i] = product(p, i, neighbors, _x) - rhs(p, i, neighbors);
+      cg_r[i] = product(p, i, neighbors, _x) - b;
       cg_y[i] = cg_r[i] / diagonal(p, i, neighbors);
       cg_p[i] = -cg_y[i];
+      // accumulate || b ||^2 in threshold_squared
+#pragma omp atomic
+      threshold_squared += b * b;
     });
+    // finally compute threshold_squared as || b ||^2 * tol^2
+    threshold_squared *= tol * tol;
+    threshold_squared =
+        std::max(threshold_squared, std::numeric_limits<real>::min());
 
-    real r_norm_squared = tol + 1;
+    real r_norm_squared = threshold_squared + 1;
 
     size_t iterations = 0;
-    for (; iterations < max_iterations and r_norm_squared > tol; ++iterations) {
+    for (; iterations < max_iterations and r_norm_squared > threshold_squared;
+         ++iterations) {
+      // accumulate || r_k ||^2 (reset)
       r_norm_squared = 0;
 
       // alpha = r_k^T y_k / ( p_k^T A p_k )
@@ -299,6 +306,8 @@ private:
         alpha_nom += cg_r[i] * cg_y[i];
 #pragma omp atomic
         alpha_den += cg_p[i] * cg_Ap[i];
+
+        // accumulate || r_k ||^2
 #pragma omp atomic
         r_norm_squared += cg_r[i] * cg_r[i];
       });
@@ -332,7 +341,7 @@ private:
       _parallel_foreach_particle_in_group(p, [&, this](auto tid, size_t i) {
         auto &neighbors = _find_neighbors(tid, p, i);
         // compute row-by-row
-        cg_p[i] = -cg_y[i] + cg_p[i];
+        cg_p[i] = -cg_y[i] + beta * cg_p[i];
       });
     }
 
@@ -349,76 +358,16 @@ public:
     using c = typename math_policy::constants;
     using o = typename math_policy::operations;
 
-    // {{{
-    auto _parallel = [this](auto f) {
-      _Pragma("omp parallel") {
-        _Pragma("omp single") {
-          auto const thread_count = static_cast<size_t>(omp_get_num_threads());
-          _per_thread.resize(thread_count);
-        } // pragma omp single
-
-        auto const thread_index = static_cast<size_t>(omp_get_thread_num());
-
-        PRTCL_RT_LOG_TRACE_SCOPED("foreach_particle", "p=fluid");
-
-        // select and resize the neighbor storage for the current thread
-        auto &neighbors = _per_thread[thread_index].neighbors;
-        neighbors.resize(_group_count);
-
-        for (auto &pgn : neighbors)
-          pgn.reserve(100);
-
-        f(thread_index);
-      }
-    };
-
-    auto _find_neighbors =
-        [ this, &nhood_ ](auto tid, auto &p, size_t i) -> auto & {
-      auto &neighbors = _per_thread[tid].neighbors;
-
-      // clean up the neighbor storage
-      for (auto &pgn : neighbors)
-        pgn.clear();
-
-      // find all neighbors of (p, i)
-      nhood_.neighbors(p._index, i, [&neighbors](auto n_index, auto j) {
-        neighbors[n_index].push_back(j);
-      });
-
-      return neighbors;
-    };
-
-    auto _foreach_particle = [this, &nhood_](auto tid, auto &p, auto f) {
-#pragma omp for
-      for (size_t i = 0; i < p._count; ++i) {
-        f(tid, i);
-      }
-    };
-
-    auto _parallel_foreach_particle_in_group = [&, this](auto &p, auto f) {
-      if (p._count == 0)
-        return;
-
-      _parallel([&, this](auto tid) {
-        _foreach_particle(tid, p, [&, this](auto tid, size_t i) {
-          // call the per-particle function
-          f(tid, i);
-        });
-      });
-    };
-    // }}}
-
     size_t d = 0;
 
-    auto _diagonal = [this, &g](auto &p, size_t f, auto &) {
+    auto diagonal = [](auto &p, size_t f, auto &) {
       return p.pt16_vorticity_diffusion_diagonal[f];
     };
 
-    auto _product = [this, d, &g,
-                     &_diagonal](auto &p, size_t f, auto &neighbors, auto x) {
+    auto product = [&g, &diagonal](auto &p, size_t f, auto &neighbors, auto x) {
       auto const h = g.smoothing_scale[0];
 
-      real result = _diagonal(p, f, neighbors) * x(f);
+      real result = diagonal(p, f, neighbors) * x(f);
 
       for (auto f_f : neighbors[p._index]) {
         if (f != f_f)
@@ -429,88 +378,75 @@ public:
       return result;
     };
 
-    auto _rhs = [this, d](auto &p, size_t f, auto &) {
+    auto rhs = [&d](auto &p, size_t f, auto &) {
       return p.pt16_vorticity_diffusion_rhs[f][d];
     };
 
-    auto _iterate = [ this, d ](auto &p, size_t f, auto &) -> auto & {
+    auto iterate = [&d](auto &p, size_t f, auto &) -> auto & {
       return p.vorticity[f][d];
     };
-
-    real const tol = 1e-2;
-    size_t const max_iterations = 50;
 
     size_t iterations = 0;
 
     for (auto &p : _data.by_group_type.fluid) {
-      cg_resize(p._count);
+      for (d = 0; d < N; ++d) {
+        iterations += solve_cg_dp(nhood_, p, iterate, product, rhs, diagonal);
+      }
+    }
 
-      // r_{0} = A * x_{0} - b
-      // y_{0} = M^{-1} * r_{0}
-      // p_{0} = - y_{0}
-      _parallel_foreach_particle_in_group(p, [&, this](auto tid, size_t i) {
-        auto &neighbors = _find_neighbors(tid, p, i);
-        // bound _iterate for use in _product
-        auto _x = [&, this](size_t i) { return _iterate(p, i, neighbors); };
-        // compute row-by-row
-        cg_r[i] = _product(p, i, neighbors, _x) - _rhs(p, i, neighbors);
-        cg_y[i] = cg_r[i] / _diagonal(p, i, neighbors);
-        cg_p[i] = -cg_y[i];
-      });
+    return iterations;
+  }
 
-      real r_norm_squared = tol + 1;
+public:
+  template <typename NHood_>
+  size_t velocity_reconstruction(NHood_ const &nhood_) {
+    // alias for the global data
+    auto &g = _data.global;
 
-      for (; iterations < max_iterations and r_norm_squared > tol;
-           ++iterations) {
-        r_norm_squared = 0;
+    // alias for the math_policy member types
+    using l = typename math_policy::literals;
+    using c = typename math_policy::constants;
+    using o = typename math_policy::operations;
 
-        // alpha = r_k^T y_k / ( p_k^T A p_k )
-        real alpha_nom = 0, alpha_den = 0;
-        _parallel_foreach_particle_in_group(p, [&, this](auto tid, size_t i) {
-          auto &neighbors = _find_neighbors(tid, p, i);
-          cg_Ap[i] = _product(
-              p, i, neighbors, [&cg_p = cg_p](size_t i) { return cg_p[i]; });
-#pragma omp atomic
-          alpha_nom += cg_r[i] * cg_y[i];
-#pragma omp atomic
-          alpha_den += cg_p[i] * cg_Ap[i];
-#pragma omp atomic
-          r_norm_squared += cg_r[i] * cg_r[i];
-        });
-        real const alpha = alpha_nom / alpha_den;
+    size_t d = 0;
 
-        if (std::sqrt(r_norm_squared) < tol)
-          break;
+    auto diagonal = [&g](auto &p, size_t f, auto &) {
+      // return p.pt16_velocity_reconstruction_diagonal[f];
+      return p.density[f] -
+             p.mass[f] * o::kernel_h(
+                             c::template zeros<nd_dtype::real, N>(),
+                             g.smoothing_scale[0]);
+    };
 
-        // x_{k+1} = x_k + alpha * p_k
-        // r_{k+1} = r_k + alpha * A * p_k
-        // y_{k+1} = M^{-1} * r_{k+1}
-        _parallel_foreach_particle_in_group(p, [&, this](auto tid, size_t i) {
-          auto &neighbors = _find_neighbors(tid, p, i);
-          // bind _iterate for use in _product
-          auto _x = [&, this ](size_t i) -> auto & {
-            return _iterate(p, i, neighbors);
-          };
-          // compute row-by-row
-          _x(i) += alpha * cg_p[i];
-          cg_r[i] += alpha * cg_Ap[i];
-          cg_y[i] = cg_r[i] / _diagonal(p, i, neighbors);
-        });
+    auto product = [&g, &diagonal](auto &p, size_t f, auto &neighbors, auto x) {
+      auto const h = g.smoothing_scale[0];
 
-        // beta = r_{k+1}^T y_{k+1} / ( r_{k}^T y_{k} )
-        real beta_nom = 0;
-        _parallel_foreach_particle_in_group(p, [&, this](auto tid, size_t i) {
-#pragma omp atomic
-          beta_nom += cg_r[i] * cg_y[i];
-        });
-        real const beta = beta_nom / alpha_nom;
+      real result = diagonal(p, f, neighbors) * x(f);
 
-        // p_{k+1} = - y_{k+1} + beta * p_{k}
-        _parallel_foreach_particle_in_group(p, [&, this](auto tid, size_t i) {
-          auto &neighbors = _find_neighbors(tid, p, i);
-          // compute row-by-row
-          cg_p[i] = -cg_y[i] + cg_p[i];
-        });
+      for (auto f_f : neighbors[p._index]) {
+        if (f != f_f)
+          result -= p.mass[f_f] *
+                    o::kernel_h(p.position[f] - p.position[f_f], h) * x(f_f);
+      }
+
+      return result;
+    };
+
+    auto rhs = [&d](auto &p, size_t f, auto &) {
+      return p.pt16_velocity_reconstruction_rhs[f][d];
+    };
+
+    auto iterate = [&d](auto &p, size_t f, auto &) -> auto & {
+      return p.velocity[f][d];
+    };
+
+    size_t iterations = 0;
+
+    for (auto &p : _data.by_group_type.fluid) {
+      for (d = 0; d < N; ++d) {
+        iterations += solve_cg_dp(
+            nhood_, p, iterate, product, rhs, diagonal,
+            1e-5 * p.rest_density[0], 500);
       }
     }
 

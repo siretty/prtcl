@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <random>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -42,6 +43,10 @@ void load_model_groups_from_cli(
   using rvec = typename math_policy::template nd_dtype_t<nd_dtype::real, N>;
 
   using triangle_mesh_type = triangle_mesh<model_policy>;
+
+  std::mt19937 gen{0};
+  std::uniform_real_distribution<real> dis;
+  using dis_param = typename decltype(dis)::param_type;
 
   auto get_vector = [](auto tree, auto name, auto init, auto h) {
     // {{{ implementation
@@ -262,8 +267,12 @@ void load_model_groups_from_cli(
     // }}}
   };
 
-  auto append_samples = [](auto &group, auto &samples) {
+  auto append_samples = [&model_, &dis, &gen](auto &group, auto &samples) {
     // {{{ implementation
+    // get the smoothing scale from the model
+    auto const h =
+        model_.template get_global<nd_dtype::real>("smoothing_scale")[0];
+
     // save the old size of the group and make room for the samples
     size_t const old_size = group.size();
     group.resize(old_size + samples.size());
@@ -272,8 +281,12 @@ void load_model_groups_from_cli(
     auto x = group.template get_varying<nd_dtype::real, N>("position");
 
     // store the sampled positions in the group
-    for (size_t i = 0; i < samples.size(); ++i)
+    for (size_t i = 0; i < samples.size(); ++i) {
       x[old_size + i] = samples[i];
+      // perturb the sampled point slightly
+      for (size_t d = 0; d < N; ++d)
+        x[old_size + i][d] += dis(gen, dis_param{-h / 20, h / 20});
+    }
     // }}}
   };
 
