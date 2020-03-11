@@ -24,6 +24,9 @@
 namespace prtcl {
 namespace schemes {
 
+// {{{
+/*
+
 template <typename, typename> class SystemMatrix;
 
 } // namespace schemes
@@ -159,6 +162,9 @@ private:
   DiagonalF_ *_functor = nullptr;
   Eigen::Matrix<Scalar, Eigen::Dynamic, 1> _diagonal;
 };
+
+*/
+// }}}
 
 template <typename ModelPolicy_> class pt16_solvers {
 public:
@@ -318,6 +324,8 @@ private:
 
   using real = dtype_t<nd_dtype::real>;
 
+  // {{{
+  /*
 private:
   template <
       typename NHood_, typename Group_, typename IterateF_, typename ProductF_,
@@ -435,6 +443,9 @@ private:
     return solver.iterations();
   }
 
+  */
+  // }}}
+
 public:
   template <typename NHood_> size_t vorticity_diffusion(NHood_ const &nhood_) {
     // alias for the global data
@@ -478,7 +489,9 @@ public:
 
     for (auto &p : _data.by_group_type.fluid) {
       for (d = 0; d < N; ++d) {
-        iterations += solve_cg_dp(nhood_, p, iterate, product, rhs, diagonal);
+        iterations += math_policy::solve_cg_dp(
+            nhood_, _group_count, p, iterate, product, rhs, diagonal, 10 * 1e-5,
+            500);
       }
     }
 
@@ -532,8 +545,8 @@ public:
 
     for (auto &p : _data.by_group_type.fluid) {
       for (d = 0; d < N; ++d) {
-        iterations += solve_cg_dp(
-            nhood_, p, iterate, product, rhs, diagonal,
+        iterations += math_policy::solve_cg_dp(
+            nhood_, _group_count, p, iterate, product, rhs, diagonal,
             10 * 1e-5 * p.rest_density[0], 500);
       }
     }
@@ -544,6 +557,9 @@ public:
 
 } // namespace schemes
 } // namespace prtcl
+
+// {{{
+/*
 
 namespace Eigen {
 namespace internal {
@@ -577,6 +593,9 @@ struct generic_product_impl<
 };
 } // namespace internal
 } // namespace Eigen
+
+*/
+// }}}
 
 #if defined(__GNUG__)
 #pragma GCC diagnostic pop

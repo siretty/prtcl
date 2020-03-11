@@ -19,7 +19,7 @@
 #define SURFACE_TENSION_AAT13 1
 #define SURFACE_TENSION_He14 2
 
-#define SURFACE_TENSION 0 // SURFACE_TENSION_AAT13
+#define SURFACE_TENSION SURFACE_TENSION_AAT13
 
 template <typename ModelPolicy_>
 class iisph_application final
@@ -66,7 +66,8 @@ public:
     g[0] = c::template zeros<nd_dtype::real, N>();
     g[0][1] = -9.81;
 
-    //model.template get_global<nd_dtype::real>("maximum_time_step")[0] = 0.005;
+    // model.template get_global<nd_dtype::real>("maximum_time_step")[0] =
+    // 0.005;
   }
 
   void on_prepare_step(model_type &, neighborhood_type &) override {
@@ -174,16 +175,17 @@ public:
       //  prtcl::rt::log::debug("app", "pt16", "omega_dgn[0] = ", omega_dgn[0]);
       //}
 
-      // implicit_viscosity.compute_vorticity_rhs(nhood);
-      // size_t vorticity_iterations =
-      //    implicit_viscosity_solvers.vorticity_diffusion(nhood);
-      // implicit_viscosity.compute_target_velocity_gradient(nhood);
-      // prtcl::rt::log::debug(
-      //    "app", "pt16", "no. iterations (vorticity) ",
-      //    vorticity_iterations);
-      // prtcl::rt::log::debug(
-      //    "app", "pt16", "vorticity[0] = ", omega[0][0], " ", omega[0][1],
-      //    " ", omega[0][2]);
+      implicit_viscosity.compute_vorticity_rhs(nhood);
+      size_t vorticity_iterations =
+          implicit_viscosity_solvers.vorticity_diffusion(nhood);
+      implicit_viscosity.compute_target_velocity_gradient(nhood);
+      prtcl::rt::log::debug(
+          "app", "pt16", "no. iterations (vorticity) ", vorticity_iterations);
+      if (omega.size() > 0) {
+        prtcl::rt::log::debug(
+            "app", "pt16", "vorticity[0] = ", omega[0][0], " ", omega[0][1],
+            " ", omega[0][2]);
+      }
 
       implicit_viscosity.compute_velocity_reconstruction_rhs(nhood);
       size_t velocity_iterations =

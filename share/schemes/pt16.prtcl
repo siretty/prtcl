@@ -66,10 +66,7 @@ procedure compute_velocity_gradient_and_vorticity {
       *
         V_f[_]
       +
-        (1 - nu[f]) * S_f[_]
-      +
-        R_f[_]
-      ;
+        (1 - nu[f]) * S_f[_];
 
     // compute fluid-only density for the vorticity diffusion system
     local fluid_rho_f : real = zeros<real>;
