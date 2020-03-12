@@ -166,3 +166,37 @@ target_link_libraries(
   PUBLIC ${CMAKE_DL_LIBS}
 )
 
+
+add_executable(
+  prtcl-schemes-iisph-pt16
+
+  ${_TRACY_CPP} # tracing
+
+  ${_PRJ}/sources/prtcl-schemes-iisph-pt16.cpp
+)
+DE_CXX17_Target( prtcl-schemes-iisph-pt16 )
+DE_Common_Diagnostics_CXX_Target( prtcl-schemes-iisph-pt16 )
+DE_LibCXX_Target( prtcl-schemes-iisph-pt16 )
+DE_Add_Our_Include_Directories( prtcl-schemes-iisph-pt16 include sources )
+PRTCL_Add_Target_CXX_FLAGS_FastMath( prtcl-schemes-iisph-pt16 )
+PRTCL_Add_Target_CXX_FLAGS_OptimizeForNative( prtcl-schemes-iisph-pt16 )
+target_compile_definitions(
+  prtcl-schemes-iisph-pt16
+  PUBLIC
+    #PRTCL_RT_LOG_TRACE_TRACY
+)
+target_include_directories(
+  prtcl-schemes-iisph-pt16
+  PUBLIC
+    ${_TRACY_DIR}
+)
+target_link_libraries(
+  prtcl-schemes-iisph-pt16
+  PUBLIC prtcl-schemes
+  PUBLIC prtcl-rt
+  PUBLIC Eigen3::Eigen
+  PUBLIC Threads::Threads
+  PUBLIC OpenMP::OpenMP_CXX
+  PUBLIC ${CMAKE_DL_LIBS}
+)
+

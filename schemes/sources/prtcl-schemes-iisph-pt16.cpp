@@ -8,6 +8,8 @@
 #include <prtcl/schemes/gravity.hpp>
 #include <prtcl/schemes/he14.hpp>
 #include <prtcl/schemes/iisph.hpp>
+#include <prtcl/schemes/pt16.hpp>
+#include <prtcl/schemes/pt16_solvers.hpp>
 #include <prtcl/schemes/symplectic_euler.hpp>
 #include <prtcl/schemes/viscosity.hpp>
 
@@ -20,7 +22,7 @@
 #define SURFACE_TENSION SURFACE_TENSION_AAT13
 
 template <typename ModelPolicy_>
-class iisph_application final
+class iisph_pt16_application final
     : public prtcl::rt::basic_application<ModelPolicy_> {
   using base_type = prtcl::rt::basic_application<ModelPolicy_>;
 
@@ -39,14 +41,18 @@ public:
 
 public:
   void on_require_schemes(model_type &model) override {
-    require_all(model, advect, boundary, iisph, gravity, viscosity);
+    require_all(
+        model, advect, boundary, iisph, gravity, viscosity, implicit_viscosity,
+        implicit_viscosity_solvers);
 #if SURFACE_TENSION != 0
     surface_tension.require(model);
 #endif
   }
 
   void on_load_schemes(model_type &model) override {
-    load_all(model, advect, boundary, iisph, gravity, viscosity);
+    load_all(
+        model, advect, boundary, iisph, gravity, viscosity, implicit_viscosity,
+        implicit_viscosity_solvers);
 #if SURFACE_TENSION != 0
     surface_tension.load(model);
 #endif
@@ -59,6 +65,11 @@ public:
     auto g = model.template add_global<nd_dtype::real, N>("gravity");
     g[0] = c::template zeros<nd_dtype::real, N>();
     g[0][1] = -9.81;
+
+    prtcl::rt::log::debug(
+        "app", "pt16", "implicit viscosity = ",
+        1 - model.get_group("f").template get_uniform<nd_dtype::real>(
+                "viscosity")[0]);
   }
 
   void on_prepare_step(model_type &, neighborhood_type &) override {
@@ -69,7 +80,6 @@ public:
     iisph.compute_density(nhood);
 
     gravity.initialize_acceleration(nhood);
-    viscosity.accumulate_acceleration(nhood);
 
 #if SURFACE_TENSION == SURFACE_TENSION_AAT13
     // AAT13: Surface Tension
@@ -136,6 +146,38 @@ public:
     // predict the velocity at the next timestep (explicit + pressure)
     advect.integrate_velocity_with_fade(nhood);
 
+    { // viscosity solver
+      auto vg = model.get_group("f").template get_varying<nd_dtype::real, N, N>(
+          "velocity_gradient");
+      auto omega = model.get_group("f").template get_varying<nd_dtype::real, N>(
+          "vorticity");
+      auto omega_dgn =
+          model.get_group("f").template get_varying<nd_dtype::real>(
+              "pt16_vorticity_diffusion_diagonal");
+      auto omega_rhs =
+          model.get_group("f").template get_varying<nd_dtype::real, N>(
+              "pt16_vorticity_diffusion_rhs");
+
+      implicit_viscosity.compute_velocity_gradient_and_vorticity(nhood);
+
+      implicit_viscosity.compute_vorticity_rhs(nhood);
+      size_t vorticity_iterations =
+          implicit_viscosity_solvers.vorticity_diffusion(nhood);
+      implicit_viscosity.compute_target_velocity_gradient(nhood);
+
+      prtcl::rt::log::debug(
+          "app", "pt16", "no. iterations (vorticity) ", vorticity_iterations);
+
+      implicit_viscosity.compute_velocity_reconstruction_rhs(nhood);
+      size_t velocity_iterations =
+          implicit_viscosity_solvers.velocity_reconstruction(nhood);
+
+      if (omega.size() > 0) {
+        prtcl::rt::log::debug(
+            "app", "pt16", "no. iterations (velocity) ", velocity_iterations);
+      }
+    }
+
     // integrate the particle position
     advect.integrate_position(nhood);
   }
@@ -145,6 +187,8 @@ public:
   prtcl::schemes::iisph<model_policy> iisph;
   prtcl::schemes::gravity<model_policy> gravity;
   prtcl::schemes::viscosity<model_policy> viscosity;
+  prtcl::schemes::pt16<model_policy> implicit_viscosity;
+  prtcl::schemes::pt16_solvers<model_policy> implicit_viscosity_solvers;
 #if SURFACE_TENSION == SURFACE_TENSION_AAT13
   prtcl::schemes::aat13<model_policy> surface_tension;
 #endif
@@ -170,6 +214,7 @@ int main(int argc_, char **argv_) {
   std::cerr << "PRESS [ENTER] TO START";
   std::getchar();
 
-  iisph_application<model_policy> application;
+  iisph_pt16_application<model_policy> application;
   application.main(argc_, argv_);
 }
+

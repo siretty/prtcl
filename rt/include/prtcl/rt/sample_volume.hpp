@@ -1,5 +1,6 @@
 #pragma once
 
+#include <prtcl/core/identity.hpp>
 #include <prtcl/core/remove_cvref.hpp>
 
 #include <prtcl/rt/geometry/axis_aligned_box.hpp>
@@ -88,10 +89,12 @@ void sample_volume(
 //  }
 //}
 
-template <typename ModelPolicy_, typename OutputIt_>
+template <
+    typename ModelPolicy_, typename OutputIt_,
+    typename Transform_ = core::identity_fn>
 void sample_volume(
     triangle_mesh<ModelPolicy_> const &mesh_, OutputIt_ it_,
-    sample_volume_parameters const &p_) {
+    sample_volume_parameters const &p_, Transform_ transform = {}) {
   static constexpr size_t N = ModelPolicy_::dimensionality;
 
   using type_policy = typename ModelPolicy_::type_policy;
@@ -205,7 +208,7 @@ void sample_volume(
 
     // if the counter is odd, the point g was in the interior of the mesh
     if (counter % 2 == 1) {
-      *(it_++) = g;
+      *(it_++) = transform(g);
     }
     // else {
     //  std::cerr << "DEBUG: g " << g[0] << ' ' << g[1] << ' ' << g[2];

@@ -2,7 +2,7 @@
   "name_value": {
     "model": {
       "parameters": {
-        "maximum_time_step": 0.001
+        "maximum_time_step": 0.002
       },
       "group": {
         "f": {
@@ -10,16 +10,21 @@
           "tag": "dynamic",
           "tag": "density",
           "parameters": {
-            "surface_tension": 0.01,
-            "viscosity": 0.4
+            "surface_tension": 0,
+            "viscosity": 0.4,
+            "pt16_vorticity_error": 1,
+            "pt16_vorticity_iters": 500,
+            "pt16_velocity_error": 50,
+            "pt16_velocity_iters": 500
           },
           "sample": {
             "volume": {
               "what": "triangle_mesh",
               "file_type": "obj",
               "file_path": "share/models/cube.obj",
-              "scaling" :     { "0": 1, "1": 100, "2": 1, "adaptive": true },
-              "translation" : { "0": 0, "1": 101, "2": 0, "adaptive": true }
+              "scaling" :     { "0": 2.5, "1": 50, "2": 0.5, "adaptive": true },
+              "translation" : { "0": 0, "1": 51, "2": 0, "adaptive": true },
+              "factor": 0.9
             }
           }
         },
@@ -28,7 +33,7 @@
           "tag": "static",
           "tag": "volume",
           "parameters": {
-            "adhesion": 2,
+            "adhesion": 0,
             "viscosity": 0.001
           },
           "sample": {
@@ -36,8 +41,10 @@
               "what": "triangle_mesh",
               "file_type": "obj",
               "file_path": "share/models/cube.obj",
-              "scaling" :     { "0": 40, "1": 1, "2": 40, "adaptive": true },
-              "translation" : { "0": 0, "1": -1, "2": 0, "adaptive": true }
+              "scaling" :     { "0": 40, "1": 0.5, "2": 40, "adaptive": true },
+              "translation" : { "0": 0, "1": -1, "2": 0, "adaptive": true },
+              "rotation_axis": {"0": 1, "1": 0, "2": 0},
+              "rotation_angle": 0.1
             }
           }
         }

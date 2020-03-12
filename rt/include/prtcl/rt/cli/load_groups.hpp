@@ -36,11 +36,13 @@ void load_model_groups_from_cli(
   using source_type = basic_source<model_policy>;
 
   using c = typename math_policy::constants;
+  using o = typename math_policy::operations;
 
   static constexpr size_t N = model_policy::dimensionality;
 
   using real = typename type_policy::real;
   using rvec = typename math_policy::template nd_dtype_t<nd_dtype::real, N>;
+  using rmat = typename math_policy::template nd_dtype_t<nd_dtype::real, N, N>;
 
   using triangle_mesh_type = triangle_mesh<model_policy>;
 
@@ -103,6 +105,22 @@ void load_model_groups_from_cli(
 
     group.template add_uniform<nd_dtype::real>("surface_tension")[0] =
         tree.get("surface_tension", static_cast<real>(1));
+
+    if (auto opt = tree.template get_optional<real>("pt16_vorticity_error"))
+      group.template add_uniform<nd_dtype::real>(
+          "pt16_vorticity_diffusion_maximum_error")[0] = opt.value();
+
+    if (auto opt = tree.template get_optional<int>("pt16_vorticity_iters"))
+      group.template add_uniform<nd_dtype::integer>(
+          "pt16_vorticity_diffusion_maximum_iterations")[0] = opt.value();
+
+    if (auto opt = tree.template get_optional<real>("pt16_velocity_error"))
+      group.template add_uniform<nd_dtype::real>(
+          "pt16_velocity_reconstruction_maximum_error")[0] = opt.value();
+
+    if (auto opt = tree.template get_optional<int>("pt16_velocity_iters"))
+      group.template add_uniform<nd_dtype::integer>(
+          "pt16_velocity_reconstruction_maximum_iterations")[0] = opt.value();
     // }}}
   };
 
@@ -137,6 +155,22 @@ void load_model_groups_from_cli(
         rvec translation = get_vector(
             tree, "translation", c::template zeros<nd_dtype::real, N>(), h);
 
+        // rotation applied to the particles after sampling
+        rmat rotation = c::template identity<nd_dtype::real, N, N>();
+
+        if constexpr (N == 3) {
+          // 3D: rotation from axis and angle
+          rvec const axis = o::normalized(get_vector(
+              tree, "rotation_axis", c::template zeros<nd_dtype::real, N>(),
+              1));
+          real const angle = tree.get("rotation_angle", real{0});
+
+          rotation *=
+              std::cos(angle) * c::template identity<nd_dtype::real, N, N>() +
+              std::sin(angle) * o::cross_product_matrix_from_vector(axis) +
+              (1 - std::cos(angle)) * o::outer_product(axis, axis);
+        }
+
         // open file_path for reading
         std::ifstream file{file_path, std::ios::in};
 
@@ -157,89 +191,15 @@ void load_model_groups_from_cli(
         if (type == "surface") {
           // {{{ sample.surface
           // sample the loaded triangle mesh
-          sample_surface(mesh, it, {h});
-
-          // sample the loaded triangle mesh
-          // std::vector<rvec> samples;
-          // sample_surface(mesh, std::back_inserter(samples), {h});
-
-          // std::cerr << "no. surface samples = " << samples.size() <<
-          // std::endl;
-
-          //// save the old size of the group and make room for the samples
-          // size_t const old_size = group.size();
-          // group.resize(old_size + samples.size());
-
-          //// get the position field from the group (_after_ the resize)
-          // auto x = group.template get_varying<nd_dtype::real, N>("position");
-
-          //// store the sampled positions in the group
-          // for (size_t i = 0; i < samples.size(); ++i)
-          //  x[old_size + i] = samples[i];
+          sample_surface(
+              mesh, it, {h * tree.template get("sample_factor", real{1})});
           // }}}
         } else if (type == "volume") {
           // {{{ sample.volume
-          // auto what = tree.template get<std::string>("what");
-          // if (what == "triangle_mesh") {
-          //  auto file_type = tree.template get<std::string>("file_type");
-          //  auto file_path = tree.template get<std::string>("file_path");
-
-          //  // scaling factors applied to the mesh before sampling
-          //  rvec scaling = c::template ones<nd_dtype::real, N>();
-          //  if (auto node = tree.get_child_optional("scaling")) {
-          //    for (size_t n = 0; n < N; ++n)
-          //      scaling[n] *= node->template get<real>(std::to_string(n), 1);
-          //    if (node->get("adaptive", true))
-          //      scaling *= h;
-          //  }
-
-          //  // translation applied to the mesh before sampling
-          //  rvec translation = c::template zeros<nd_dtype::real, N>();
-          //  if (auto node = tree.get_child_optional("translation")) {
-          //    for (size_t n = 0; n < N; ++n)
-          //      translation[n] += node->template get<real>(std::to_string(n),
-          //      0);
-          //    if (node->get("adaptive", true))
-          //      translation *= h;
-          //  }
-
-          //  // open file_path for reading
-          //  std::ifstream file{file_path, std::ios::in};
-
-          //  // load the triangle mesh from the file
-          //  triangle_mesh_type mesh;
-          //  if (file_type == "obj")
-          //    mesh = triangle_mesh_type::load_from_obj(file);
-          //  else
-          //    throw bad_file_format{file_type.c_str()};
-
-          //  // apply the scaling
-          //  mesh.scale(scaling);
-          //  mesh.translate(translation);
-
-          //  // close the file again
-          //  file.close();
-
           // sample the loaded triangle mesh
-          sample_volume(mesh, it, {h});
-
-          // sample the loaded triangle mesh
-          // std::vector<rvec> samples;
-          // sample_volume(mesh, std::back_inserter(samples), {h});
-
-          // std::cerr << "no. volume samples = " << samples.size() <<
-          // std::endl;
-
-          //// save the old size of the group and make room for the samples
-          // size_t const old_size = group.size();
-          // group.resize(old_size + samples.size());
-
-          //// get the position field from the group (_after_ the resize)
-          // auto x = group.template get_varying<nd_dtype::real, N>("position");
-
-          //// store the sampled positions in the group
-          // for (size_t i = 0; i < samples.size(); ++i)
-          //  x[old_size + i] = samples[i];
+          sample_volume(
+              mesh, it, {h * tree.template get("sample_factor", real{1})},
+              [&rotation](auto x) -> rvec { return rotation * x; });
         }
         // }}}
       } else
@@ -361,6 +321,6 @@ void load_model_groups_from_cli(
       }
     }
   }
-}
+} // namespace prtcl::rt
 
 } // namespace prtcl::rt

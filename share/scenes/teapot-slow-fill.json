@@ -2,7 +2,7 @@
   "name_value": {
     "model": {
       "parameters": {
-        "maximum_time_step": 0.0002
+        "maximum_time_step": 0.005
       },
       "group": {
         "f": {
@@ -21,7 +21,7 @@
           "source": {
             "center": { "0": 18, "1": 60, "2": 18, "adaptive": true },
             "velocity": { "0": -70, "1": -70, "2": 0, "adaptive": true },
-            "count": 100000
+            "count": 10000
           }
         },
         "b": {

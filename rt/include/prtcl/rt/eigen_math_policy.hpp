@@ -4,6 +4,7 @@
 
 #include <prtcl/rt/math/math_policy.hpp>
 
+#include <prtcl/core/identity.hpp>
 #include <prtcl/core/narray.hpp>
 
 #include <algorithm>
@@ -517,15 +518,25 @@ public:
     }
   };
 
+private:
+  struct solve_cg_dp_apply_fn {
+    template <typename G_, typename I_, typename Old_, typename New_>
+    decltype(auto) operator()(G_, I_, Old_, New_ &&n) const {
+      return std::forward<New_>(n);
+    }
+  };
+
+public:
   // TODO: The interface of this function is extremely messy, hacky and requires
   //       serious refactoring. Possibly into a seperate solver-type.
   template <
       typename NHood_, typename Group_, typename IterateF_, typename ProductF_,
-      typename RHSF_, typename DiagonalF_>
+      typename RHSF_, typename DiagonalF_,
+      typename ApplyF_ = solve_cg_dp_apply_fn>
   static size_t solve_cg_dp(
       NHood_ const &nhood_, size_t group_count, Group_ &p, IterateF_ iterate,
       ProductF_ product, RHSF_ rhs, DiagonalF_ diagonal, real const tol = 1e-2,
-      size_t const max_iterations = 50) {
+      size_t const max_iterations = 50, ApplyF_ apply = {}) {
     // {{{ implementation
     // {{{
     std::vector<std::vector<std::vector<size_t>>> per_thread_neighbors;
@@ -611,7 +622,7 @@ public:
     if (solver.iterations() > 0) {
       _parallel_foreach_particle_in_group(p, [&](size_t i) {
         auto ii = static_cast<Eigen::Index>(i);
-        iterate(p, i) = x(ii);
+        iterate(p, i) = apply(p, i, iterate(p, i), x(ii));
       });
     }
 
