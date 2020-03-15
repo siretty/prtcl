@@ -2,6 +2,7 @@
 
 #include "common.hpp"
 
+#include <prtcl/rt/log/logger.hpp>
 #include <prtcl/rt/math/math_policy.hpp>
 
 #include <prtcl/core/identity.hpp>
@@ -23,6 +24,7 @@
 namespace prtcl::rt::n_eigen {
 
 template <typename, typename> class SystemMatrix;
+template <size_t, typename, typename> class BlockSystemMatrix;
 
 } // namespace prtcl::rt::n_eigen
 
@@ -31,6 +33,12 @@ namespace internal {
 
 template <typename MathPolicy_, typename ProductF_>
 struct traits<prtcl::rt::n_eigen::SystemMatrix<MathPolicy_, ProductF_>>
+    : public Eigen::internal::traits<
+          Eigen::SparseMatrix<typename MathPolicy_::type_policy::real>> {};
+
+template <size_t BlockSize_, typename MathPolicy_, typename ProductF_>
+struct traits<
+    prtcl::rt::n_eigen::BlockSystemMatrix<BlockSize_, MathPolicy_, ProductF_>>
     : public Eigen::internal::traits<
           Eigen::SparseMatrix<typename MathPolicy_::type_policy::real>> {};
 
@@ -240,6 +248,151 @@ private:
 
 // }}}
 
+// {{{ BlockSystemMatrix
+
+/// Adaptor for a linear system specified by a functor following
+/// https://eigen.tuxfamily.org/dox/group__MatrixfreeSolverExample.html
+template <size_t BlockSize_, typename MathPolicy_, typename ProductF_>
+class BlockSystemMatrix
+    : public Eigen::EigenBase<
+          BlockSystemMatrix<BlockSize_, MathPolicy_, ProductF_>> {
+  using self_type = BlockSystemMatrix<BlockSize_, MathPolicy_, ProductF_>;
+
+  using math_policy = MathPolicy_;
+  using type_policy = typename math_policy::type_policy;
+
+public:
+  using Scalar = typename type_policy::real;
+  using RealScalar = typename type_policy::real;
+  using StorageIndex = int;
+
+  enum {
+    ColsAtCompileTime = Eigen::Dynamic,
+    MaxColsAtCompileTime = Eigen::Dynamic,
+    IsRowMajor = false
+  };
+
+  Eigen::Index outerSize() const {
+    return static_cast<Eigen::Index>(_size * BlockSize_);
+  }
+
+  Eigen::Index rows() const { return outerSize(); }
+  Eigen::Index cols() const { return outerSize(); }
+
+  template <typename Rhs>
+  Eigen::Product<self_type, Rhs, Eigen::AliasFreeProduct>
+  operator*(const Eigen::MatrixBase<Rhs> &x) const {
+    return Eigen::Product<self_type, Rhs, Eigen::AliasFreeProduct>(
+        *this, x.derived());
+  }
+
+  BlockSystemMatrix(size_t size_, ProductF_ functor_)
+      : _size{size_}, _functor{functor_} {}
+
+public:
+  size_t system_size() const { return _size; }
+  auto const &system_functor() const { return _functor; }
+
+private:
+  size_t _size;
+  ProductF_ _functor;
+};
+
+// }}}
+
+// {{{ make_block_system_matrix(size, functor)
+
+template <size_t BlockSize_, typename MathPolicy_, typename ProductF_>
+auto make_block_system_matrix(size_t size, ProductF_ &&functor) {
+  return BlockSystemMatrix<
+      BlockSize_, MathPolicy_,
+      std::remove_const_t<std::remove_reference_t<ProductF_>>>{
+      size, std::forward<ProductF_>(functor)};
+}
+
+// }}}
+
+// {{{ BlockDiagonalMatrix
+
+template <
+    size_t BlockSize_, typename StorageIndex_, typename Scalar_,
+    typename DiagonalF_>
+class BlockDiagonalMatrix {
+  static constexpr size_t N = BlockSize_;
+
+public:
+  using StorageIndex = StorageIndex_;
+  using Scalar = Scalar_;
+
+  enum {
+    ColsAtCompileTime = Eigen::Dynamic,
+    MaxColsAtCompileTime = Eigen::Dynamic
+  };
+
+  BlockDiagonalMatrix() {}
+
+  void init(size_t size_, DiagonalF_ *functor_) {
+    _size = size_;
+    _functor = functor_;
+    _diagonal.resize(_size);
+  }
+
+  Eigen::Index rows() const { return _size * BlockSize_; }
+  Eigen::Index cols() const { return _size * BlockSize_; }
+
+  Eigen::ComputationInfo info() { return Eigen::Success; }
+
+  template <typename MatType>
+  BlockDiagonalMatrix &analyzePattern(const MatType &) {
+    // nothing to do
+    return *this;
+  }
+
+  template <typename MatType> BlockDiagonalMatrix &factorize(const MatType &) {
+    // nothing to do
+    return *this;
+  }
+
+  template <typename MatType> BlockDiagonalMatrix &compute(const MatType &) {
+#pragma omp parallel
+    {
+#pragma omp for
+      for (size_t i = 0; i < _size; i++) {
+        _diagonal[i] = (*_functor)(i).inverse();
+      }
+    }
+    return *this;
+  }
+
+  template <typename RightHandSide_, typename Column_>
+  void
+  _solve_impl(const RightHandSide_ &right_hand_side, Column_ &column) const {
+#pragma omp parallel
+    {
+#pragma omp for
+      for (size_t i = 0; i < _size; i++) {
+        column.template block<BlockSize_, 1>(BlockSize_ * i, 0) =
+            _diagonal[i] *
+            right_hand_side.template block<BlockSize_, 1>(BlockSize_ * i, 0);
+      }
+    }
+  }
+
+  template <typename RightHandSide_>
+  inline const Eigen::Solve<BlockDiagonalMatrix, RightHandSide_>
+  solve(const Eigen::MatrixBase<RightHandSide_> &b) const {
+    return Eigen::Solve<BlockDiagonalMatrix, RightHandSide_>(
+        *this, b.derived());
+  }
+
+private:
+  size_t _size;
+  DiagonalF_ *_functor = nullptr;
+  std::vector<Eigen::Matrix<Scalar, BlockSize_, BlockSize_>> _diagonal;
+};
+
+// }}}
+
 } // namespace n_eigen
 
 template <typename TypePolicy_> struct eigen_math_policy {
@@ -302,6 +455,10 @@ public:
 
     template <typename Arg_> static decltype(auto) transpose(Arg_ &&arg_) {
       return std::forward<Arg_>(arg_).transpose();
+    }
+
+    template <typename Arg_> static decltype(auto) diagonal(Arg_ &&arg_) {
+      return std::forward<Arg_>(arg_).diagonal();
     }
 
     template <typename Arg_> static decltype(auto) norm(Arg_ &&arg_) {
@@ -406,9 +563,23 @@ public:
     ///   x \mapsto
     ///       1   if x > eps
     ///       0   otherwise
-    template <typename Arg_, typename Eps_>
-    static real unit_step_l(Arg_ &&arg, Eps_ &&eps) {
-      if (real const x = std::forward<Arg_>(arg); x > std::forward<Eps_>(eps))
+    template <typename Eps_, typename... Arg_>
+    static real unit_step_l(Eps_ &&eps_, Arg_ &&... arg) {
+      real const eps = static_cast<real>(std::forward<Eps_>(eps_));
+      if (((static_cast<real>(std::forward<Arg_>(arg)) > eps) or ...))
+        return real{1};
+      else
+        return real{0};
+    }
+
+    /// Unit Step / Heaviside Step function (right-continuous variant).
+    ///   x \mapsto
+    ///       1   if x > eps
+    ///       0   otherwise
+    template <typename Eps_, typename... Arg_>
+    static real unit_step_r(Eps_ &&eps_, Arg_ &&... arg) {
+      real const eps = static_cast<real>(std::forward<Eps_>(eps_));
+      if (((static_cast<real>(std::forward<Arg_>(arg)) > eps) or ...))
         return real{1};
       else
         return real{0};
@@ -629,6 +800,117 @@ public:
     return solver.iterations();
     // }}}
   }
+
+public:
+  // TODO: The interface of this function is extremely messy, hacky and requires
+  //       serious refactoring. Possibly into a seperate solver-type.
+  template <
+      size_t BlockSize_, typename NHood_, typename Group_, typename IterateF_,
+      typename ProductF_, typename RHSF_, typename DiagonalF_, typename GuessF_,
+      typename ApplyF_ = solve_cg_dp_apply_fn>
+  static size_t solve_block_cg_dp(
+      NHood_ const &nhood_, size_t group_count, Group_ &p, IterateF_ iterate,
+      ProductF_ product, RHSF_ rhs, DiagonalF_ diagonal, GuessF_ guess,
+      real const tol = 1e-2, size_t const max_iterations = 50,
+      ApplyF_ apply = {}) {
+    // {{{ implementation
+    // {{{
+    std::vector<std::vector<std::vector<size_t>>> per_thread_neighbors;
+
+#pragma omp parallel
+    {
+#pragma omp single
+      {
+        per_thread_neighbors.resize(static_cast<size_t>(omp_get_num_threads()));
+      }
+
+      size_t tid = static_cast<size_t>(omp_get_thread_num());
+      auto &neighbors = per_thread_neighbors[tid];
+      neighbors.resize(group_count);
+    }
+
+    auto _parallel_foreach_particle_in_group = [&](auto &p, auto f) {
+      if (p._count == 0)
+        return;
+
+#pragma omp parallel
+      {
+#pragma omp for
+        for (size_t i = 0; i < p._count; ++i) {
+          f(i);
+        }
+      }
+    };
+
+    auto _find_neighbors = [&](auto &p, size_t i) -> auto & {
+      size_t tid = static_cast<size_t>(omp_get_thread_num());
+      auto &neighbors = per_thread_neighbors[tid];
+
+      // clean up the neighbor storage
+      for (auto &pgn : neighbors) {
+        pgn.clear();
+      }
+
+      // find all neighbors of (p, i)
+      nhood_.neighbors(p._index, i, [&neighbors](auto n_index, auto j) {
+        neighbors[n_index].push_back(j);
+      });
+
+      return neighbors;
+    };
+    // }}}
+
+    static constexpr size_t N = BlockSize_;
+
+    Eigen::Matrix<real, Eigen::Dynamic, 1> x{p._count * N};
+    Eigen::Matrix<real, Eigen::Dynamic, 1> b{p._count * N};
+    Eigen::Matrix<real, Eigen::Dynamic, 1> g{p._count * N};
+
+    // copy the right hand side and the guess
+    _parallel_foreach_particle_in_group(p, [&](size_t i) {
+      auto &neighbors = _find_neighbors(p, i);
+      auto ii = static_cast<Eigen::Index>(i);
+      b.template block<N, 1>(N * ii, 0) = rhs(p, i, neighbors);
+      g.template block<N, 1>(N * ii, 0) = guess(p, i, neighbors);
+    });
+
+    auto system_matrix =
+        n_eigen::make_block_system_matrix<BlockSize_, eigen_math_policy>(
+            p._count,
+            [&p, &product, &_find_neighbors](size_t i, auto const &rhs) {
+              auto &neighbors = _find_neighbors(p, i);
+              return product(p, i, neighbors, rhs);
+            });
+
+    auto preconditioner_functor = [&p, &diagonal, &_find_neighbors](size_t i) {
+      auto &neighbors = _find_neighbors(p, i);
+      return diagonal(p, i, neighbors);
+    };
+
+    using SystemMatrixType = decltype(system_matrix);
+    using PreconditionerType = n_eigen::BlockDiagonalMatrix<
+        BlockSize_, typename SystemMatrixType::StorageIndex,
+        typename SystemMatrixType::Scalar, decltype(preconditioner_functor)>;
+
+    Eigen::ConjugateGradient<
+        SystemMatrixType, Eigen::Lower | Eigen::Upper, PreconditionerType>
+        solver;
+    solver.preconditioner().init(p._count, &preconditioner_functor);
+    solver.setTolerance(tol);
+    solver.setMaxIterations(static_cast<Eigen::Index>(max_iterations));
+    solver.compute(system_matrix);
+    x = solver.solveWithGuess(b, g);
+
+    _parallel_foreach_particle_in_group(p, [&](size_t i) {
+      auto ii = static_cast<Eigen::Index>(i);
+      iterate(p, i) = apply(
+          p, i, iterate(p, i),
+          x.template block<BlockSize_, 1>(BlockSize_ * ii, 0));
+    });
+
+    return solver.iterations();
+    // }}}
+  }
 };
 
 } // namespace prtcl::rt
@@ -661,6 +943,42 @@ struct generic_product_impl<
       for (size_t i = 0; i < lhs.system_size(); ++i) {
         auto ii = static_cast<Eigen::Index>(i);
         dst(ii) = alpha * lhs.system_functor()(i, rhs);
+      }
+    }
+  }
+};
+
+/// Implementing the matrix-vector product for the adaptor.
+/// https://eigen.tuxfamily.org/dox/group__MatrixfreeSolverExample.html
+template <
+    size_t BlockSize_, typename ModelPolicy_, typename ProductF_, typename Rhs>
+struct generic_product_impl<
+    typename prtcl::rt::n_eigen::BlockSystemMatrix<
+        BlockSize_, ModelPolicy_, ProductF_>,
+    Rhs, SparseShape, DenseShape, GemvProduct>
+    : generic_product_impl_base<
+          prtcl::rt::n_eigen::BlockSystemMatrix<
+              BlockSize_, ModelPolicy_, ProductF_>,
+          Rhs,
+          generic_product_impl<
+              prtcl::rt::n_eigen::BlockSystemMatrix<
+                  BlockSize_, ModelPolicy_, ProductF_>,
+              Rhs>> {
+  using lhs_type = prtcl::rt::n_eigen::BlockSystemMatrix<
+      BlockSize_, ModelPolicy_, ProductF_>;
+
+  typedef typename Product<lhs_type, Rhs>::Scalar Scalar;
+
+  template <typename Dest>
+  static void scaleAndAddTo(
+      Dest &dst, const lhs_type &lhs, const Rhs &rhs, const Scalar &alpha) {
+#pragma omp parallel
+    {
+#pragma omp for
+      for (size_t i = 0; i < lhs.system_size(); ++i) {
+        auto ii = static_cast<Eigen::Index>(i);
+        dst.template block<BlockSize_, 1>(BlockSize_ * ii, 0) =
+            alpha * lhs.system_functor()(i, rhs);
       }
     }
   }

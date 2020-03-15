@@ -289,7 +289,8 @@ public:
       return p.pt16_velocity_reconstruction_diagonal[f];
     };
 
-    auto product = [&g, &diagonal](auto &p, size_t f, auto &neighbors, auto x) {
+    auto product = [&g, &diagonal](
+                       auto &p, size_t f, auto &neighbors, auto const &x) {
       auto const h = g.smoothing_scale[0];
 
       real result = diagonal(p, f, neighbors) * x(f);
@@ -324,9 +325,12 @@ public:
       auto max_error = p.pt16_velocity_reconstruction_maximum_error[0];
       auto max_iters = p.pt16_velocity_reconstruction_maximum_iterations[0];
       for (d = 0; d < N; ++d) {
-        iterations += math_policy::solve_cg_dp(
+        size_t d_iterations = math_policy::solve_cg_dp(
             nhood_, _group_count, p, iterate, product, rhs, diagonal,
             max_error * 1e-5 * p.rest_density[0], max_iters, apply);
+        prtcl::rt::log::debug(
+            "app", "pt16", "dim=", d, " iterations ", d_iterations);
+        iterations += d_iterations;
       }
     }
 

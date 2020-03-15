@@ -60,7 +60,7 @@ procedure compute_density {
 
 procedure predict_velocity {
   foreach fluid particle f {
-    compute v[f] += dt[_] * a[f] * unit_step_l((t_c[_] - t_b[f]) - d_f[_], 0);
+    compute v[f] += dt[_] * a[f] * unit_step_l(0, (t_c[_] - t_b[f]) - d_f[_]);
   }
 }
 
@@ -230,19 +230,19 @@ procedure iteration_pressure {
               reciprocal_or_zero(AA[f], 1e-9)
         )
       *
-        unit_step_l(cabs(AA[f]), 1e-9);
+        unit_step_l(1e-9, cabs(AA[f]));
 
     // accumulate the relative density error
     reduce aprde[_] +=
         ( (Ap[f] - s[f]) / rho0[f] )
       *
-        unit_step_l(p[f], 1e-9);
+        unit_step_l(1e-9, p[f]);
   }
 }
 
 procedure advect {
   foreach dynamic particle i {
-    compute v[i] += dt[_] * a[i] * unit_step_l((t_c[_] - t_b[i]) - d_f[_], 0);
+    compute v[i] += dt[_] * a[i] * unit_step_l(0, (t_c[_] - t_b[i]) - d_f[_]);
     compute x[i] += dt[_] * v[i];
 
     reduce max_speed[_] max= norm(v[i]);

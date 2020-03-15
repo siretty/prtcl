@@ -1,0 +1,68 @@
+
+let fluid = particle_selector types {fluid} tags {};
+let boundary = particle_selector types {boundary} tags {};
+
+let x = field position : varying real[];
+let v = field velocity : varying real[];
+let a = field acceleration : varying real[];
+
+let vd = field wkbb18_velocity_delta : varying real[];
+let sd = field wkbb18_system_diagonal : varying real[][];
+
+let rho = field density : varying real;
+let p = field pressure : varying real;
+let m = field mass : varying real;
+let V = field volume : varying real;
+
+let rho0 = field rest_density : uniform real;
+let nu = field viscosity : uniform real;
+
+let h = field smoothing_scale : global real;
+
+let dt = field time_step : global real;
+
+procedure compute_diagonal {
+  foreach fluid particle f {
+    // reset the diagonal element vector
+    compute sd[f] = zeros<real[][]>;
+
+    // accumulate over fluid neighbors
+    foreach fluid neighbor f_f {
+      compute sd[f] +=
+          10 // HACK: this is actually a dimensionality correction factor (10 in 3D, 8 in 2D)
+        *
+          nu[f]
+        *
+          m[f_f] / rho[f_f]
+        /
+          (norm_squared(x[f] - x[f_f]) + 0.01 * h[_] * h[_])
+        *
+          outer_product(
+            kernel_gradient_h(x[f] - x[f_f], h[_]),
+            x[f] - x[f_f]
+          )
+        ;
+    }
+
+    // accumulate over boundary neighbors
+    foreach boundary neighbor f_b {
+      compute sd[f] +=
+          10 // HACK: this is actually a dimensionality correction factor (10 in 3D, 8 in 2D)
+        *
+          nu[f_b]
+        *
+          rho0[f] * V[f_b] / rho[f]
+        /
+          (norm_squared(x[f] - x[f_b]) + 0.01 * h[_] * h[_])
+        *
+          outer_product(
+            kernel_gradient_h(x[f] - x[f_f], h[_]),
+            x[f] - x[f_f]
+          )
+      ;
+    }
+
+    compute sd[f] = identity<real[][]> - dt[_] / rho[f] * sd[f];
+  }
+}
+

@@ -1,6 +1,10 @@
 #pragma once
 
+#include <prtcl/rt/basic_bcc_lattice_source.hpp>
+#include <prtcl/rt/basic_fcc_lattice_source.hpp>
+#include <prtcl/rt/basic_hcp_lattice_source.hpp>
 #include <prtcl/rt/basic_model_policy.hpp>
+#include <prtcl/rt/basic_scg_lattice_source.hpp>
 #include <prtcl/rt/basic_source.hpp>
 #include <prtcl/rt/basic_type_policy.hpp>
 #include <prtcl/rt/cli/load_groups.hpp>
@@ -127,7 +131,7 @@ public:
   using model_policy = ModelPolicy_;
   using model_type = basic_model<model_policy>;
   using group_type = basic_group<model_policy>;
-  using source_type = basic_source<model_policy>;
+  using source_type = basic_hcp_lattice_source<model_policy>;
 
   // using neighborhood_type =
   //    prtcl::rt::neighbourhood<prtcl::rt::compact_n_search_grid<model_policy>>;
@@ -412,6 +416,11 @@ public:
               std::min<real>(max_cfl * h / max_speed, max_time_step);
         model.template get_global<nd_dtype::real>("time_step")[0] =
             next_time_step;
+
+        if (next_time_step < max_time_step)
+          log::debug(
+              "app", "main", "REDUCED TIME STEP ",
+              model.template get_global<nd_dtype::real>("time_step")[0]);
 
         // set the current time
         model.template get_global<nd_dtype::real>("current_time")[0] =

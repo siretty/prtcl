@@ -2,7 +2,7 @@
   "name_value": {
     "model": {
       "parameters": {
-        "maximum_time_step": 0.005
+        "maximum_time_step": 0.001
       },
       "group": {
         "f": {
@@ -11,7 +11,9 @@
           "tag": "density",
           "parameters": {
             "surface_tension": 1,
-            "viscosity": 0.001
+            "viscosity": 1000,
+            "wkbb18_maximum_error": 0.01,
+            "wkbb18_maximum_iterations": 50
           },
           "source": {
             "center": { "0": -18, "1": 60, "2": -18, "adaptive": true },
@@ -30,7 +32,7 @@
           "tag": "volume",
           "parameters": {
             "adhesion": 2,
-            "viscosity": 0.001
+            "viscosity": 0.01
           },
           "sample": {
             "surface": {

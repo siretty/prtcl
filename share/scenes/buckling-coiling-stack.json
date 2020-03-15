@@ -14,7 +14,7 @@
             "viscosity": 0.4,
             "pt16_vorticity_error": 1,
             "pt16_vorticity_iters": 500,
-            "pt16_velocity_error": 50,
+            "pt16_velocity_error": 80,
             "pt16_velocity_iters": 500
           },
           "sample": {
@@ -22,7 +22,7 @@
               "what": "triangle_mesh",
               "file_type": "obj",
               "file_path": "share/models/cube.obj",
-              "scaling" :     { "0": 2.5, "1": 50, "2": 0.5, "adaptive": true },
+              "scaling" :     { "0": 2.5, "1": 50, "2": 1, "adaptive": true },
               "translation" : { "0": 0, "1": 51, "2": 0, "adaptive": true },
               "factor": 0.9
             }

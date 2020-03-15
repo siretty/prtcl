@@ -20,9 +20,10 @@ procedure integrate_velocity_with_fade {
         dt[_] * a[i]
       *
         // accelerations "turn on" after a particle is older than d_f
-        unit_step_l((t_c[_] - t_b[i]) - d_f[_], 0)
-        // accelerations "fade in" until a particle is older than d_f
-        // smoothstep((t_c[_] - t_b[i]) / d_f[_])
+        unit_step_l(0, (t_c[_] - t_b[i]) - d_f[_])
+      //*
+      //  // accelerations "fade in" until a particle is older than d_f
+      //  smoothstep((t_c[_] - t_b[i] - d_f[_]) / d_f[_])
       ;
   }
 }
@@ -48,7 +49,7 @@ procedure advect_symplectic_euler {
     compute v[i] +=
         dt[_] * a[i]
       *
-        unit_step_l((t_c[_] - t_b[i]) - d_f[_], 0)
+        unit_step_l(0, (t_c[_] - t_b[i]) - d_f[_])
         // smoothstep((t_c[_] - t_b[i]) / d_f[_])
       ;
     compute x[i] += dt[_] * v[i];

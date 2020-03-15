@@ -2,11 +2,15 @@
 
 #include "command_line_interface.hpp"
 
+#include "../basic_bcc_lattice_source.hpp"
+#include "../basic_fcc_lattice_source.hpp"
+#include "../basic_hcp_lattice_source.hpp"
 #include "../basic_source.hpp"
 #include "../initialize_particles.hpp"
 #include "../log/logger.hpp"
 #include "../sample_surface.hpp"
 #include "../sample_volume.hpp"
+#include <prtcl/rt/basic_scg_lattice_source.hpp>
 
 #include <fstream>
 #include <iostream>
@@ -33,7 +37,7 @@ void load_model_groups_from_cli(
   using type_policy = typename model_policy::type_policy;
   using math_policy = typename model_policy::math_policy;
 
-  using source_type = basic_source<model_policy>;
+  using source_type = basic_hcp_lattice_source<model_policy>;
 
   using c = typename math_policy::constants;
   using o = typename math_policy::operations;
@@ -106,6 +110,10 @@ void load_model_groups_from_cli(
     group.template add_uniform<nd_dtype::real>("surface_tension")[0] =
         tree.get("surface_tension", static_cast<real>(1));
 
+    if (auto opt = tree.template get_optional<real>("pt16_viscosity"))
+      group.template add_uniform<nd_dtype::real>(
+          "pt16_viscosity")[0] = opt.value();
+
     if (auto opt = tree.template get_optional<real>("pt16_vorticity_error"))
       group.template add_uniform<nd_dtype::real>(
           "pt16_vorticity_diffusion_maximum_error")[0] = opt.value();
@@ -121,6 +129,14 @@ void load_model_groups_from_cli(
     if (auto opt = tree.template get_optional<int>("pt16_velocity_iters"))
       group.template add_uniform<nd_dtype::integer>(
           "pt16_velocity_reconstruction_maximum_iterations")[0] = opt.value();
+
+    if (auto opt = tree.template get_optional<real>("wkbb18_maximum_error"))
+      group.template add_uniform<nd_dtype::real>("wkbb18_maximum_error")[0] =
+          opt.value();
+
+    if (auto opt = tree.template get_optional<int>("wkbb18_maximum_iterations"))
+      group.template add_uniform<nd_dtype::integer>(
+          "wkbb18_maximum_iterations")[0] = opt.value();
     // }}}
   };
 
@@ -219,7 +235,7 @@ void load_model_groups_from_cli(
         get_vector(tree, "center", c::template zeros<nd_dtype::real, N>(), h);
     rvec velocity =
         get_vector(tree, "velocity", c::template ones<nd_dtype::real, N>(), h);
-    real radius = tree.get("radius", 3 * h);
+    real radius = h * tree.get("radius", real{3});
     ssize_t remaining = tree.get("count", ssize_t{10000});
 
     (source_it++) =

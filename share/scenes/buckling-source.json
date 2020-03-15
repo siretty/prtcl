@@ -11,20 +11,17 @@
           "tag": "density",
           "parameters": {
             "surface_tension": 0,
-            "viscosity": 1000,
-            "wkbb18_maximum_error": 0.01,
-            "wkbb18_maximum_iterations": 50,
-            "pt16_viscosity": 0.2,
-            "pt16_vorticity_error": 2,
+            "viscosity": 0.3,
+            "pt16_vorticity_error": 1,
             "pt16_vorticity_iters": 500,
-            "pt16_velocity_error": 40,
+            "pt16_velocity_error": 20,
             "pt16_velocity_iters": 500
           },
           "source": {
-            "center": { "0": 0, "1": 50, "2": 0, "adaptive": true },
-            "velocity": { "0": 0, "1": -50, "2": 0, "adaptive": true },
-            "radius": 1.6,
-            "count": 1000
+            "center": { "0": 0, "1": 40, "2": 20, "adaptive": true },
+            "velocity": { "0": 0, "1": -40, "2": -10, "adaptive": true },
+            "radius": 1.9,
+            "count": 10000
           }
         },
         "b": {
@@ -32,8 +29,8 @@
           "tag": "static",
           "tag": "volume",
           "parameters": {
-            "adhesion": 1,
-            "viscosity": 1
+            "adhesion": 0,
+            "viscosity": 0.001
           },
           "sample": {
             "volume": {

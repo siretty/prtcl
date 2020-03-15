@@ -22,7 +22,7 @@ let m = field mass : varying real;
 let V = field volume : varying real;
 
 let rho0 = field rest_density : uniform real;
-let nu = field viscosity : uniform real;
+let xi = field pt16_viscosity : uniform real;
 
 let h = field smoothing_scale : global real;
 
@@ -62,11 +62,11 @@ procedure compute_velocity_gradient_and_vorticity {
     // partially compose the target velocity gradient (without spin rate)
     compute tvg[f] =
         // TODO: convoluted way to write "or"
-        unit_step_l(unit_step_l(rho[f] - rho0[f], 0) + unit_step_l(divergence_f[_], -1e4), 0)
+        unit_step_r(0, rho[f] - rho0[f], divergence_f[_])
       *
         V_f[_]
       +
-        (1 - nu[f]) * S_f[_];
+        xi[f] * S_f[_];
 
     // compute fluid-only density for the vorticity diffusion system
     local fluid_rho_f : real = zeros<real>;
@@ -88,7 +88,7 @@ procedure compute_vorticity_rhs {
     compute omega_rhs[f] = zeros<real[]>;
     foreach fluid neighbor f_f {
       compute omega_rhs[f] +=
-          (1 - nu[f])
+          xi[f]
         *
           m[f_f]
         *
