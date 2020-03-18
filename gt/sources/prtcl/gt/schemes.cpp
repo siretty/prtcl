@@ -21,7 +21,8 @@ int main(int argc_, char **argv_) {
   return prtcl_generate_cxx_openmp(prog, args);
 }
 
-#include <prtcl/gt/printer/cxx_openmp.hpp>
+//#include <prtcl/gt/printer/cxx_openmp.hpp>
+#include <prtcl/gt/printer/prtcl.hpp>
 
 #include <algorithm>
 #include <set>
@@ -33,29 +34,32 @@ int main(int argc_, char **argv_) {
 
 int prtcl_generate_cxx_openmp(
     std::string const &prog, std::vector<std::string> const &args_) {
-  std::unique_ptr<std::ifstream> input_file;
-  std::istream *input = &std::cin;
-  std::unique_ptr<std::ofstream> output_file;
-  std::ostream *output = &std::cout;
-
   if (args_.size() < 3) {
     std::cerr << "usage: (" << prog
-              << ") {input file} {scheme name} {namespace}+" << std::endl;
+              << ") {input file} {output file} {scheme name} {namespace}*"
+              << std::endl;
     std::cerr << std::endl;
     std::cerr << R"MSG(
   {input file} : Specifies the path to the input file in .prtcl format.
-                If the argument is '-' the program reads it's input from
-                stdin and acts as a filter.
+                 If the argument is '-' the program reads it's input from
+                 stdin and acts as a filter.
 
-  {scheme name} : Specifies the name of the scheme, for C++/OpenMP this
-                  is used as the name of type encapsulating all procedures
-                  as public member functions.
+  {output file} : Specifies the path to the output file.
+                  If the argument is '-' the program reads it's input from
+                  stdin and acts as a filter.
+
+  {scheme name} : Specifies the name of the scheme to generate code for.
 
   {namespace} : The namespace the scheme type is part of.
   )MSG";
     std::cerr << std::endl;
     return 1;
   }
+
+  std::unique_ptr<std::ifstream> input_file;
+  std::istream *input = &std::cin;
+  std::unique_ptr<std::ofstream> output_file;
+  std::ostream *output = &std::cout;
 
   // open the input file if requested
   if (args_[0] != "-") {
@@ -76,8 +80,13 @@ int prtcl_generate_cxx_openmp(
   auto namespaces = boost::make_iterator_range(args_);
   namespaces.advance_begin(3);
 
+  for (auto &ns : namespaces) {
+    std::cout << "namespace " << ns << std::endl;
+  }
+
   // setup the printer
-  prtcl::gt::printer::cxx_openmp printer{*output, args_[2], namespaces};
+  // prtcl::gt::printer::cxx_openmp printer{*output, args_[2], namespaces};
+  prtcl::gt::printer::prtcl printer{*output};
 
   // create forward iterators into the input stream
   auto first = boost::spirit::istream_iterator{*input};
@@ -86,10 +95,9 @@ int prtcl_generate_cxx_openmp(
   // parse the source file
   auto result = prtcl::gt::parse_prtcl_source(first, last);
 
-  if (result.abstract_syntax_tree) {
+  if (result.abstract_syntax_tree.has_value()) {
     try {
-    // printer(result.abstract_syntax_tree.value());
-    printer(result.abstract_syntax_tree.value());
+      printer(result.abstract_syntax_tree.value());
     } catch (char const *error_) {
       std::cerr << "error: printing failed:" << std::endl;
       std::cerr << error_ << std::endl;
@@ -110,11 +118,12 @@ int prtcl_generate_cxx_openmp(
     return 2;
   }
 
-  if (not result.abstract_syntax_tree)
+  if (not result.abstract_syntax_tree.has_value())
     return 1;
 
   return 0;
 }
+
 /*
 
 #include <prtcl/gt/ast.hpp>
@@ -126,7 +135,7 @@ int prtcl_generate_cxx_openmp(
 #include <string>
 #include <vector>
 
-int main(int argc_, char **argv_) {
+ int main(int argc_, char **argv_) {
   std::string prog = argv_[0];
   std::vector<std::string> args;
   for (int argi = 1; argi < argc_; ++argi)

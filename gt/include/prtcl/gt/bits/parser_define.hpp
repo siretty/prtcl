@@ -1,6 +1,7 @@
 #pragma once
 
 #include "parser_declare.hpp"
+#include "prtcl/gt/bits/ast_define.hpp"
 
 // ============================================================
 // Rule Definitions
@@ -14,166 +15,186 @@ auto const white_space_def = x3::omit[               //
     (lit("/*") >> *(char_ - lit("*/")) >> lit("*/")) //
 ];
 
-struct basic_type_symbols : x3::symbols<ast::basic_type> {
+struct dtype_symbols : x3::symbols<ast::dtype> {
   // {{{ implementation
-  basic_type_symbols() {
-    add                                       //
-        ("real", ast::basic_type::real)       //
-        ("integer", ast::basic_type::integer) //
-        ("boolean", ast::basic_type::boolean);
+  dtype_symbols() {
+    add                                  //
+        ("real", ast::dtype::real)       //
+        ("integer", ast::dtype::integer) //
+        ("boolean", ast::dtype::boolean);
   }
   // }}}
-} basic_type;
+} dtype;
 
-struct storage_qualifier_symbols : x3::symbols<ast::storage_qualifier> {
-  // {{{ implementation
-  storage_qualifier_symbols() {
-    add                                              //
-        ("global", ast::storage_qualifier::global)   //
-        ("uniform", ast::storage_qualifier::uniform) //
-        ("varying", ast::storage_qualifier::varying);
-  }
-  // }}}
-} storage_qualifier;
-
-auto const nd_type_def = //
-    basic_type >> *('[' >> (x3::uint_ | x3::attr(0u)) >> ']');
+auto const ndtype_def = //
+    dtype >> *('[' >> (x3::uint_ | x3::attr(0u)) >> ']');
 
 auto const identifier_def = x3::lexeme[           //
     (alpha | char_('_')) >> *(alnum | char_('_')) //
 ];
 
-namespace math {
+namespace n_math {
 
 auto const expression_def = add_term;
 
-auto const primary_def = '(' >> expression >> ')' | unary_neg | unary_pos |
-                         literal | constant | field_access | function_call;
+auto const primary_def =
+    '(' >> expression >> ')' | unary_neg | literal | operation | field_access;
 
-auto const literal_def = (                                   //
-    (attr(ast::nd_type::real) >> x3::raw[x3::long_double]) | //
-    (attr(ast::nd_type::boolean) >> x3::raw[x3::bool_]) |    //
-    (nd_type >> '{' >> x3::raw[x3::lexeme[+(char_ - '}' - ',')] % ','] >>
-     '}') //
+auto const literal_def = (                                                    //
+    (attr(ast::ndtype_boolean) >> x3::raw[x3::bool_]) |                       //
+    (attr(ast::ndtype_real) >> x3::raw[x3::long_double]) |                    //
+    (ndtype >> '{' >> x3::raw[x3::lexeme[+(char_ - '}' - ',')] % ','] >> '}') //
 );
 
-auto const constant_def = identifier >> '<' >> nd_type >> '>';
+auto const operation_def = identifier >> -('<' >> ndtype >> '>') >> '(' >>
+                           -(expression % ',') >> ')';
 
-auto const field_access_def = identifier >> '[' >> identifier >> ']';
+auto const field_access_def = identifier >> -('[' >> identifier >> ']');
 
-auto const function_call_def = identifier >> '(' >> -(expression % ',') >> ')';
+auto const unary_neg_def = '-' >> attr(ast::op_neg) >> primary;
 
-auto const add_rhs_def = '+' >> attr(ast::math::arithmetic_op::add) >> mul_term;
+auto const add_rhs_def = '+' >> attr(ast::op_add) >> mul_term;
 
-auto const sub_rhs_def = '-' >> attr(ast::math::arithmetic_op::sub) >> mul_term;
-
-auto const mul_rhs_def = '*' >> attr(ast::math::arithmetic_op::mul) >> primary;
-
-auto const div_rhs_def = '/' >> attr(ast::math::arithmetic_op::div) >> primary;
+auto const sub_rhs_def = '-' >> attr(ast::op_sub) >> mul_term;
 
 auto const add_term_def = mul_term >> *(add_rhs | sub_rhs);
 
+auto const mul_rhs_def = '*' >> attr(ast::op_mul) >> primary;
+
+auto const div_rhs_def = '/' >> attr(ast::op_div) >> primary;
+
 auto const mul_term_def = primary >> *(mul_rhs | div_rhs);
 
-auto const unary_neg_def = '-' >> attr(ast::math::unary_op::neg) >> primary;
+} // namespace n_math
 
-auto const unary_pos_def = '+' >> attr(ast::math::unary_op::pos) >> primary;
-
-} // namespace math
-
-namespace init {
+namespace n_global {
 
 auto const field_def =
-    lit("field") >> identifier >> ':' >> storage_qualifier >> nd_type;
+    lit("field") > identifier >> '=' >> ndtype >> identifier >> ';';
 
-auto const particle_selector_def =                        //
-    lit("particle_selector") >>                           //
-    lit("types") >> '{' >> -(identifier % "or") >> '}' >> //
-    lit("tags") >> '{' >> -(identifier % "and") >> '}';
+} // namespace n_global
 
-} // namespace init
+auto const global_def = lit("global") > '{' >> *(n_global::field) >> attr(0) >>
+                        '}';
 
-namespace bits {
+namespace n_group {
 
-auto const foreach_neighbor_statement_def =
-    stmt::local | stmt::compute | stmt::reduce;
+auto const expression_def = logic_term;
 
-auto const foreach_particle_statement_def =
-    stmt::local | stmt::compute | stmt::reduce | stmt::foreach_neighbor;
+auto const primary_def = '(' >> expression >> ')' | logic_neg | select_atom;
 
-auto const procedure_statement_def =
-    stmt::local | stmt::compute | stmt::foreach_particle;
+struct select_atom_kind_symbols : x3::symbols<ast::n_group::select_atom_kind> {
+  // {{{ implementation
+  select_atom_kind_symbols() {
+    add                                     //
+        ("type", ast::n_group::select_type) //
+        ("tag", ast::n_group::select_tag);
+  }
+  // }}}
+} select_atom_kind;
 
-} // namespace bits
+auto const select_atom_def = select_atom_kind > identifier;
 
-namespace stmt {
+auto const logic_neg_def = lit("not") > attr(ast::op_negation) >> primary;
 
-struct compute_op_symbols : x3::symbols<ast::stmt::compute_op> {
+auto const logic_con_rhs_def = lit("and") >
+                               attr(ast::op_conjunction) >> logic_term;
+
+auto const logic_dis_rhs_def = lit("or") >
+                               attr(ast::op_disjunction) >> logic_term;
+
+auto const logic_term_def = primary >> *(logic_con_rhs | logic_dis_rhs);
+
+auto const uniform_field_def = lit("uniform") > lit("field") > identifier >
+                               '=' > ndtype > identifier > ';';
+
+auto const varying_field_def = lit("varying") > lit("field") > identifier >
+                               '=' > ndtype > identifier > ';';
+
+auto const field_def = uniform_field | varying_field;
+
+} // namespace n_group
+
+auto const group_def = lit("group") > identifier > '{' >
+                       lit("select") > n_group::expression > ';' >
+                       *(n_group::field_def) > '}';
+
+namespace n_scheme {
+
+struct compute_op_symbols : x3::symbols<ast::assign_op> {
   // {{{ implementation
   compute_op_symbols() {
-    add                                             //
-        ("=", ast::stmt::compute_op::assign)        //
-        ("+=", ast::stmt::compute_op::add_assign)   //
-        ("-=", ast::stmt::compute_op::sub_assign)   //
-        ("*=", ast::stmt::compute_op::mul_assign)   //
-        ("/=", ast::stmt::compute_op::div_assign)   //
-        ("max=", ast::stmt::compute_op::max_assign) //
-        ("min=", ast::stmt::compute_op::min_assign);
+    add                              //
+        ("=", ast::op_assign)        //
+        ("+=", ast::op_add_assign)   //
+        ("-=", ast::op_sub_assign)   //
+        ("*=", ast::op_mul_assign)   //
+        ("/=", ast::op_div_assign)   //
+        ("max=", ast::op_max_assign) //
+        ("min=", ast::op_min_assign);
   }
   // }}}
 } compute_op;
 
-struct reduce_op_symbols : x3::symbols<ast::stmt::reduce_op> {
+struct reduce_op_symbols : x3::symbols<ast::assign_op> {
   // {{{ implementation
   reduce_op_symbols() {
-    add                                            //
-        ("+=", ast::stmt::reduce_op::add_assign)   //
-        ("-=", ast::stmt::reduce_op::sub_assign)   //
-        ("*=", ast::stmt::reduce_op::mul_assign)   //
-        ("/=", ast::stmt::reduce_op::div_assign)   //
-        ("max=", ast::stmt::reduce_op::max_assign) //
-        ("min=", ast::stmt::reduce_op::min_assign);
+    add                              //
+        ("+=", ast::op_add_assign)   //
+        ("-=", ast::op_sub_assign)   //
+        ("*=", ast::op_mul_assign)   //
+        ("/=", ast::op_div_assign)   //
+        ("max=", ast::op_max_assign) //
+        ("min=", ast::op_min_assign);
   }
   // }}}
 } reduce_op;
 
-auto const let_def =                   //
-    lit("let") > (identifier >> '=' >> //
-                  (init::field | init::particle_selector) >> ';');
-
 auto const local_def = //
     lit("local") >
-    (identifier >> ':' >> nd_type >> '=' >> math::expression >> ';');
+    (identifier >> ':' >> ndtype >> '=' >> n_math::expression >> ';');
 
 auto const compute_def = //
-    lit("compute") > (identifier >> '[' >> identifier >> ']' >> compute_op >>
-                      math::expression >> ';');
+    lit("compute") > n_math::field_access >> compute_op >> n_math::expression >>
+    ';';
 
 auto const reduce_def = //
-    lit("reduce") > (identifier >> '[' >> identifier >> ']' >> reduce_op >>
-                     math::expression >> ';');
+    lit("reduce") > n_math::field_access >> reduce_op >> n_math::expression >>
+    ';';
+
+auto const foreach_neighbor_statement_def = local | compute | reduce;
 
 auto const foreach_neighbor_def = //
     (lit("foreach") >> identifier >> "neighbor") >
-    (identifier >> '{' >>                 //
-     *bits::foreach_neighbor_statement >> //
+    (identifier >> '{' >>             //
+     *(foreach_neighbor_statement) >> //
      '}');
+
+auto const foreach_particle_statement_def =
+    local | compute | reduce | foreach_neighbor;
 
 auto const foreach_particle_def = //
     (lit("foreach") >> identifier >> "particle") >
-    (identifier >> '{' >>                 //
-     *bits::foreach_particle_statement >> //
+    (identifier >> '{' >>             //
+     *(foreach_particle_statement) >> //
      '}');
 
-auto const procedure_def =                            //
-    lit("procedure") > (identifier >> '{' >>          //
-                        *bits::procedure_statement >> //
+auto const procedure_statement_def = local | compute | foreach_particle;
+
+auto const procedure_def =                        //
+    lit("procedure") > (identifier >> '{' >>      //
+                        *(procedure_statement) >> //
                         '}');
 
-} // namespace stmt
+} // namespace n_scheme
 
-auto const statement_def = stmt::let | stmt::procedure | lit(';');
+auto const scheme_statement_def = group | global | n_scheme::procedure;
 
-auto const prtcl_source_file_def = attr("0.0.1") >> *statement;
+auto const scheme_def = lit("scheme") > identifier > '{' > *(scheme_statement) >
+                        '}';
+
+auto const prtcl_file_statement_def = scheme;
+
+auto const prtcl_file_def = attr("2") >> *(prtcl_file_statement);
 
 } // namespace prtcl::gt::parser

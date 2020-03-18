@@ -11,94 +11,124 @@
 #endif
 // }}}
 
-BOOST_FUSION_ADAPT_STRUCT(   //
-    prtcl::gt::ast::nd_type, //
-    type, shape              //
+BOOST_FUSION_ADAPT_STRUCT(  //
+    prtcl::gt::ast::ndtype, //
+    type, shape             //
 );
 
-BOOST_FUSION_ADAPT_STRUCT(         //
-    prtcl::gt::ast::math::literal, //
-    type, value                    //
+BOOST_FUSION_ADAPT_STRUCT(                //
+    prtcl::gt::ast::n_group::select_atom, //
+    kind, name                            //
 );
 
-BOOST_FUSION_ADAPT_STRUCT(          //
-    prtcl::gt::ast::math::constant, //
-    constant_name, constant_type    //
+BOOST_FUSION_ADAPT_STRUCT(                //
+    prtcl::gt::ast::n_group::unary_logic, //
+    op, operand                           //
 );
 
-BOOST_FUSION_ADAPT_STRUCT(              //
-    prtcl::gt::ast::math::field_access, //
-    field_name, index_name              //
+BOOST_FUSION_ADAPT_STRUCT(                    //
+    prtcl::gt::ast::n_group::multi_logic_rhs, //
+    op, operand                               //
 );
 
-BOOST_FUSION_ADAPT_STRUCT(               //
-    prtcl::gt::ast::math::function_call, //
-    function_name, arguments             //
+BOOST_FUSION_ADAPT_STRUCT(                //
+    prtcl::gt::ast::n_group::multi_logic, //
+    operand, right_hand_sides             //
 );
 
-BOOST_FUSION_ADAPT_STRUCT(                     //
-    prtcl::gt::ast::math::arithmetic_nary_rhs, //
-    op, rhs                                    //
+BOOST_FUSION_ADAPT_STRUCT(                  //
+    prtcl::gt::ast::n_group::uniform_field, //
+    alias, type, name                       //
 );
 
-BOOST_FUSION_ADAPT_STRUCT(                 //
-    prtcl::gt::ast::math::arithmetic_nary, //
-    first_operand, right_hand_sides        //
+BOOST_FUSION_ADAPT_STRUCT(                  //
+    prtcl::gt::ast::n_group::varying_field, //
+    alias, type, name                       //
 );
 
-BOOST_FUSION_ADAPT_STRUCT(       //
-    prtcl::gt::ast::math::unary, //
-    op, operand                  //
-);
-
-BOOST_FUSION_ADAPT_STRUCT(          //
-    prtcl::gt::ast::init::field,    //
-    field_name, storage, field_type //
-);
-
-BOOST_FUSION_ADAPT_STRUCT(                   //
-    prtcl::gt::ast::init::particle_selector, //
-    type_disjunction, tag_conjunction        //
-);
-
-BOOST_FUSION_ADAPT_STRUCT(     //
-    prtcl::gt::ast::stmt::let, //
-    alias_name, initializer    //
-);
-
-BOOST_FUSION_ADAPT_STRUCT(             //
-    prtcl::gt::ast::stmt::local,       //
-    local_name, local_type, expression //
-);
-
-BOOST_FUSION_ADAPT_STRUCT(                 //
-    prtcl::gt::ast::stmt::compute,         //
-    field_name, index_name, op, expression //
-);
-
-BOOST_FUSION_ADAPT_STRUCT(                 //
-    prtcl::gt::ast::stmt::reduce,          //
-    field_name, index_name, op, expression //
-);
-
-BOOST_FUSION_ADAPT_STRUCT(                         //
-    prtcl::gt::ast::stmt::foreach_neighbor,        //
-    selector_name, neighbor_index_name, statements //
-);
-
-BOOST_FUSION_ADAPT_STRUCT(                         //
-    prtcl::gt::ast::stmt::foreach_particle,        //
-    selector_name, particle_index_name, statements //
+BOOST_FUSION_ADAPT_STRUCT( //
+    prtcl::gt::ast::group, //
+    name, select, fields   //
 );
 
 BOOST_FUSION_ADAPT_STRUCT(           //
-    prtcl::gt::ast::stmt::procedure, //
-    procedure_name, statements       //
+    prtcl::gt::ast::n_global::field, //
+    alias, type, name                //
+);
+
+BOOST_FUSION_ADAPT_STRUCT(  //
+    prtcl::gt::ast::global, //
+    fields, __dummy         //
+);
+
+BOOST_FUSION_ADAPT_STRUCT(           //
+    prtcl::gt::ast::n_math::literal, //
+    type, value                      //
+);
+
+BOOST_FUSION_ADAPT_STRUCT(                //
+    prtcl::gt::ast::n_math::field_access, //
+    field, index                          //
 );
 
 BOOST_FUSION_ADAPT_STRUCT(             //
-    prtcl::gt::ast::prtcl_source_file, //
-    version, statements                //
+    prtcl::gt::ast::n_math::operation, //
+    name, type, arguments              //
+);
+
+BOOST_FUSION_ADAPT_STRUCT(                    //
+    prtcl::gt::ast::n_math::unary_arithmetic, //
+    op, operand                               //
+);
+
+BOOST_FUSION_ADAPT_STRUCT(                        //
+    prtcl::gt::ast::n_math::multi_arithmetic_rhs, //
+    op, operand                                   //
+);
+
+BOOST_FUSION_ADAPT_STRUCT(                    //
+    prtcl::gt::ast::n_math::multi_arithmetic, //
+    operand, right_hand_sides                 //
+);
+
+BOOST_FUSION_ADAPT_STRUCT(           //
+    prtcl::gt::ast::n_scheme::local, //
+    name, type, math                 //
+);
+
+BOOST_FUSION_ADAPT_STRUCT(             //
+    prtcl::gt::ast::n_scheme::compute, //
+    left_hand_side, op, math           //
+);
+
+BOOST_FUSION_ADAPT_STRUCT(            //
+    prtcl::gt::ast::n_scheme::reduce, //
+    left_hand_side, op, math          //
+);
+
+BOOST_FUSION_ADAPT_STRUCT(                      //
+    prtcl::gt::ast::n_scheme::foreach_neighbor, //
+    group, index, statements                    //
+);
+
+BOOST_FUSION_ADAPT_STRUCT(                      //
+    prtcl::gt::ast::n_scheme::foreach_particle, //
+    group, index, statements                    //
+);
+
+BOOST_FUSION_ADAPT_STRUCT(               //
+    prtcl::gt::ast::n_scheme::procedure, //
+    name, statements                     //
+);
+
+BOOST_FUSION_ADAPT_STRUCT(  //
+    prtcl::gt::ast::scheme, //
+    name, statements        //
+);
+
+BOOST_FUSION_ADAPT_STRUCT(      //
+    prtcl::gt::ast::prtcl_file, //
+    version, statements         //
 );
 
 // {{{ C++ Compiler Diagnostics

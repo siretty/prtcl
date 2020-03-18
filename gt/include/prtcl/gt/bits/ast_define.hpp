@@ -2,12 +2,16 @@
 
 #include "../common.hpp"
 
+#include <prtcl/core/ndtype.hpp>
+
 #include <optional>
 #include <ostream>
 #include <string>
 #include <tuple>
 #include <variant>
 #include <vector>
+
+#include <boost/spirit/home/x3/support/ast/position_tagged.hpp>
 
 // {{{ common type aliases
 namespace prtcl::gt::ast {
@@ -20,6 +24,8 @@ using std::vector;
 using std::variant;
 using nil = std::monostate;
 
+using boost::spirit::x3::position_tagged;
+
 } // namespace prtcl::gt::ast
 // }}}
 
@@ -29,62 +35,101 @@ using nil = std::monostate;
 
 namespace prtcl::gt::ast {
 
-enum class basic_type;
-enum class storage_qualifier;
+using core::dtype;
+using core::ndtype;
 
-struct nd_type;
+static core::ndtype const ndtype_real = ndtype{dtype::real, {}};
+static core::ndtype const ndtype_integer = ndtype{dtype::integer, {}};
+static core::ndtype const ndtype_boolean = ndtype{dtype::boolean, {}};
 
-namespace math {
+enum multi_logic_op { op_conjunction, op_disjunction };
+enum unary_logic_op { op_negation };
 
-enum class arithmetic_op;
-enum class unary_op;
+enum multi_arithmetic_op { op_add, op_sub, op_mul, op_div };
+enum unary_arithmetic_op { op_neg };
 
-// n-ary arithmetic right-hand-side (... + x, ... - x, ... * x, ... / x)
-struct arithmetic_nary_rhs;
+enum assign_op {
+  op_assign,
+  op_add_assign,
+  op_sub_assign,
+  op_mul_assign,
+  op_div_assign,
+  op_max_assign,
+  op_min_assign
+};
 
-// n-ary arithmetic operation
-struct arithmetic_nary;
-
-// unary operators (-x, +x)
-struct unary;
+namespace n_math {
+// {{{
 
 struct literal;
-struct constant;
+struct operation;
 struct field_access;
 
-struct function_call;
+// unary arithmetic expression
+struct unary_arithmetic;
+
+// n-ary arithmetic expression
+struct multi_arithmetic_rhs;
+struct multi_arithmetic;
 
 using expression = variant<
-    nil, literal, constant, field_access, function_call, arithmetic_nary,
-    unary>;
+    nil, literal, operation, field_access, unary_arithmetic, multi_arithmetic>;
 
-} // namespace math
+// }}}
+} // namespace n_math
 
-namespace init {
+namespace n_global {
+// {{{
 
 struct field;
-struct particle_selector;
 
-} // namespace init
+// }}}
+} // namespace n_global
 
-namespace stmt {
+struct global;
 
-enum class compute_op;
-enum class reduce_op;
+namespace n_group {
+// {{{
 
-struct let;
+enum select_atom_kind { select_type, select_tag };
+
+// atomic expressions
+struct select_atom;
+
+// unary logical expression
+struct unary_logic;
+
+// n-ary logical expression
+struct multi_logic_rhs;
+struct multi_logic;
+
+using expression = variant<nil, select_atom, unary_logic, multi_logic>;
+
+struct uniform_field;
+struct varying_field;
+
+using field = variant<nil, uniform_field, varying_field>;
+
+// }}}
+} // namespace n_group
+
+struct group;
+
+namespace n_scheme {
+// {{{
+
 struct local;
 struct compute;
 struct reduce;
+
 struct foreach_neighbor;
 struct foreach_particle;
 struct procedure;
 
-} // namespace stmt
+// }}}
+} // namespace n_scheme
 
-using statement = variant<stmt::let, stmt::procedure>;
-
-struct prtcl_source_file;
+struct scheme;
 
 } // namespace prtcl::gt::ast
 
@@ -94,324 +139,197 @@ struct prtcl_source_file;
 
 namespace prtcl::gt::ast {
 
-enum class basic_type { real, integer, boolean };
+// {{{ math details
 
-// {{{ operator<<(ostream &, basic_type) -> ostream &
-inline std::ostream &operator<<(std::ostream &stream_, basic_type value_) {
-  switch (value_) {
-  case basic_type::real:
-    stream_ << "real";
-    break;
-  case basic_type::integer:
-    stream_ << "integer";
-    break;
-  case basic_type::boolean:
-    stream_ << "boolean";
-    break;
-  }
-  return stream_;
-}
-// }}}
+namespace n_math {
 
-enum class storage_qualifier { global, uniform, varying };
-
-// {{{ operator<<(ostream &, storage_qualifier) -> ostream &
-inline std::ostream &
-operator<<(std::ostream &stream_, storage_qualifier kind_) {
-  switch (kind_) {
-  case storage_qualifier::global:
-    stream_ << "global";
-    break;
-  case storage_qualifier::uniform:
-    stream_ << "uniform";
-    break;
-  case storage_qualifier::varying:
-    stream_ << "varying";
-    break;
-  }
-  return stream_;
-}
-// }}}
-
-struct nd_type {
-  basic_type type;
-  vector<unsigned> shape;
-
-  static nd_type const real, integer, boolean;
-};
-
-nd_type const nd_type::real = {basic_type::real, {}};
-nd_type const nd_type::integer = {basic_type::integer, {}};
-nd_type const nd_type::boolean = {basic_type::boolean, {}};
-
-// {{{ operator<<(ostream &, nd_type) -> ostream &
-inline std::ostream &operator<<(std::ostream &stream_, nd_type const &value_) {
-  stream_ << value_.type;
-  for (auto extent : value_.shape) {
-    stream_ << '[';
-    if (0 != extent)
-      stream_ << extent;
-    stream_ << ']';
-  }
-  return stream_;
-}
-// }}}
-
-namespace math {
-
-enum class arithmetic_op { add, sub, mul, div };
-
-// {{{ operator<<(ostream &, arithmetic_op) -> ostream &
-inline std::ostream &operator<<(std::ostream &stream_, arithmetic_op value_) {
-  switch (value_) {
-  case arithmetic_op::add:
-    stream_ << "+";
-    break;
-  case arithmetic_op::sub:
-    stream_ << "-";
-    break;
-  case arithmetic_op::mul:
-    stream_ << "*";
-    break;
-  case arithmetic_op::div:
-    stream_ << "/";
-    break;
-  }
-  return stream_;
-}
-// }}}
-
-struct arithmetic_nary_rhs {
-  arithmetic_op op;
-  value_ptr<expression> rhs;
-};
-
-struct arithmetic_nary {
-  value_ptr<expression> first_operand;
-  vector<arithmetic_nary_rhs> right_hand_sides;
-};
-
-enum class unary_op { neg, pos };
-
-// {{{ operator<<(ostream &, unary_op) -> ostream &
-inline std::ostream &operator<<(std::ostream &stream_, unary_op value_) {
-  switch (value_) {
-  case unary_op::neg:
-    stream_ << "-";
-    break;
-  case unary_op::pos:
-    stream_ << "+";
-    break;
-  }
-  return stream_;
-}
-// }}}
-
-struct unary {
-  unary_op op;
-  value_ptr<expression> operand;
-};
+// {{{ literal, operation, field_access
 
 struct literal {
-  nd_type type;
-  string value;
+  ndtype type;
+  string value; // TODO
 };
 
-struct constant {
-  string constant_name;
-  nd_type constant_type;
-};
-
-struct field_access {
-  string field_name;
-  string index_name;
-};
-
-struct function_call {
-  string function_name;
+struct operation {
+  string name;
+  optional<ndtype> type;
   vector<value_ptr<expression>> arguments;
 };
 
-} // namespace math
+struct field_access {
+  string field;
+  optional<string> index;
+};
 
-namespace init {
+// }}}
+
+// {{{ unary_arithmetic, multi_arithmetic_rhs, multi_arithmetic
+
+struct unary_arithmetic {
+  unary_arithmetic_op op;
+  value_ptr<expression> operand;
+};
+
+struct multi_arithmetic_rhs {
+  multi_arithmetic_op op;
+  value_ptr<expression> operand;
+};
+
+struct multi_arithmetic {
+  value_ptr<expression> operand;
+  vector<multi_arithmetic_rhs> right_hand_sides;
+};
+
+// }}}
+
+} // namespace n_math
+
+// }}}
+
+// {{{ global details
+
+namespace n_global {
 
 struct field {
-  string field_name;
-  storage_qualifier storage;
-  nd_type field_type;
+  string alias;
+  ndtype type;
+  string name;
 };
 
-// {{{ operator<<(ostream &, field) -> ostream &
-inline std::ostream &operator<<(std::ostream &stream_, field const &value_) {
-  return stream_ << "field" << ' ' << value_.field_name << " : "
-                 << value_.storage << ' ' << value_.field_name;
-}
+} // namespace n_global
+
 // }}}
 
-struct particle_selector {
-  vector<string> type_disjunction;
-  vector<string> tag_conjunction;
+struct global {
+  vector<n_global::field> fields;
+  int __dummy;
 };
 
-// {{{ operator<<(ostream &, particle_selector) -> ostream &
-inline std::ostream &
-operator<<(std::ostream &stream_, particle_selector const &value_) {
-  stream_ << "particle_selector" << ' ';
-  stream_ << "types" << ' ' << '[';
-  if (not value_.type_disjunction.empty()) {
-    for (auto const &type : value_.type_disjunction)
-      stream_ << ' ' << type;
-    stream_ << ' ';
-  }
-  stream_ << ']' << ' ';
-  stream_ << "tags" << ' ' << '[';
-  if (not value_.type_disjunction.empty()) {
-    for (auto const &tag : value_.tag_conjunction)
-      stream_ << ' ' << tag;
-    stream_ << ' ';
-  }
-  stream_ << ']';
-  return stream_;
-}
+// {{{ group details
+
+namespace n_group {
+
+// {{{ select_atom
+
+struct select_atom {
+  select_atom_kind kind;
+  string name;
+};
+
 // }}}
 
-} // namespace init
+// {{{ unary_logic, multi_logic_rhs, multi_logic
 
-namespace bits {
-
-using foreach_neighbor_statement = variant<stmt::local, stmt::compute, stmt::reduce>;
-
-using foreach_particle_statement =
-    variant<stmt::local, stmt::compute, stmt::reduce, stmt::foreach_neighbor>;
-
-using procedure_statement = variant<stmt::local, stmt::compute, stmt::foreach_particle>;
-
-} // namespace bits
-
-namespace stmt {
-
-struct let {
-  string alias_name;
-  variant<init::field, init::particle_selector> initializer;
+struct unary_logic {
+  unary_logic_op op;
+  value_ptr<expression> operand;
 };
+
+struct multi_logic_rhs {
+  multi_logic_op op;
+  value_ptr<expression> operand;
+};
+
+struct multi_logic {
+  value_ptr<expression> operand;
+  vector<multi_logic_rhs> right_hand_sides;
+};
+
+// }}}
+
+// {{{ uniform_field, varying_field
+
+struct uniform_field {
+  string alias;
+  ndtype type;
+  string name;
+};
+
+struct varying_field {
+  string alias;
+  ndtype type;
+  string name;
+};
+
+// }}}
+
+} // namespace n_group
+
+// }}}
+
+struct group {
+  string name;
+  n_group::expression select;
+  vector<n_group::field> fields;
+};
+
+// {{{ scheme details
+
+namespace n_scheme {
+
+// {{{ local, compute, reduce
 
 struct local {
-  string local_name;
-  nd_type local_type;
-  math::expression expression;
+  string name;
+  ndtype type;
+  n_math::expression math;
 };
-
-enum class compute_op {
-  assign,
-  add_assign,
-  sub_assign,
-  mul_assign,
-  div_assign,
-  max_assign,
-  min_assign
-};
-
-// {{{ operator<<(ostream &, compute_op) -> ostream &
-inline std::ostream &
-operator<<(std::ostream &stream_, compute_op const &value_) {
-  switch (value_) {
-  case compute_op::assign:
-    stream_ << '=';
-    break;
-  case compute_op::add_assign:
-    stream_ << "+=";
-    break;
-  case compute_op::sub_assign:
-    stream_ << "-=";
-    break;
-  case compute_op::mul_assign:
-    stream_ << "*=";
-    break;
-  case compute_op::div_assign:
-    stream_ << "/=";
-    break;
-  case compute_op::max_assign:
-    stream_ << "max=";
-    break;
-  case compute_op::min_assign:
-    stream_ << "min=";
-    break;
-  };
-  return stream_;
-}
-// }}}
 
 struct compute {
-  string field_name;
-  string index_name;
-  compute_op op;
-  math::expression expression;
+  n_math::field_access left_hand_side;
+  assign_op op;
+  n_math::expression math;
 };
-
-enum class reduce_op {
-  add_assign,
-  sub_assign,
-  mul_assign,
-  div_assign,
-  max_assign,
-  min_assign
-};
-
-// {{{ operator<<(ostream &, reduce_op) -> ostream &
-inline std::ostream &
-operator<<(std::ostream &stream_, reduce_op const &value_) {
-  switch (value_) {
-  case reduce_op::add_assign:
-    stream_ << "+=";
-    break;
-  case reduce_op::sub_assign:
-    stream_ << "-=";
-    break;
-  case reduce_op::mul_assign:
-    stream_ << "*=";
-    break;
-  case reduce_op::div_assign:
-    stream_ << "/=";
-    break;
-  case reduce_op::max_assign:
-    stream_ << "max=";
-    break;
-  case reduce_op::min_assign:
-    stream_ << "min=";
-    break;
-  };
-  return stream_;
-}
-// }}}
 
 struct reduce {
-  string field_name;
-  string index_name;
-  reduce_op op;
-  math::expression expression;
+  n_math::field_access left_hand_side;
+  assign_op op;
+  n_math::expression math;
 };
 
+// }}}
+
+// {{{ foreach_neighbor, foreach_particle, procedure
+
 struct foreach_neighbor {
-  string selector_name;
-  string neighbor_index_name;
-  vector<bits::foreach_neighbor_statement> statements;
+  using statement = variant<local, compute, reduce>;
+
+  string group;
+  string index;
+  vector<statement> statements;
 };
 
 struct foreach_particle {
-  string selector_name;
-  string particle_index_name;
-  vector<bits::foreach_particle_statement> statements;
+  using statement = variant<local, compute, reduce, foreach_neighbor>;
+
+  string group;
+  string index;
+  vector<statement> statements;
 };
 
 struct procedure {
-  string procedure_name;
-  vector<bits::procedure_statement> statements;
+  using statement = variant<local, compute, foreach_particle>;
+
+  string name;
+  vector<statement> statements;
 };
 
-} // namespace stmt
+// }}}
 
-struct prtcl_source_file {
+} // namespace n_scheme
+
+// }}}
+
+struct scheme {
+  using statement = variant<nil, global, group, n_scheme::procedure>;
+
+  string name;
+  vector<statement> statements;
+};
+
+struct prtcl_file {
+  using statement = variant<nil, scheme>;
+
   string version;
   vector<statement> statements;
 };

@@ -3,6 +3,7 @@
 #include "../common.hpp"
 
 #include <ostream>
+#include <stdexcept>
 #include <variant>
 
 #include <boost/range/begin.hpp>
@@ -11,6 +12,12 @@
 #include <boost/type_index.hpp>
 
 namespace prtcl::gt {
+
+struct ast_printer_error : std::exception {
+  const char *what() const noexcept override {
+    return "fatal ast printer error";
+  }
+};
 
 template <typename Impl_> struct printer_crtp {
 private:

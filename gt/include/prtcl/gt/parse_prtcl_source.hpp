@@ -2,15 +2,17 @@
 
 #include "ast.hpp"
 #include "parser.hpp"
+#include "prtcl/gt/bits/ast_define.hpp"
 
 #include <optional>
+#include <vector>
 
 #include <boost/range/iterator_range.hpp>
 
 namespace prtcl::gt {
 
 template <typename Iterator_> struct parse_prtcl_source_result {
-  std::optional<ast::prtcl_source_file> abstract_syntax_tree;
+  std::optional<ast::prtcl_file> abstract_syntax_tree;
   boost::iterator_range<Iterator_> remaining_input;
 };
 
@@ -20,17 +22,17 @@ parse_prtcl_source(Iterator_ first, Iterator_ last) {
   namespace x3 = boost::spirit::x3;
 
   // invoke the parser
-  ast::prtcl_source_file attribute;
+  ast::prtcl_file attribute;
   bool success = x3::phrase_parse( //
       first, last,                 //
-      parser::prtcl_source_file,   //
+      parser::prtcl_file,          //
       parser::white_space,         //
       attribute                    //
   );
 
   // create the result with the remaining input range
   parse_prtcl_source_result<Iterator_> result = {
-      std::nullopt,
+      {},
       boost::make_iterator_range(first, last),
   };
 

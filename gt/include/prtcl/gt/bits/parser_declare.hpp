@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../ast.hpp"
+#include "prtcl/gt/bits/ast_define.hpp"
 
 #include <boost/spirit/home/x3.hpp>
 
@@ -43,146 +44,187 @@ namespace prtcl::gt::parser {
 /// Match white space (space, tab, newline, ...) and comments (C/C++ style).
 x3::rule<class white_space_class> white_space = "white_space";
 
-/// Parse ast::basic_type values.
-struct basic_type_symbols /* { ... } basic_type */;
+/// Parse ast::dtype values.
+struct dtype_symbols /* { ... } dtype */;
 
-/// Parse ast::storage_qualifier values.
-struct storage_qualifier_symbols /* { ... } storage_qualifier */;
-
-/// Parse ast::nd_type values.
-x3::rule<class nd_type_class, ast::nd_type> nd_type = "nd_type";
+/// Parse ast::ndtype values.
+x3::rule<class ndtype_class, ast::ndtype> ndtype = "ndtype";
 
 /// Parse identifiers as strings.
 x3::rule<class identifier_class, string> identifier = "identifier";
 
-namespace math {
+namespace n_math {
 
 /// Parse a full mathematical expression.
-x3::rule<class expression_class, ast::math::expression> expression =
-    "expression";
+x3::rule<class expression_class, ast::n_math::expression> expression =
+    "mathematical expression";
 
 /// Parse primary (ie. non-arithmetic) expressions.
-x3::rule<class primary_class, ast::math::expression> primary = "primary";
+x3::rule<class primary_class, ast::n_math::expression> primary =
+    "mathematical primary expression";
 
 /// Parse mathematical literals.
-x3::rule<class literal_class, ast::math::literal> literal = "literal";
-
-/// Parse named constants.
-x3::rule<class constant_class, ast::math::constant> constant = "constant";
-
-/// Parse particle field access.
-x3::rule<class field_access_class, ast::math::field_access> field_access =
-    "field_access";
+x3::rule<class literal_class, ast::n_math::literal> literal =
+    "mathematical literal";
 
 /// Parse function calls.
-x3::rule<class function_call_class, ast::math::function_call> function_call =
-    "function_call";
+x3::rule<class operation_class, ast::n_math::operation> operation =
+    "mathematical operation";
 
-/// Parse a unary minus operation.
-x3::rule<class unary_neg_class, ast::math::unary> unary_neg = "unary_neg";
+/// Parse particle field access.
+x3::rule<class field_access_class, ast::n_math::field_access> field_access =
+    "field access";
 
-/// Parse a unary plus operation.
-x3::rule<class unary_pos_class, ast::math::unary> unary_pos = "unary_pos";
+/// Parse a unary negation operation.
+x3::rule<class unary_neg_class, ast::n_math::unary_arithmetic> unary_neg =
+    "arithmetic negation";
 
 /// Parse the right-hand-side of an addition.
-x3::rule<class add_rhs_class, ast::math::arithmetic_nary_rhs> add_rhs =
-    "add_rhs";
+x3::rule<class add_rhs_class, ast::n_math::multi_arithmetic_rhs> add_rhs =
+    "arithmetic addition (rhs)";
 
 /// Parse the right-hand-side of a subtraction.
-x3::rule<class sub_rhs_class, ast::math::arithmetic_nary_rhs> sub_rhs =
-    "sub_rhs";
+x3::rule<class sub_rhs_class, ast::n_math::multi_arithmetic_rhs> sub_rhs =
+    "arithmetic subtraction (rhs)";
 
 /// Parse an n-ary additive operation (ie. addition or subtraction).
-x3::rule<class add_term_class, ast::math::arithmetic_nary> add_term =
-    "add_term";
+x3::rule<class add_term_class, ast::n_math::multi_arithmetic> add_term =
+    "arithmetic additive term";
 
 /// Parse the right-hand-side of a multiplication.
-x3::rule<class mul_rhs_class, ast::math::arithmetic_nary_rhs> mul_rhs =
-    "mul_rhs";
+x3::rule<class mul_rhs_class, ast::n_math::multi_arithmetic_rhs> mul_rhs =
+    "arithmetic multiplication (rhs)";
 
 /// Parse the right-hand-side of a division.
-x3::rule<class div_rhs_class, ast::math::arithmetic_nary_rhs> div_rhs =
-    "div_rhs";
+x3::rule<class div_rhs_class, ast::n_math::multi_arithmetic_rhs> div_rhs =
+    "arithmetic division (rhs)";
 
 /// Parse an n-ary multiplicative operation (ie. multiplication or division).
-x3::rule<class mul_term_class, ast::math::arithmetic_nary> mul_term =
-    "mul_term";
+x3::rule<class mul_term_class, ast::n_math::multi_arithmetic> mul_term =
+    "arithmetic multiplicative term";
 
-} // namespace math
+} // namespace n_math
 
-namespace init {
+namespace n_global {
 
-/// Parse a field initializer.
-x3::rule<class field_class, ast::init::field> field = "init::field";
+/// Parse a global field alias definition.
+x3::rule<class field_class, ast::n_global::field> field = "global field alias";
 
-/// Parse a particle selector initializer.
-x3::rule<class particle_selector_class, ast::init::particle_selector>
-    particle_selector = "init::particle_selector";
+} // namespace n_global
 
-} // namespace init
+/// Parse a global selector.
+x3::rule<class global_class, ast::global> global = "global definition";
 
-namespace bits {
+namespace n_group {
 
-/// Parse a statement inside a foreach neighbor loop.
-x3::rule<
-    class foreach_neighbor_statement_class,
-    ast::bits::foreach_neighbor_statement>
-    foreach_neighbor_statement = "bits::foreach_neighbor_statement";
+/// Parse a selector expression.
+x3::rule<class expression_class, ast::n_group::expression> expression =
+    "group selector expression";
 
-/// Parse a statement inside a foreach particle loop.
-x3::rule<
-    class foreach_particle_statement_class,
-    ast::bits::foreach_particle_statement>
-    foreach_particle_statement = "bits::foreach_particle_statement";
+/// Parse a primary selector expression.
+x3::rule<class primary_class, ast::n_group::expression> primary =
+    "primary group selector expression";
 
-/// Parse a statement inside a procedure.
-x3::rule<class procedure_statement_class, ast::bits::procedure_statement>
-    procedure_statement = "bits::procedure_statement";
+struct select_atom_kind_symbols; /* { ... } select_atom_kind; */
 
-} // namespace bits
+/// Parse a type atom.
+x3::rule<class select_atom_class, ast::n_group::select_atom> select_atom =
+    "select atom";
 
-namespace stmt {
+/// Parse a unary logical negation.
+x3::rule<class unary_logic_neg_class, ast::n_group::unary_logic> logic_neg =
+    "logical negation";
+
+/// Parse the right-hand-side of a logical conjunction.
+x3::rule<class logic_con_rhs_class, ast::n_group::multi_logic_rhs>
+    logic_con_rhs = "logical conjunction (rhs)";
+
+/// Parse the right-hand-side of a logical disjunction.
+x3::rule<class logic_dis_rhs_class, ast::n_group::multi_logic_rhs>
+    logic_dis_rhs = "logical disjunction (rhs)";
+
+/// Parse an n-ary logical term (conjunction or disjunction).
+x3::rule<class logic_term_class, ast::n_group::multi_logic> logic_term =
+    "logical term";
+
+/// Parse a uniform field alias definition.
+x3::rule<class uniform_field_class, ast::n_group::uniform_field> uniform_field =
+    "uniform field alias";
+
+/// Parse a varying field alias definition.
+x3::rule<class varying_field_class, ast::n_group::varying_field> varying_field =
+    "varying field alias";
+
+/// Parse a field alias definition.
+x3::rule<class field_class, ast::n_group::field> field = "field alias";
+
+} // namespace n_group
+
+/// Parse a group selector.
+x3::rule<class group_class, ast::group> group = "group definition";
+
+namespace n_scheme {
 
 /// Parse an ast::stmt::compute_op value.
-struct compute_op_symbols;
+struct compute_op_symbols; /* { ... } compute_opt; */
 
 /// Parse an ast::stmt::reduce_op value.
-struct reduce_op_symbols;
-
-/// Parse a let statement that assigns aliases for field and particle selector
-/// initializers.
-x3::rule<class let_class, ast::stmt::let> let = "stmt::let";
+struct reduce_op_symbols; /* { ... } reduce_opt; */
 
 /// Parse a local statement that creates a constant local variable.
-x3::rule<class compute_class, ast::stmt::local> local = "stmt::local";
+x3::rule<class compute_class, ast::n_scheme::local> local = "local statement";
 
 /// Parse a compute statement that describes a mathematical expression.
-x3::rule<class compute_class, ast::stmt::compute> compute = "stmt::compute";
+x3::rule<class compute_class, ast::n_scheme::compute> compute =
+    "compute statement";
 
 /// Parse a reduce statement that describes a "thread-local" mathematical
 /// expression.
-x3::rule<class reduce_class, ast::stmt::reduce> reduce = "stmt::reduce";
+x3::rule<class reduce_class, ast::n_scheme::reduce> reduce = "reduce statement";
+
+/// Parse a statement that is part of a foreach neighbor loop.
+x3::rule<
+    class foreach_neighbor_statement_class,
+    ast::n_scheme::foreach_neighbor::statement>
+    foreach_neighbor_statement = "statement (part of a foreach neighbor loop)";
 
 /// Parse a foreach neighbor loop.
-x3::rule<class foreach_neighbor_class, ast::stmt::foreach_neighbor>
-    foreach_neighbor = "stmt::foreach_neighbor";
+x3::rule<class foreach_neighbor_class, ast::n_scheme::foreach_neighbor>
+    foreach_neighbor = "foreach neighbor loop";
+
+/// Parse a statement that is part of a foreach particle loop.
+x3::rule<
+    class foreach_particle_statement_class,
+    ast::n_scheme::foreach_particle::statement>
+    foreach_particle_statement = "statement (part of a foreach particle loop)";
 
 /// Parse a foreach particle loop.
-x3::rule<class foreach_particle_class, ast::stmt::foreach_particle>
-    foreach_particle = "stmt::foreach_particle";
+x3::rule<class foreach_particle_class, ast::n_scheme::foreach_particle>
+    foreach_particle = "foreach particle loop";
+
+/// Parse a statement that is part of a procedure.
+x3::rule<class procedure_statement_class, ast::n_scheme::procedure::statement>
+    procedure_statement = "statement (part of a procedure)";
 
 /// Parse a procedure.
-x3::rule<class procedure_class, ast::stmt::procedure> procedure =
-    "stmt::procedure";
+x3::rule<class procedure_class, ast::n_scheme::procedure> procedure =
+    "procedure";
 
-} // namespace stmt
+} // namespace n_scheme
 
-/// Parse a statement inside a prtcl file.
-x3::rule<class statement_class, ast::statement> statement = "statement";
+/// Parse a statement that is part of a scheme.
+x3::rule<class statement_class, ast::scheme::statement> scheme_statement =
+    "statement (part of a scheme)";
 
-/// Parse a while prtcl file.
-x3::rule<class prtcl_source_file_class, ast::prtcl_source_file>
-    prtcl_source_file = "prtcl_source_file";
+/// Parse a scheme.
+x3::rule<class scheme_class, ast::scheme> scheme = "scheme";
+
+/// Parse a statement that is part of a .prtcl file.
+x3::rule<class prtcl_file_statement_class, ast::prtcl_file::statement>
+    prtcl_file_statement = "statement (part of a .prtcl file)";
+
+/// Parse a .prtcl file.
+x3::rule<class prtcl_file_class, ast::prtcl_file> prtcl_file = ".prtcl file";
 
 } // namespace prtcl::gt::parser
 
