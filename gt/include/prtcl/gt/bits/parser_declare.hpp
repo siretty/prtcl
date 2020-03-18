@@ -184,83 +184,83 @@ struct global_class : x3::annotate_on_success {};
 
 // }}}
 
-// {{{ scheme { group ... { ... } } rules
+// {{{ scheme { groups ... { ... } } rules
 
-namespace n_group {
+namespace n_groups {
 
 /// Parse a selector expression.
-x3::rule<class expression_class, ast::n_group::expression> expression =
-    "group selector expression";
+x3::rule<class select_expression_class, ast::n_groups::select_expression>
+    select_expression = "groups select expression";
 
 /// Parse a primary selector expression.
-x3::rule<class primary_class, ast::n_group::expression> primary =
-    "primary group selector expression";
+x3::rule<class select_primary_class, ast::n_groups::select_expression>
+    select_primary = "primary groups select expression";
 
 struct select_atom_kind_symbols; /* { ... } select_atom_kind; */
 
 // {{{ declaration of the rule id types (..._class)
 
 struct select_atom_class;
-struct unary_logic_neg_class;
-struct logic_con_rhs_class;
-struct logic_dis_rhs_class;
-struct logic_term_class;
+struct select_unary_logic_neg_class;
+struct select_logic_con_rhs_class;
+struct select_logic_dis_rhs_class;
+struct select_logic_term_class;
 struct uniform_field_class;
 struct varying_field_class;
 
 // }}}
 
 /// Parse a type atom.
-x3::rule<select_atom_class, ast::n_group::select_atom> select_atom =
+x3::rule<select_atom_class, ast::n_groups::select_atom> select_atom =
     "select atom";
 
 /// Parse a unary logical negation.
-x3::rule<unary_logic_neg_class, ast::n_group::unary_logic> logic_neg =
-    "logical negation";
+x3::rule<select_unary_logic_neg_class, ast::n_groups::select_unary_logic>
+    select_logic_neg = "logical negation";
 
 /// Parse the right-hand-side of a logical conjunction.
-x3::rule<logic_con_rhs_class, ast::n_group::multi_logic_rhs> logic_con_rhs =
-    "logical conjunction (rhs)";
+x3::rule<select_logic_con_rhs_class, ast::n_groups::select_multi_logic_rhs>
+    select_logic_con_rhs = "logical conjunction (rhs)";
 
 /// Parse the right-hand-side of a logical disjunction.
-x3::rule<logic_dis_rhs_class, ast::n_group::multi_logic_rhs> logic_dis_rhs =
-    "logical disjunction (rhs)";
+x3::rule<select_logic_dis_rhs_class, ast::n_groups::select_multi_logic_rhs>
+    select_logic_dis_rhs = "logical disjunction (rhs)";
 
 /// Parse an n-ary logical term (conjunction or disjunction).
-x3::rule<logic_term_class, ast::n_group::multi_logic> logic_term =
-    "logical term";
+x3::rule<select_logic_term_class, ast::n_groups::select_multi_logic>
+    select_logic_term = "logical term";
 
 /// Parse a uniform field alias definition.
-x3::rule<uniform_field_class, ast::n_group::uniform_field> uniform_field =
+x3::rule<uniform_field_class, ast::n_groups::uniform_field> uniform_field =
     "uniform field alias";
 
 /// Parse a varying field alias definition.
-x3::rule<varying_field_class, ast::n_group::varying_field> varying_field =
+x3::rule<varying_field_class, ast::n_groups::varying_field> varying_field =
     "varying field alias";
 
 /// Parse a field alias definition.
-x3::rule<class field_class, ast::n_group::field> field = "field alias";
+x3::rule<class field_class, ast::n_groups::field> field = "field alias";
 
 // {{{ definition of the rule id types (..._class)
 
 struct select_atom_class : x3::annotate_on_success {};
-struct unary_logic_neg_class : x3::annotate_on_success {};
-struct logic_con_rhs_class : x3::annotate_on_success {};
-struct logic_dis_rhs_class : x3::annotate_on_success {};
-struct logic_term_class : x3::annotate_on_success {};
+struct select_unary_logic_neg_class : x3::annotate_on_success {};
+struct select_logic_con_rhs_class : x3::annotate_on_success {};
+struct select_logic_dis_rhs_class : x3::annotate_on_success {};
+struct select_logic_term_class : x3::annotate_on_success {};
 struct uniform_field_class : x3::annotate_on_success {};
 struct varying_field_class : x3::annotate_on_success {};
 
 // }}}
 
-} // namespace n_group
+} // namespace n_groups
 
-struct group_class;
+struct groups_class;
 
-/// Parse a group selector.
-x3::rule<group_class, ast::group> group = "group definition";
+/// Parse a groups selector.
+x3::rule<groups_class, ast::groups> groups = "groups definition";
 
-struct group_class : x3::annotate_on_success {};
+struct groups_class : x3::annotate_on_success {};
 
 // }}}
 

@@ -77,47 +77,53 @@ auto const field_def =
 auto const global_def = lit("global") > '{' >> *(n_global::field) >> attr(0) >>
                         '}';
 
-namespace n_group {
+namespace n_groups {
 
-auto const expression_def = logic_term;
+auto const select_expression_def = select_logic_term;
 
-auto const primary_def = '(' >> expression >> ')' | logic_neg | select_atom;
+auto const select_primary_def = //
+    '(' >> select_expression >> ')' | select_logic_neg | select_atom;
 
-struct select_atom_kind_symbols : x3::symbols<ast::n_group::select_atom_kind> {
+struct select_atom_kind_symbols : x3::symbols<ast::n_groups::select_atom_kind> {
   // {{{ implementation
   select_atom_kind_symbols() {
-    add                                     //
-        ("type", ast::n_group::select_type) //
-        ("tag", ast::n_group::select_tag);
+    add                                      //
+        ("type", ast::n_groups::select_type) //
+        ("tag", ast::n_groups::select_tag);
   }
   // }}}
 } select_atom_kind;
 
 auto const select_atom_def = select_atom_kind > identifier;
 
-auto const logic_neg_def = lit("not") > attr(ast::op_negation) >> primary;
+auto const select_logic_neg_def = //
+    lit("not") > attr(ast::op_negation) >> select_primary;
 
-auto const logic_con_rhs_def = lit("and") >
-                               attr(ast::op_conjunction) >> logic_term;
+auto const select_logic_con_rhs_def = //
+    lit("and") > attr(ast::op_conjunction) >> select_logic_term;
 
-auto const logic_dis_rhs_def = lit("or") >
-                               attr(ast::op_disjunction) >> logic_term;
+auto const select_logic_dis_rhs_def = //
+    lit("or") > attr(ast::op_disjunction) >> select_logic_term;
 
-auto const logic_term_def = primary >> *(logic_con_rhs | logic_dis_rhs);
+auto const select_logic_term_def = //
+    select_primary >> *(select_logic_con_rhs | select_logic_dis_rhs);
 
-auto const uniform_field_def = lit("uniform") > lit("field") > identifier >
-                               '=' > ndtype > identifier > ';';
+auto const uniform_field_def = //
+    lit("uniform") > lit("field") > identifier > '=' > ndtype > identifier >
+    ';';
 
-auto const varying_field_def = lit("varying") > lit("field") > identifier >
-                               '=' > ndtype > identifier > ';';
+auto const varying_field_def = //
+    lit("varying") > lit("field") > identifier > '=' > ndtype > identifier >
+    ';';
 
 auto const field_def = uniform_field | varying_field;
 
-} // namespace n_group
+} // namespace n_groups
 
-auto const group_def = lit("group") > identifier > '{' >
-                       lit("select") > n_group::expression > ';' >
-                       *(n_group::field_def) > '}';
+auto const groups_def = //
+    lit("groups") > identifier > '{' >
+    lit("select") > n_groups::select_expression > ';' > *(n_groups::field_def) >
+    '}';
 
 namespace n_scheme {
 
@@ -188,10 +194,10 @@ auto const procedure_def =                        //
 
 } // namespace n_scheme
 
-auto const scheme_statement_def = group | global | n_scheme::procedure;
+auto const scheme_statement_def = groups | global | n_scheme::procedure;
 
-auto const scheme_def = lit("scheme") > identifier > '{' > *(scheme_statement) >
-                        '}';
+auto const scheme_def = //
+    lit("scheme") > identifier > '{' > *(scheme_statement) > '}';
 
 auto const prtcl_file_statement_def = scheme;
 

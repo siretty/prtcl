@@ -16,39 +16,39 @@ BOOST_FUSION_ADAPT_STRUCT(  //
     type, shape             //
 );
 
-BOOST_FUSION_ADAPT_STRUCT(                //
-    prtcl::gt::ast::n_group::select_atom, //
-    kind, name                            //
+BOOST_FUSION_ADAPT_STRUCT(                 //
+    prtcl::gt::ast::n_groups::select_atom, //
+    kind, name                             //
 );
 
-BOOST_FUSION_ADAPT_STRUCT(                //
-    prtcl::gt::ast::n_group::unary_logic, //
-    op, operand                           //
+BOOST_FUSION_ADAPT_STRUCT(                        //
+    prtcl::gt::ast::n_groups::select_unary_logic, //
+    op, operand                                   //
 );
 
-BOOST_FUSION_ADAPT_STRUCT(                    //
-    prtcl::gt::ast::n_group::multi_logic_rhs, //
-    op, operand                               //
+BOOST_FUSION_ADAPT_STRUCT(                            //
+    prtcl::gt::ast::n_groups::select_multi_logic_rhs, //
+    op, operand                                       //
 );
 
-BOOST_FUSION_ADAPT_STRUCT(                //
-    prtcl::gt::ast::n_group::multi_logic, //
-    operand, right_hand_sides             //
+BOOST_FUSION_ADAPT_STRUCT(                        //
+    prtcl::gt::ast::n_groups::select_multi_logic, //
+    operand, right_hand_sides                     //
 );
 
-BOOST_FUSION_ADAPT_STRUCT(                  //
-    prtcl::gt::ast::n_group::uniform_field, //
-    alias, type, name                       //
+BOOST_FUSION_ADAPT_STRUCT(                   //
+    prtcl::gt::ast::n_groups::uniform_field, //
+    alias, type, name                        //
 );
 
-BOOST_FUSION_ADAPT_STRUCT(                  //
-    prtcl::gt::ast::n_group::varying_field, //
-    alias, type, name                       //
+BOOST_FUSION_ADAPT_STRUCT(                   //
+    prtcl::gt::ast::n_groups::varying_field, //
+    alias, type, name                        //
 );
 
-BOOST_FUSION_ADAPT_STRUCT( //
-    prtcl::gt::ast::group, //
-    name, select, fields   //
+BOOST_FUSION_ADAPT_STRUCT(  //
+    prtcl::gt::ast::groups, //
+    name, select, fields    //
 );
 
 BOOST_FUSION_ADAPT_STRUCT(           //

@@ -88,7 +88,7 @@ struct field;
 
 struct global;
 
-namespace n_group {
+namespace n_groups {
 // {{{
 
 enum select_atom_kind { select_type, select_tag };
@@ -97,13 +97,14 @@ enum select_atom_kind { select_type, select_tag };
 struct select_atom;
 
 // unary logical expression
-struct unary_logic;
+struct select_unary_logic;
 
 // n-ary logical expression
-struct multi_logic_rhs;
-struct multi_logic;
+struct select_multi_logic_rhs;
+struct select_multi_logic;
 
-using expression = variant<nil, select_atom, unary_logic, multi_logic>;
+using select_expression =
+    variant<nil, select_atom, select_unary_logic, select_multi_logic>;
 
 struct uniform_field;
 struct varying_field;
@@ -111,9 +112,9 @@ struct varying_field;
 using field = variant<nil, uniform_field, varying_field>;
 
 // }}}
-} // namespace n_group
+} // namespace n_groups
 
-struct group;
+struct groups;
 
 namespace n_scheme {
 // {{{
@@ -208,7 +209,7 @@ struct global : position_tagged {
 
 // {{{ group details
 
-namespace n_group {
+namespace n_groups {
 
 // {{{ select_atom
 
@@ -219,21 +220,21 @@ struct select_atom : position_tagged {
 
 // }}}
 
-// {{{ unary_logic, multi_logic_rhs, multi_logic
+// {{{ select_unary_logic, select_multi_logic_rhs, select_multi_logic
 
-struct unary_logic : position_tagged {
+struct select_unary_logic : position_tagged {
   unary_logic_op op;
-  value_ptr<expression> operand;
+  value_ptr<select_expression> operand;
 };
 
-struct multi_logic_rhs : position_tagged {
+struct select_multi_logic_rhs : position_tagged {
   multi_logic_op op;
-  value_ptr<expression> operand;
+  value_ptr<select_expression> operand;
 };
 
-struct multi_logic : position_tagged {
-  value_ptr<expression> operand;
-  vector<multi_logic_rhs> right_hand_sides;
+struct select_multi_logic : position_tagged {
+  value_ptr<select_expression> operand;
+  vector<select_multi_logic_rhs> right_hand_sides;
 };
 
 // }}}
@@ -254,14 +255,14 @@ struct varying_field : position_tagged {
 
 // }}}
 
-} // namespace n_group
+} // namespace n_groups
 
 // }}}
 
-struct group : position_tagged {
+struct groups : position_tagged {
   string name;
-  n_group::expression select;
-  vector<n_group::field> fields;
+  n_groups::select_expression select;
+  vector<n_groups::field> fields;
 };
 
 // {{{ scheme details
@@ -322,7 +323,7 @@ struct procedure : position_tagged {
 // }}}
 
 struct scheme : position_tagged {
-  using statement = variant<nil, global, group, n_scheme::procedure>;
+  using statement = variant<nil, global, groups, n_scheme::procedure>;
 
   string name;
   vector<statement> statements;

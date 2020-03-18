@@ -120,8 +120,8 @@ public:
     }
   }
 
-  void operator()(ast::group const &arg) {
-    outi() << "group " << arg.name << ' ' << '{' << nl;
+  void operator()(ast::groups const &arg) {
+    outi() << "groups " << arg.name << ' ' << '{' << nl;
     increase_indent();
 
     outi() << "select ";
@@ -137,7 +137,7 @@ public:
     outi() << '}' << nl;
   }
 
-  void operator()(ast::n_group::multi_logic const &arg) {
+  void operator()(ast::n_groups::select_multi_logic const &arg) {
     if (arg.right_hand_sides.size() > 1)
       out() << "(";
 
@@ -154,12 +154,12 @@ public:
       out() << ")";
   }
 
-  void operator()(ast::n_group::select_atom const &arg) {
+  void operator()(ast::n_groups::select_atom const &arg) {
     switch (arg.kind) {
-    case ast::n_group::select_tag:
+    case ast::n_groups::select_tag:
       out() << "tag " << arg.name;
       break;
-    case ast::n_group::select_type:
+    case ast::n_groups::select_type:
       out() << "type " << arg.name;
       break;
     default:
@@ -167,13 +167,13 @@ public:
     }
   }
 
-  void operator()(ast::n_group::uniform_field const &arg) {
+  void operator()(ast::n_groups::uniform_field const &arg) {
     outi() << "uniform field " << arg.alias << " = ";
     (*this)(arg.type);
     out() << " " << arg.name << ';' << nl;
   }
 
-  void operator()(ast::n_group::varying_field const &arg) {
+  void operator()(ast::n_groups::varying_field const &arg) {
     outi() << "varying field " << arg.alias << " = ";
     (*this)(arg.type);
     out() << " " << arg.name << ';' << nl;

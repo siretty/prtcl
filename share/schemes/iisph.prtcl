@@ -1,6 +1,6 @@
 
 scheme iisph {
-  group fluid {
+  groups fluid {
     select type fluid;
 
     varying field x = real[] position;
@@ -22,7 +22,7 @@ scheme iisph {
     varying field Ap = real   iisph_right_hand_side;
   }
 
-  group boundary {
+  groups boundary {
     select type boundary;
 
     varying field x = real[] position;

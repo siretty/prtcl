@@ -37,19 +37,21 @@ BOOST_SPIRIT_DEFINE(field);
 
 BOOST_SPIRIT_DEFINE(global);
 
-namespace n_group {
+namespace n_groups {
 
-BOOST_SPIRIT_DEFINE(expression, primary);
+BOOST_SPIRIT_DEFINE(select_expression, select_primary);
 
 BOOST_SPIRIT_DEFINE(select_atom);
 
-BOOST_SPIRIT_DEFINE(logic_neg, logic_con_rhs, logic_dis_rhs, logic_term);
+BOOST_SPIRIT_DEFINE(
+    select_logic_neg, select_logic_con_rhs, select_logic_dis_rhs,
+    select_logic_term);
 
 BOOST_SPIRIT_DEFINE(uniform_field, varying_field, field);
 
-} // namespace n_group
+} // namespace n_groups
 
-BOOST_SPIRIT_DEFINE(group);
+BOOST_SPIRIT_DEFINE(groups);
 
 namespace n_scheme {
 
