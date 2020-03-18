@@ -130,6 +130,7 @@ struct procedure;
 } // namespace n_scheme
 
 struct scheme;
+struct prtcl_file;
 
 } // namespace prtcl::gt::ast
 
@@ -145,18 +146,18 @@ namespace n_math {
 
 // {{{ literal, operation, field_access
 
-struct literal {
+struct literal : position_tagged {
   ndtype type;
   string value; // TODO
 };
 
-struct operation {
+struct operation : position_tagged {
   string name;
   optional<ndtype> type;
   vector<value_ptr<expression>> arguments;
 };
 
-struct field_access {
+struct field_access : position_tagged {
   string field;
   optional<string> index;
 };
@@ -165,17 +166,17 @@ struct field_access {
 
 // {{{ unary_arithmetic, multi_arithmetic_rhs, multi_arithmetic
 
-struct unary_arithmetic {
+struct unary_arithmetic : position_tagged {
   unary_arithmetic_op op;
   value_ptr<expression> operand;
 };
 
-struct multi_arithmetic_rhs {
+struct multi_arithmetic_rhs : position_tagged {
   multi_arithmetic_op op;
   value_ptr<expression> operand;
 };
 
-struct multi_arithmetic {
+struct multi_arithmetic : position_tagged {
   value_ptr<expression> operand;
   vector<multi_arithmetic_rhs> right_hand_sides;
 };
@@ -190,7 +191,7 @@ struct multi_arithmetic {
 
 namespace n_global {
 
-struct field {
+struct field : position_tagged {
   string alias;
   ndtype type;
   string name;
@@ -200,7 +201,7 @@ struct field {
 
 // }}}
 
-struct global {
+struct global : position_tagged {
   vector<n_global::field> fields;
   int __dummy;
 };
@@ -211,7 +212,7 @@ namespace n_group {
 
 // {{{ select_atom
 
-struct select_atom {
+struct select_atom : position_tagged {
   select_atom_kind kind;
   string name;
 };
@@ -220,17 +221,17 @@ struct select_atom {
 
 // {{{ unary_logic, multi_logic_rhs, multi_logic
 
-struct unary_logic {
+struct unary_logic : position_tagged {
   unary_logic_op op;
   value_ptr<expression> operand;
 };
 
-struct multi_logic_rhs {
+struct multi_logic_rhs : position_tagged {
   multi_logic_op op;
   value_ptr<expression> operand;
 };
 
-struct multi_logic {
+struct multi_logic : position_tagged {
   value_ptr<expression> operand;
   vector<multi_logic_rhs> right_hand_sides;
 };
@@ -239,13 +240,13 @@ struct multi_logic {
 
 // {{{ uniform_field, varying_field
 
-struct uniform_field {
+struct uniform_field : position_tagged {
   string alias;
   ndtype type;
   string name;
 };
 
-struct varying_field {
+struct varying_field : position_tagged {
   string alias;
   ndtype type;
   string name;
@@ -257,7 +258,7 @@ struct varying_field {
 
 // }}}
 
-struct group {
+struct group : position_tagged {
   string name;
   n_group::expression select;
   vector<n_group::field> fields;
@@ -269,19 +270,19 @@ namespace n_scheme {
 
 // {{{ local, compute, reduce
 
-struct local {
+struct local : position_tagged {
   string name;
   ndtype type;
   n_math::expression math;
 };
 
-struct compute {
+struct compute : position_tagged {
   n_math::field_access left_hand_side;
   assign_op op;
   n_math::expression math;
 };
 
-struct reduce {
+struct reduce : position_tagged {
   n_math::field_access left_hand_side;
   assign_op op;
   n_math::expression math;
@@ -291,7 +292,7 @@ struct reduce {
 
 // {{{ foreach_neighbor, foreach_particle, procedure
 
-struct foreach_neighbor {
+struct foreach_neighbor : position_tagged {
   using statement = variant<local, compute, reduce>;
 
   string group;
@@ -299,7 +300,7 @@ struct foreach_neighbor {
   vector<statement> statements;
 };
 
-struct foreach_particle {
+struct foreach_particle : position_tagged {
   using statement = variant<local, compute, reduce, foreach_neighbor>;
 
   string group;
@@ -307,7 +308,7 @@ struct foreach_particle {
   vector<statement> statements;
 };
 
-struct procedure {
+struct procedure : position_tagged {
   using statement = variant<local, compute, foreach_particle>;
 
   string name;
@@ -320,14 +321,14 @@ struct procedure {
 
 // }}}
 
-struct scheme {
+struct scheme : position_tagged {
   using statement = variant<nil, global, group, n_scheme::procedure>;
 
   string name;
   vector<statement> statements;
 };
 
-struct prtcl_file {
+struct prtcl_file : position_tagged {
   using statement = variant<nil, scheme>;
 
   string version;

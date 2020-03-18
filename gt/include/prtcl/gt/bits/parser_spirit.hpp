@@ -17,7 +17,9 @@ BOOST_SPIRIT_DEFINE(white_space, identifier, ndtype);
 
 namespace n_math {
 
-BOOST_SPIRIT_DEFINE(primary, expression, literal, operation, field_access);
+BOOST_SPIRIT_DEFINE(primary, expression)
+
+BOOST_SPIRIT_DEFINE(literal, operation, field_access);
 
 BOOST_SPIRIT_DEFINE(unary_neg);
 

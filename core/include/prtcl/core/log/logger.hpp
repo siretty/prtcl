@@ -6,7 +6,7 @@
 #include <string>
 #include <string_view>
 
-namespace prtcl::rt::log {
+namespace prtcl::core::log {
 
 template <typename, typename> class basic_logger;
 
@@ -245,4 +245,4 @@ error_raii(std::string_view target, std::string_view origin, Args_ &&... args) {
   return get_logger().error_raii(target, origin, std::forward<Args_>(args)...);
 }
 
-} // namespace prtcl::rt::log
+} // namespace prtcl::core::log

@@ -32,6 +32,25 @@ int main(int argc_, char **argv_) {
 #include <boost/range/algorithm.hpp>
 #include <boost/range/iterator_range.hpp>
 
+//#include <boost/spirit/home/x3.hpp>
+//
+// using iterator_type = std::string::iterator;
+//
+// using phrase_context_type =
+//    boost::spirit::x3::phrase_parse_context<prtcl::gt::skipper_type>::type;
+//
+// using context_type = boost::spirit::x3::context<
+//    prtcl::gt::parser::position_cache_tag,
+//    std::reference_wrapper<prtcl::gt::position_cache_t<iterator_type>>,
+//    phrase_context_type>;
+//
+// namespace prtcl::gt::parser {
+//
+// BOOST_SPIRIT_INSTANTIATE(prtcl::gt::parser_type, iterator_type,
+// context_type);
+//
+//} // namespace prtcl::gt::parser
+
 int prtcl_generate_cxx_openmp(
     std::string const &prog, std::vector<std::string> const &args_) {
   if (args_.size() < 3) {
@@ -56,25 +75,34 @@ int prtcl_generate_cxx_openmp(
     return 1;
   }
 
-  std::unique_ptr<std::ifstream> input_file;
-  std::istream *input = &std::cin;
-  std::unique_ptr<std::ofstream> output_file;
-  std::ostream *output = &std::cout;
+  std::string input;
+  { // type-erased input stream
+    std::istream *input_stream = &std::cin;
 
-  // open the input file if requested
-  if (args_[0] != "-") {
-    input_file = std::make_unique<std::ifstream>(args_[0], std::ios::in);
-    input = input_file.get();
+    // raii for an actual input file
+    std::unique_ptr<std::ifstream> input_file;
+    // open the input file if requested
+    if (args_[0] != "-") {
+      input_file = std::make_unique<std::ifstream>(args_[0], std::ios::in);
+      input_stream = input_file.get();
+    }
+
+    // disable white-space skipping
+    input_stream->unsetf(std::ios::skipws);
+
+    // read the whole input from the stream
+    input = std::string{std::istreambuf_iterator<char>(*input_stream),
+                        std::istreambuf_iterator<char>()};
   }
+
+  std::unique_ptr<std::ofstream> output_file;
+  std::ostream *output_stream = &std::cout;
 
   // open the output file if requested
   if (args_[1] != "-") {
     output_file = std::make_unique<std::ofstream>(args_[1], std::ios::out);
-    output = output_file.get();
+    output_stream = output_file.get();
   }
-
-  // disable white-space skipping
-  input->unsetf(std::ios::skipws);
 
   // split namespaces of the args vector
   auto namespaces = boost::make_iterator_range(args_);
@@ -86,14 +114,19 @@ int prtcl_generate_cxx_openmp(
 
   // setup the printer
   // prtcl::gt::printer::cxx_openmp printer{*output, args_[2], namespaces};
-  prtcl::gt::printer::prtcl printer{*output};
+  prtcl::gt::printer::prtcl printer{*output_stream};
+
+  using iterator_type = typename decltype(input)::const_iterator;
 
   // create forward iterators into the input stream
-  auto first = boost::spirit::istream_iterator{*input};
-  auto last = decltype(first){};
+  iterator_type first = input.begin();
+  iterator_type last = input.end();
+
+  // create the position cache for the input
+  prtcl::gt::position_cache_t<iterator_type> positions{first, last};
 
   // parse the source file
-  auto result = prtcl::gt::parse_prtcl_source(first, last);
+  auto result = prtcl::gt::parse_prtcl_source(first, last, positions);
 
   if (result.abstract_syntax_tree.has_value()) {
     try {
@@ -107,14 +140,14 @@ int prtcl_generate_cxx_openmp(
 
   if (not result.remaining_input.empty()) {
     std::cerr << "error: the input was only parsed partially" << std::endl;
-    std::cerr << "error: remaining input follows" << std::endl;
-    std::ostreambuf_iterator<
-        typename decltype(std::cerr)::char_type,
-        typename decltype(std::cerr)::traits_type>
-        output_it{std::cerr};
-    std::copy(
-        result.remaining_input.begin(), result.remaining_input.end(),
-        output_it);
+    //std::cerr << "error: remaining input follows" << std::endl;
+    //std::ostreambuf_iterator<
+    //    typename decltype(std::cerr)::char_type,
+    //    typename decltype(std::cerr)::traits_type>
+    //    output_it{std::cerr};
+    //std::copy(
+    //    result.remaining_input.begin(), result.remaining_input.end(),
+    //    output_it);
     return 2;
   }
 
