@@ -122,11 +122,12 @@ int prtcl_generate_cxx_openmp(
   iterator_type first = input.begin();
   iterator_type last = input.end();
 
-  // create the position cache for the input
-  prtcl::gt::position_cache_t<iterator_type> positions{first, last};
+  // create the error handler
+  boost::spirit::x3::error_handler<iterator_type> error_handler{first, last,
+                                                                std::cerr};
 
   // parse the source file
-  auto result = prtcl::gt::parse_prtcl_source(first, last, positions);
+  auto result = prtcl::gt::parse_prtcl_source(first, last, error_handler);
 
   if (result.abstract_syntax_tree.has_value()) {
     try {
@@ -140,12 +141,12 @@ int prtcl_generate_cxx_openmp(
 
   if (not result.remaining_input.empty()) {
     std::cerr << "error: the input was only parsed partially" << std::endl;
-    //std::cerr << "error: remaining input follows" << std::endl;
-    //std::ostreambuf_iterator<
+    // std::cerr << "error: remaining input follows" << std::endl;
+    // std::ostreambuf_iterator<
     //    typename decltype(std::cerr)::char_type,
     //    typename decltype(std::cerr)::traits_type>
     //    output_it{std::cerr};
-    //std::copy(
+    // std::copy(
     //    result.remaining_input.begin(), result.remaining_input.end(),
     //    output_it);
     return 2;

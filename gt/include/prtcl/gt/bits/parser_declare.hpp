@@ -42,26 +42,6 @@ using x3::lit, x3::attr;
 
 namespace prtcl::gt::parser {
 
-// {{{ position_cache_tag, annotate_position
-
-/// Tag type for the position cache attribute of the parsing context.
-struct position_cache_tag;
-
-/// Custom hook for annotating rules with saving the position.
-struct annotate_position {
-  template <typename Iterator_, typename AST_, typename Context_>
-  inline void on_success(
-      Iterator_ const &first, Iterator_ const &last, AST_ &ast,
-      Context_ const &context) {
-    // get the position cache from the context
-    auto &positions = boost::spirit::x3::get<position_cache_tag>(context).get();
-    // register the ast nodes position (in form of an iterator range)
-    positions.annotate(ast, first, last);
-  }
-};
-
-// }}}
-
 // {{{ error_handler
 
 struct error_handler {
