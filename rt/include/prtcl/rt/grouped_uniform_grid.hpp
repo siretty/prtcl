@@ -87,7 +87,7 @@ private:
   static_assert(1 <= N && N <= 3);
 
 public:
-  using real = typename type_policy::template dtype_t<nd_dtype::real>;
+  using real = typename type_policy::template dtype_t<dtype::real>;
 
 private:
   // implementation member types {{{
@@ -179,11 +179,15 @@ private:
       // reset sorted_to_raw_ to a valid, but unsorted permutation
       size_t n_s = 0;
       for (size_t n_g = 0; n_g < raw_to_sorted_.size(); ++n_g) {
-        for (size_t n_r = 0; n_r < raw_to_sorted_[n_g].size(); ++n_r) {
-          sorted_to_raw_[n_s] = raw_grouped_index{static_cast<raw_group>(n_g),
-                                                  static_cast<raw_index>(n_r)};
-          ++n_s;
+        // the size of the raw-indexed array
+        size_t const n_r_size = raw_to_sorted_[n_g].size();
+#pragma omp parallel for
+        for (size_t n_r = 0; n_r < n_r_size; ++n_r) {
+          sorted_to_raw_[n_s + n_r] = raw_grouped_index{
+              static_cast<raw_group>(n_g), static_cast<raw_index>(n_r)};
         }
+        // update the base n_s index for the next iteration
+        n_s += n_r_size;
       }
     }
 
@@ -192,8 +196,6 @@ private:
         sorted_to_raw_.begin(), sorted_to_raw_.end(),
         [this, &x](auto i_gr, auto j_gr) {
           return this->compare_raw_indices(x, i_gr, j_gr);
-          // return morton_order(this->compute_grid_index(x, i_gr),
-          //                    this->compute_grid_index(x, j_gr));
         });
 
     // update raw_to_sorted_ with the sorted indices

@@ -7,10 +7,11 @@
 #include "../basic_hcp_lattice_source.hpp"
 #include "../basic_source.hpp"
 #include "../initialize_particles.hpp"
-#include "../log/logger.hpp"
 #include "../sample_surface.hpp"
 #include "../sample_volume.hpp"
 #include <prtcl/rt/basic_scg_lattice_source.hpp>
+
+#include <prtcl/core/log/logger.hpp>
 
 #include <fstream>
 #include <iostream>
@@ -33,20 +34,21 @@ struct bad_file_format : std::runtime_error {
 template <typename Model_, typename SourceIt_>
 void load_model_groups_from_cli(
     command_line_interface &cli_, Model_ &model_, SourceIt_ source_it) {
+  namespace log = core::log;
+
   using model_policy = typename Model_::model_policy;
   using type_policy = typename model_policy::type_policy;
   using math_policy = typename model_policy::math_policy;
 
   using source_type = basic_hcp_lattice_source<model_policy>;
 
-  using c = typename math_policy::constants;
   using o = typename math_policy::operations;
 
   static constexpr size_t N = model_policy::dimensionality;
 
   using real = typename type_policy::real;
-  using rvec = typename math_policy::template nd_dtype_t<nd_dtype::real, N>;
-  using rmat = typename math_policy::template nd_dtype_t<nd_dtype::real, N, N>;
+  using rvec = typename math_policy::template ndtype_t<dtype::real, N>;
+  using rmat = typename math_policy::template ndtype_t<dtype::real, N, N>;
 
   using triangle_mesh_type = triangle_mesh<model_policy>;
 
@@ -69,82 +71,81 @@ void load_model_groups_from_cli(
 
   auto handle_model_parameters = [&get_vector, &model_](auto tree) {
     // {{{ implementation
-    model_.template add_global<nd_dtype::real>("smoothing_scale")[0] =
+    model_.template add_global<dtype::real>("smoothing_scale")[0] =
         tree.get("smoothing_scale", static_cast<real>(0.025));
 
-    model_.template add_global<nd_dtype::real>("time_step")[0] =
+    model_.template add_global<dtype::real>("time_step")[0] =
         tree.get("time_step", static_cast<real>(0.00001));
-    model_.template add_global<nd_dtype::real>("maximum_time_step")[0] =
-        tree.get(
-            "maximum_time_step",
-            30 * model_.template add_global<nd_dtype::real>("time_step")[0]);
+    model_.template add_global<dtype::real>("maximum_time_step")[0] = tree.get(
+        "maximum_time_step",
+        30 * model_.template add_global<dtype::real>("time_step")[0]);
 
-    model_.template add_global<nd_dtype::real>("maximum_cfl")[0] =
+    model_.template add_global<dtype::real>("maximum_cfl")[0] =
         tree.get("maximum_cfl", static_cast<real>(0.7));
 
-    model_.template add_global<nd_dtype::real>("iisph_relaxation")[0] =
+    model_.template add_global<dtype::real>("iisph_relaxation")[0] =
         tree.get("iisph_relaxation", static_cast<real>(0.5));
 
     auto const h =
-        model_.template get_global<nd_dtype::real>("smoothing_scale")[0];
+        model_.template get_global<dtype::real>("smoothing_scale")[0];
 
-    rvec default_gravity = c::template zeros<nd_dtype::real, N>();
+    rvec default_gravity = o::template zeros<dtype::real, N>();
     default_gravity[N > 1 ? 1 : 0] = static_cast<real>(-9.81);
 
-    model_.template add_global<nd_dtype::real, N>("gravity")[0] =
+    model_.template add_global<dtype::real, N>("gravity")[0] =
         get_vector(tree, "gravity", default_gravity, h);
     // }}}
   };
 
   auto handle_fluid_parameters = [&model_](auto tree, auto &group) {
     // {{{ implementation
-    group.template add_uniform<nd_dtype::real>("rest_density")[0] =
+    group.template add_uniform<dtype::real>("rest_density")[0] =
         tree.get("rest_density", static_cast<real>(1000));
 
-    group.template add_uniform<nd_dtype::real>("compressibility")[0] =
+    group.template add_uniform<dtype::real>("compressibility")[0] =
         tree.get("compressibility", static_cast<real>(10'000'000));
 
-    group.template add_uniform<nd_dtype::real>("viscosity")[0] =
+    group.template add_uniform<dtype::real>("viscosity")[0] =
         tree.get("viscosity", static_cast<real>(0.01));
 
-    group.template add_uniform<nd_dtype::real>("surface_tension")[0] =
+    group.template add_uniform<dtype::real>("surface_tension")[0] =
         tree.get("surface_tension", static_cast<real>(1));
 
     if (auto opt = tree.template get_optional<real>("pt16_viscosity"))
-      group.template add_uniform<nd_dtype::real>(
-          "pt16_viscosity")[0] = opt.value();
+      group.template add_uniform<dtype::real>("pt16_viscosity")[0] =
+          opt.value();
 
     if (auto opt = tree.template get_optional<real>("pt16_vorticity_error"))
-      group.template add_uniform<nd_dtype::real>(
+      group.template add_uniform<dtype::real>(
           "pt16_vorticity_diffusion_maximum_error")[0] = opt.value();
 
     if (auto opt = tree.template get_optional<int>("pt16_vorticity_iters"))
-      group.template add_uniform<nd_dtype::integer>(
+      group.template add_uniform<dtype::integer>(
           "pt16_vorticity_diffusion_maximum_iterations")[0] = opt.value();
 
     if (auto opt = tree.template get_optional<real>("pt16_velocity_error"))
-      group.template add_uniform<nd_dtype::real>(
+      group.template add_uniform<dtype::real>(
           "pt16_velocity_reconstruction_maximum_error")[0] = opt.value();
 
     if (auto opt = tree.template get_optional<int>("pt16_velocity_iters"))
-      group.template add_uniform<nd_dtype::integer>(
+      group.template add_uniform<dtype::integer>(
           "pt16_velocity_reconstruction_maximum_iterations")[0] = opt.value();
 
     if (auto opt = tree.template get_optional<real>("wkbb18_maximum_error"))
-      group.template add_uniform<nd_dtype::real>("wkbb18_maximum_error")[0] =
+      group.template add_uniform<dtype::real>("wkbb18_maximum_error")[0] =
           opt.value();
 
     if (auto opt = tree.template get_optional<int>("wkbb18_maximum_iterations"))
-      group.template add_uniform<nd_dtype::integer>(
+      group.template add_uniform<dtype::integer>(
           "wkbb18_maximum_iterations")[0] = opt.value();
     // }}}
   };
 
   auto handle_boundary_parameters = [&model_](auto tree, auto &group) {
     // {{{ implementation
-    group.template add_uniform<nd_dtype::real>("adhesion")[0] =
+    group.template add_uniform<dtype::real>("adhesion")[0] =
         tree.get("adhesion", static_cast<real>(0));
-    group.template add_uniform<nd_dtype::real>("viscosity")[0] =
+    group.template add_uniform<dtype::real>("viscosity")[0] =
         tree.get("viscosity", static_cast<real>(0.1));
     // }}}
   };
@@ -153,7 +154,7 @@ void load_model_groups_from_cli(
     // {{{ implementation
     // get the smoothing scale from the model
     auto const h =
-        model_.template get_global<nd_dtype::real>("smoothing_scale")[0];
+        model_.template get_global<dtype::real>("smoothing_scale")[0];
 
     for (auto &[type, tree] : tree) {
       std::cerr << "  sample " << type << std::endl;
@@ -164,25 +165,24 @@ void load_model_groups_from_cli(
         auto file_path = tree.template get<std::string>("file_path");
 
         // scaling factors applied to the mesh before sampling
-        rvec scaling = get_vector(
-            tree, "scaling", c::template ones<nd_dtype::real, N>(), h);
+        rvec scaling =
+            get_vector(tree, "scaling", o::template ones<dtype::real, N>(), h);
 
         // translation applied to the mesh before sampling
         rvec translation = get_vector(
-            tree, "translation", c::template zeros<nd_dtype::real, N>(), h);
+            tree, "translation", o::template zeros<dtype::real, N>(), h);
 
         // rotation applied to the particles after sampling
-        rmat rotation = c::template identity<nd_dtype::real, N, N>();
+        rmat rotation = o::template identity<dtype::real, N, N>();
 
         if constexpr (N == 3) {
           // 3D: rotation from axis and angle
           rvec const axis = o::normalized(get_vector(
-              tree, "rotation_axis", c::template zeros<nd_dtype::real, N>(),
-              1));
+              tree, "rotation_axis", o::template zeros<dtype::real, N>(), 1));
           real const angle = tree.get("rotation_angle", real{0});
 
           rotation *=
-              std::cos(angle) * c::template identity<nd_dtype::real, N, N>() +
+              std::cos(angle) * o::template identity<dtype::real, N, N>() +
               std::sin(angle) * o::cross_product_matrix_from_vector(axis) +
               (1 - std::cos(angle)) * o::outer_product(axis, axis);
         }
@@ -229,12 +229,12 @@ void load_model_groups_from_cli(
     // {{{ implementation
     // get the smoothing scale from the model
     auto const h =
-        model_.template get_global<nd_dtype::real>("smoothing_scale")[0];
+        model_.template get_global<dtype::real>("smoothing_scale")[0];
 
     rvec center =
-        get_vector(tree, "center", c::template zeros<nd_dtype::real, N>(), h);
+        get_vector(tree, "center", o::template zeros<dtype::real, N>(), h);
     rvec velocity =
-        get_vector(tree, "velocity", c::template ones<nd_dtype::real, N>(), h);
+        get_vector(tree, "velocity", o::template ones<dtype::real, N>(), h);
     real radius = h * tree.get("radius", real{3});
     ssize_t remaining = tree.get("count", ssize_t{10000});
 
@@ -247,14 +247,14 @@ void load_model_groups_from_cli(
     // {{{ implementation
     // get the smoothing scale from the model
     auto const h =
-        model_.template get_global<nd_dtype::real>("smoothing_scale")[0];
+        model_.template get_global<dtype::real>("smoothing_scale")[0];
 
     // save the old size of the group and make room for the samples
     size_t const old_size = group.size();
     group.resize(old_size + samples.size());
 
     // get the position field from the group (_after_ the resize)
-    auto x = group.template get_varying<nd_dtype::real, N>("position");
+    auto x = group.template get_varying<dtype::real, N>("position");
 
     // store the sampled positions in the group
     for (size_t i = 0; i < samples.size(); ++i) {
@@ -299,7 +299,7 @@ void load_model_groups_from_cli(
     }
 
     // add the position field to the group
-    group.template add_varying<nd_dtype::real, N>("position");
+    group.template add_varying<dtype::real, N>("position");
 
     // temporary storage for samples
     std::vector<rvec> samples;

@@ -309,6 +309,10 @@ public:
     out() << indent() << '}' << nl;
   }
 
+  void operator()(ast::n_scheme::solve const &) {
+    outi() << "/* solve not supported yet */" << nl;
+  }
+
   void operator()(ast::n_scheme::procedure const &arg) {
     outi() << "procedure " << arg.name << ' ' << '{' << nl;
     increase_indent();

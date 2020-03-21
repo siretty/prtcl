@@ -1,20 +1,26 @@
+#include "prtcl/schemes/aiast12.hpp"
+#include <fenv.h>
 #include <prtcl/rt/basic_application.hpp>
-
-#include <prtcl/rt/log/logger.hpp>
 #include <prtcl/rt/math/aat13_math_policy_mixin.hpp>
 
 #include <prtcl/schemes/aat13.hpp>
-#include <prtcl/schemes/boundary.hpp>
-#include <prtcl/schemes/gravity.hpp>
+#include <prtcl/schemes/aiast12.hpp>
 #include <prtcl/schemes/he14.hpp>
-#include <prtcl/schemes/iisph.hpp>
-#include <prtcl/schemes/symplectic_euler.hpp>
-#include <prtcl/schemes/viscosity.hpp>
 #include <prtcl/schemes/wkbb18.hpp>
 #include <prtcl/schemes/wkbb18_solvers.hpp>
 
+#include <prtcl/schemes/iisph.hpp>
+
+#include <prtcl/schemes/density.hpp>
+#include <prtcl/schemes/gravity.hpp>
+#include <prtcl/schemes/viscosity.hpp>
+
+#include <prtcl/schemes/symplectic_euler.hpp>
+
 #include <iostream>
 #include <string_view>
+
+#include <cfenv>
 
 #define SURFACE_TENSION_AAT13 1
 #define SURFACE_TENSION_He14 2
@@ -33,17 +39,17 @@ public:
   using model_type = typename base_type::model_type;
   using neighborhood_type = typename base_type::neighborhood_type;
 
-  using nd_dtype = prtcl::core::nd_dtype;
+  using dtype = prtcl::core::dtype;
 
-  using c = typename math_policy::constants;
+  using o = typename math_policy::operations;
 
   static constexpr size_t N = model_policy::dimensionality;
 
 public:
   void on_require_schemes(model_type &model) override {
     require_all(
-        model, advect, boundary, iisph, gravity, viscosity, implicit_viscosity,
-        implicit_viscosity_solvers);
+        model, advect, boundary, density, iisph, gravity, viscosity,
+        implicit_viscosity, implicit_viscosity_solvers);
 #if SURFACE_TENSION != 0
     surface_tension.require(model);
 #endif
@@ -51,8 +57,8 @@ public:
 
   void on_load_schemes(model_type &model) override {
     load_all(
-        model, advect, boundary, iisph, gravity, viscosity, implicit_viscosity,
-        implicit_viscosity_solvers);
+        model, advect, boundary, density, iisph, gravity, viscosity,
+        implicit_viscosity, implicit_viscosity_solvers);
 #if SURFACE_TENSION != 0
     surface_tension.load(model);
 #endif
@@ -62,14 +68,17 @@ public:
   on_prepare_simulation(model_type &model, neighborhood_type &nhood) override {
     boundary.compute_volume(nhood);
 
-    auto g = model.template add_global<nd_dtype::real, N>("gravity");
-    g[0] = c::template zeros<nd_dtype::real, N>();
+    auto g = model.template add_global<dtype::real, N>("gravity");
+    g[0] = o::template zeros<dtype::real, N>();
     g[0][1] = -9.81;
 
-    prtcl::rt::log::debug(
+    prtcl::core::log::debug(
         "app", "pt16", "implicit viscosity = ",
-        1 - model.get_group("f").template get_uniform<nd_dtype::real>(
+        1 - model.get_group("f").template get_uniform<dtype::real>(
                 "viscosity")[0]);
+
+    //::feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
+    ::feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
   }
 
   void on_prepare_step(model_type &, neighborhood_type &) override {
@@ -77,7 +86,7 @@ public:
   }
 
   void on_step(model_type &model, neighborhood_type &nhood) override {
-    iisph.compute_density(nhood);
+    density.compute_density(nhood);
 
     gravity.initialize_acceleration(nhood);
 
@@ -96,17 +105,15 @@ public:
 #endif
 
     // predict the velocity at the next timestep (explicit)
-    advect.integrate_velocity_with_fade(nhood);
+    advect.integrate_velocity_with_hard_fade(nhood);
 
     { // pressure solver
-      auto aprde = model.template get_global<nd_dtype::real>("iisph_aprde");
-      auto nprde = model.template get_global<nd_dtype::integer>("iisph_nprde");
-
-      iisph.setup_a(nhood);
+      auto aprde = model.template get_global<dtype::real>("iisph_aprde");
+      auto nprde = model.template get_global<dtype::integer>("iisph_nprde");
 
       // reset the particle counter
       nprde[0] = 0;
-      iisph.setup_b(nhood);
+      iisph.setup(nhood);
 
       constexpr int min_solver_iterations = 3;
       constexpr int max_solver_iterations = 2000;
@@ -136,15 +143,15 @@ public:
         cur_aprde = aprde[0] / nprde[0];
       }
 
-      prtcl::rt::log::debug(
-          "app", "iisph", "last aprde = ", aprde[0],
-          " cur_aprde = ", cur_aprde);
-      prtcl::rt::log::debug(
-          "app", "iisph", "no. iterations ", pressure_iteration);
+      // prtcl::core::log::debug(
+      //    "app", "iisph", "last aprde = ", aprde[0],
+      //    " cur_aprde = ", cur_aprde);
+      // prtcl::core::log::debug(
+      //    "app", "iisph", "no. iterations ", pressure_iteration);
     }
 
     // predict the velocity at the next timestep (explicit + pressure)
-    advect.integrate_velocity_with_fade(nhood);
+    advect.integrate_velocity_with_hard_fade(nhood);
 
     { // viscosity solver
       implicit_viscosity.compute_diagonal(nhood);
@@ -152,18 +159,20 @@ public:
       size_t iterations =
           implicit_viscosity_solvers.accumulate_acceleration(nhood);
 
-      prtcl::rt::log::debug("app", "wkbb18", "no. iterations ", iterations);
+      // prtcl::core::log::debug("app", "wkbb18", "no. iterations ",
+      // iterations);
     }
 
     // integrate the velocity (explicit + pressure + viscosity)
-    advect.integrate_velocity_with_fade(nhood);
+    advect.integrate_velocity_with_hard_fade(nhood);
 
     // integrate the particle position
     advect.integrate_position(nhood);
   }
 
+  prtcl::schemes::density<model_policy> density;
   prtcl::schemes::symplectic_euler<model_policy> advect;
-  prtcl::schemes::boundary<model_policy> boundary;
+  prtcl::schemes::aiast12<model_policy> boundary;
   prtcl::schemes::iisph<model_policy> iisph;
   prtcl::schemes::gravity<model_policy> gravity;
   prtcl::schemes::viscosity<model_policy> viscosity;
@@ -197,4 +206,3 @@ int main(int argc_, char **argv_) {
   iisph_wkbb18_application<model_policy> application;
   application.main(argc_, argv_);
 }
-

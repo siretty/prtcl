@@ -1,9 +1,9 @@
+#include "prtcl/schemes/aiast12.hpp"
 #include <prtcl/rt/basic_application.hpp>
-
 #include <prtcl/rt/math/aat13_math_policy_mixin.hpp>
 
 #include <prtcl/schemes/aat13.hpp>
-#include <prtcl/schemes/boundary.hpp>
+#include <prtcl/schemes/aiast12.hpp>
 #include <prtcl/schemes/gravity.hpp>
 #include <prtcl/schemes/he14.hpp>
 #include <prtcl/schemes/sesph.hpp>
@@ -30,9 +30,9 @@ public:
   using model_type = typename base_type::model_type;
   using neighborhood_type = typename base_type::neighborhood_type;
 
-  using nd_dtype = prtcl::core::nd_dtype;
+  using dtype = prtcl::core::dtype;
 
-  using c = typename math_policy::constants;
+  using o = typename math_policy::operations;
 
   static constexpr size_t N = model_policy::dimensionality;
 
@@ -51,8 +51,8 @@ public:
   on_prepare_simulation(model_type &model, neighborhood_type &nhood) override {
     boundary.compute_volume(nhood);
 
-    auto g = model.template add_global<nd_dtype::real, N>("gravity");
-    g[0] = c::template zeros<nd_dtype::real, N>();
+    auto g = model.template add_global<dtype::real, N>("gravity");
+    g[0] = o::template zeros<dtype::real, N>();
     g[0][1] = -9.81;
   }
 
@@ -76,10 +76,11 @@ public:
 
     sesph.accumulate_acceleration(nhood);
 
-    advect.advect_symplectic_euler(nhood);
+    advect.integrate_velocity(nhood);
+    advect.integrate_position(nhood);
   }
 
-  prtcl::schemes::boundary<model_policy> boundary;
+  prtcl::schemes::aiast12<model_policy> boundary;
   prtcl::schemes::sesph<model_policy> sesph;
   prtcl::schemes::gravity<model_policy> gravity;
   prtcl::schemes::viscosity<model_policy> viscosity;

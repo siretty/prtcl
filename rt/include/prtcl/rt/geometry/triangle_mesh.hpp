@@ -30,7 +30,7 @@ private:
   using real = typename type_policy::real;
 
   using rvec_type =
-      typename math_policy::template nd_dtype_t<nd_dtype::real, 3>;
+      typename math_policy::template ndtype_t<dtype::real, 3>;
   using face_type = std::array<index_type, 3>;
 
 public:

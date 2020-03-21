@@ -13,9 +13,11 @@ int main(int argc_, char **argv_) {
 
   namespace rt = prtcl::rt;
 
+  using prtcl::core::dtype;
+
   using model_policy = rt::default_model_policy<3>;
   using math_policy = typename model_policy::math_policy;
-  using rvec = typename math_policy::template nd_dtype_t<rt::nd_dtype::real, 3>;
+  using rvec = typename math_policy::template ndtype_t<dtype::real, 3>;
 
   rt::triangle_mesh<model_policy> mesh;
 

@@ -41,6 +41,7 @@ if( ${_is_clang} )
   if( FORCE_COLORED_DIAGNOSTICS )
     list( APPEND _FLAGS
       "-fcolor-diagnostics"
+      "-fno-builtin"
     )
   endif()
 

@@ -2,10 +2,10 @@
 
 #include "common.hpp"
 
-#include <prtcl/rt/log/logger.hpp>
 #include <prtcl/rt/math/math_policy.hpp>
 
 #include <prtcl/core/identity.hpp>
+#include <prtcl/core/log/logger.hpp>
 #include <prtcl/core/narray.hpp>
 
 #include <algorithm>
@@ -53,24 +53,24 @@ namespace n_eigen {
 
 // {{{ select_dtype_type_t
 
-template <typename, nd_dtype> struct select_dtype_type;
+template <typename, dtype> struct select_dtype_type;
 
 template <typename TypePolicy_>
-struct select_dtype_type<TypePolicy_, nd_dtype::real> {
+struct select_dtype_type<TypePolicy_, dtype::real> {
   using type = typename TypePolicy_::real;
 };
 
 template <typename TypePolicy_>
-struct select_dtype_type<TypePolicy_, nd_dtype::integer> {
+struct select_dtype_type<TypePolicy_, dtype::integer> {
   using type = typename TypePolicy_::integer;
 };
 
 template <typename TypePolicy_>
-struct select_dtype_type<TypePolicy_, nd_dtype::boolean> {
+struct select_dtype_type<TypePolicy_, dtype::boolean> {
   using type = typename TypePolicy_::boolean;
 };
 
-template <typename TypePolicy_, nd_dtype DType_>
+template <typename TypePolicy_, dtype DType_>
 using select_dtype_type_t =
     typename select_dtype_type<TypePolicy_, DType_>::type;
 
@@ -94,7 +94,7 @@ struct select_eigen_type<T_, M_, N_> {
 template <typename T_, size_t... Ns_>
 using select_eigen_type_t = typename select_eigen_type<T_, Ns_...>::type;
 
-template <typename TypePolicy_, nd_dtype DType_, size_t... Ns_>
+template <typename TypePolicy_, dtype DType_, size_t... Ns_>
 using select_eigen_dtype_t =
     select_eigen_type_t<select_dtype_type_t<TypePolicy_, DType_>, Ns_...>;
 
@@ -358,7 +358,8 @@ public:
     {
 #pragma omp for
       for (size_t i = 0; i < _size; i++) {
-        _diagonal[i] = (*_functor)(i).inverse();
+        _diagonal[i] =
+            (*_functor)(i).completeOrthogonalDecomposition().pseudoInverse();
       }
     }
     return *this;
@@ -405,12 +406,8 @@ public:
   using type_policy = TypePolicy_;
 
 public:
-  template <nd_dtype DType_>
-  using dtype_t = typename TypePolicy_::template dtype_t<DType_>;
-
-public:
-  template <nd_dtype DType_, size_t... Ns_>
-  using nd_dtype_t = n_eigen::select_eigen_dtype_t<TypePolicy_, DType_, Ns_...>;
+  template <dtype DType_, size_t... Ns_>
+  using ndtype_t = n_eigen::select_eigen_dtype_t<TypePolicy_, DType_, Ns_...>;
 
 public:
   template <typename NDType_, size_t Dimension_>
@@ -418,22 +415,19 @@ public:
       n_eigen::eigen_extent_v<NDType_, Dimension_>;
 
 public:
-  struct literals {
-    template <nd_dtype DType_, size_t... Ns_>
-    static nd_dtype_t<DType_, Ns_...>
-    narray(core::narray_t<dtype_t<DType_>, Ns_...> value_) {
+  struct operations {
+    template <dtype DType_, size_t... Ns_>
+    static ndtype_t<DType_, Ns_...>
+    narray(core::narray_t<ndtype_t<DType_>, Ns_...> value_) {
       if constexpr (sizeof...(Ns_) == 0)
         return value_;
       else {
-        using result_type = nd_dtype_t<DType_, Ns_...>;
+        using result_type = ndtype_t<DType_, Ns_...>;
         return result_type{
             Eigen::Map<result_type>{core::narray_data(value_)}.transpose()};
       }
     }
-  };
 
-public:
-  struct operations {
     template <typename LHS_, typename RHS_>
     static decltype(auto) dot(LHS_ &&lhs_, RHS_ &&rhs_) {
       return std::forward<LHS_>(lhs_).dot(std::forward<RHS_>(rhs_));
@@ -586,10 +580,10 @@ public:
     }
 
     template <typename Arg_>
-    static nd_dtype_t<nd_dtype::real, 3, 3>
+    static ndtype_t<dtype::real, 3, 3>
     cross_product_matrix_from_vector(Arg_ const &arg) {
       real const zero = 0;
-      return literals::template narray<nd_dtype::real, 3, 3>({{
+      return narray<dtype::real, 3, 3>({{
           {zero, -arg[2], arg[1]},
           {arg[2], zero, -arg[0]},
           {-arg[1], arg[0], zero},
@@ -597,34 +591,30 @@ public:
     }
 
     template <typename Arg_>
-    static nd_dtype_t<nd_dtype::real, 3>
+    static ndtype_t<dtype::real, 3>
     vector_from_cross_product_matrix(Arg_ const &arg) {
       // TODO: assert that arg is a 3x3 matrix
       return {arg(2, 1), arg(0, 2), arg(1, 0)};
     }
-  };
 
-public:
-  struct constants {
-    template <nd_dtype DType_, size_t... Ns_> static decltype(auto) zeros() {
+    template <dtype DType_, size_t... Ns_> static decltype(auto) zeros() {
       if constexpr (sizeof...(Ns_) >= 1)
-        return nd_dtype_t<DType_, Ns_...>::Zero();
+        return ndtype_t<DType_, Ns_...>::Zero();
       else
-        return static_cast<dtype_t<DType_>>(0);
+        return static_cast<ndtype_t<DType_>>(0);
     }
 
-    template <nd_dtype DType_, size_t... Ns_> static decltype(auto) ones() {
+    template <dtype DType_, size_t... Ns_> static decltype(auto) ones() {
       if constexpr (sizeof...(Ns_) >= 1)
-        return nd_dtype_t<DType_, Ns_...>::Ones();
+        return ndtype_t<DType_, Ns_...>::Ones();
       else
-        return static_cast<dtype_t<DType_>>(1);
+        return static_cast<ndtype_t<DType_>>(1);
     }
 
-    template <nd_dtype DType_, size_t... Ns_>
+    template <dtype DType_, size_t... Ns_>
     static decltype(auto) most_negative() {
-      static_assert(
-          nd_dtype::real == DType_ or nd_dtype::integer == DType_, "");
-      using type = dtype_t<DType_>;
+      static_assert(dtype::real == DType_ or dtype::integer == DType_, "");
+      using type = ndtype_t<DType_>;
       if constexpr (0 == sizeof...(Ns_))
         return std::numeric_limits<type>::lowest();
       else
@@ -632,11 +622,10 @@ public:
             most_negative<DType_>());
     }
 
-    template <nd_dtype DType_, size_t... Ns_>
+    template <dtype DType_, size_t... Ns_>
     static decltype(auto) most_positive() {
-      static_assert(
-          nd_dtype::real == DType_ or nd_dtype::integer == DType_, "");
-      using type = dtype_t<DType_>;
+      static_assert(dtype::real == DType_ or dtype::integer == DType_, "");
+      using type = ndtype_t<DType_>;
       if constexpr (0 == sizeof...(Ns_))
         return std::numeric_limits<type>::max();
       else
@@ -644,9 +633,9 @@ public:
             most_positive<DType_>());
     }
 
-    template <nd_dtype DType_, size_t... Ns_>
+    template <dtype DType_, size_t... Ns_>
     static decltype(auto) positive_infinity() {
-      static_assert(DType_ == nd_dtype::real, "");
+      static_assert(DType_ == dtype::real, "");
       if constexpr (0 == sizeof...(Ns_))
         return std::numeric_limits<real>::infinity();
       else
@@ -654,9 +643,9 @@ public:
             positive_infinity<DType_>());
     }
 
-    template <nd_dtype DType_, size_t... Ns_>
+    template <dtype DType_, size_t... Ns_>
     static decltype(auto) negative_infinity() {
-      static_assert(DType_ == nd_dtype::real, "");
+      static_assert(DType_ == dtype::real, "");
       if constexpr (0 == sizeof...(Ns_))
         return -std::numeric_limits<real>::infinity();
       else
@@ -664,14 +653,14 @@ public:
             positive_infinity<DType_>());
     }
 
-    template <nd_dtype DType_, size_t... Ns_> static decltype(auto) identity() {
-      static_assert(DType_ == nd_dtype::real and 2 == sizeof...(Ns_), "");
+    template <dtype DType_, size_t... Ns_> static decltype(auto) identity() {
+      static_assert(DType_ == dtype::real and 2 == sizeof...(Ns_), "");
       return n_eigen::select_eigen_type_t<real, Ns_...>::Identity();
     }
 
-    template <nd_dtype DType_, size_t... Ns_> static decltype(auto) epsilon() {
-      static_assert(nd_dtype::real == DType_, "");
-      using type = dtype_t<DType_>;
+    template <dtype DType_, size_t... Ns_> static decltype(auto) epsilon() {
+      static_assert(dtype::real == DType_, "");
+      using type = ndtype_t<DType_>;
       if constexpr (0 == sizeof...(Ns_))
         return std::sqrt(std::numeric_limits<type>::epsilon());
       else
@@ -679,12 +668,12 @@ public:
             epsilon<DType_>());
     }
 
-    template <nd_dtype DType_, typename T_, size_t N_>
+    template <dtype DType_, typename T_, size_t N_>
     static decltype(auto) from_array(std::array<T_, N_> const &a_) {
-      nd_dtype_t<DType_, N_> result;
+      ndtype_t<DType_, N_> result;
       for (size_t n = 0; n < N_; ++n)
         result[static_cast<Eigen::Index>(n)] =
-            static_cast<dtype_t<DType_>>(a_[n]);
+            static_cast<ndtype_t<DType_>>(a_[n]);
       return result;
     }
   };

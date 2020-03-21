@@ -5,8 +5,9 @@
 #include <prtcl/rt/basic_group.hpp>
 #include <prtcl/rt/basic_model.hpp>
 
-#include <prtcl/rt/log/logger.hpp>
 #include <prtcl/rt/log/trace.hpp>
+
+#include <prtcl/core/log/logger.hpp>
 
 #include <vector>
 
@@ -31,15 +32,15 @@ public:
   using math_policy = typename model_policy::math_policy;
   using data_policy = typename model_policy::data_policy;
 
-  using nd_dtype = prtcl::rt::nd_dtype;
+  using dtype = prtcl::rt::dtype;
 
-  template <nd_dtype DType_>
+  template <dtype DType_>
   using dtype_t = typename type_policy::template dtype_t<DType_>;
-  template <nd_dtype DType_, size_t... Ns_>
-  using nd_dtype_t = typename math_policy::template nd_dtype_t<DType_, Ns_...>;
-  template <nd_dtype DType_, size_t... Ns_>
-  using nd_dtype_data_ref_t =
-      typename data_policy::template nd_dtype_data_ref_t<DType_, Ns_...>;
+  template <dtype DType_, size_t... Ns_>
+  using ndtype_t = typename math_policy::template ndtype_t<DType_, Ns_...>;
+  template <dtype DType_, size_t... Ns_>
+  using ndtype_data_ref_t =
+      typename data_policy::template ndtype_data_ref_t<DType_, Ns_...>;
 
   static constexpr size_t N = model_policy::dimensionality;
 
@@ -48,21 +49,20 @@ public:
 
 private:
   struct global_data {
-    nd_dtype_data_ref_t<nd_dtype::real> smoothing_scale;
-    nd_dtype_data_ref_t<nd_dtype::real> current_time;
-    nd_dtype_data_ref_t<nd_dtype::real> fade_duration;
+    ndtype_data_ref_t<dtype::real> smoothing_scale;
+    ndtype_data_ref_t<dtype::real> current_time;
+    ndtype_data_ref_t<dtype::real> fade_duration;
 
     static void _require(model_type &m_) {
-      m_.template add_global<nd_dtype::real>("smoothing_scale");
-      m_.template add_global<nd_dtype::real>("current_time");
-      m_.template add_global<nd_dtype::real>("fade_duration");
+      m_.template add_global<dtype::real>("smoothing_scale");
+      m_.template add_global<dtype::real>("current_time");
+      m_.template add_global<dtype::real>("fade_duration");
     }
 
     void _load(model_type const &m_) {
-      smoothing_scale =
-          m_.template get_global<nd_dtype::real>("smoothing_scale");
-      current_time = m_.template get_global<nd_dtype::real>("current_time");
-      fade_duration = m_.template get_global<nd_dtype::real>("fade_duration");
+      smoothing_scale = m_.template get_global<dtype::real>("smoothing_scale");
+      current_time = m_.template get_global<dtype::real>("current_time");
+      fade_duration = m_.template get_global<dtype::real>("fade_duration");
     }
   };
 
@@ -74,96 +74,92 @@ private:
     size_t _index;
 
     // uniform fields
-    nd_dtype_data_ref_t<nd_dtype::real> rest_density;
-    nd_dtype_data_ref_t<nd_dtype::real> pt16_vorticity_diffusion_maximum_error;
-    nd_dtype_data_ref_t<nd_dtype::integer>
+    ndtype_data_ref_t<dtype::real> rest_density;
+    ndtype_data_ref_t<dtype::real> pt16_vorticity_diffusion_maximum_error;
+    ndtype_data_ref_t<dtype::integer>
         pt16_vorticity_diffusion_maximum_iterations;
-    nd_dtype_data_ref_t<nd_dtype::real>
-        pt16_velocity_reconstruction_maximum_error;
-    nd_dtype_data_ref_t<nd_dtype::integer>
+    ndtype_data_ref_t<dtype::real> pt16_velocity_reconstruction_maximum_error;
+    ndtype_data_ref_t<dtype::integer>
         pt16_velocity_reconstruction_maximum_iterations;
 
     // varying fields
-    nd_dtype_data_ref_t<nd_dtype::real> mass;
-    nd_dtype_data_ref_t<nd_dtype::real, N> vorticity;
-    nd_dtype_data_ref_t<nd_dtype::real> pt16_vorticity_diffusion_diagonal;
-    nd_dtype_data_ref_t<nd_dtype::real, N> pt16_vorticity_diffusion_rhs;
-    nd_dtype_data_ref_t<nd_dtype::real> density;
-    nd_dtype_data_ref_t<nd_dtype::real, N, N> target_velocity_gradient;
-    nd_dtype_data_ref_t<nd_dtype::real, N> velocity;
-    nd_dtype_data_ref_t<nd_dtype::real> pt16_velocity_reconstruction_diagonal;
-    nd_dtype_data_ref_t<nd_dtype::real, N> pt16_velocity_reconstruction_rhs;
-    nd_dtype_data_ref_t<nd_dtype::real, N> position;
-    nd_dtype_data_ref_t<nd_dtype::real> time_of_birth;
+    ndtype_data_ref_t<dtype::real> mass;
+    ndtype_data_ref_t<dtype::real, N> vorticity;
+    ndtype_data_ref_t<dtype::real> pt16_vorticity_diffusion_diagonal;
+    ndtype_data_ref_t<dtype::real, N> pt16_vorticity_diffusion_rhs;
+    ndtype_data_ref_t<dtype::real> density;
+    ndtype_data_ref_t<dtype::real, N, N> target_velocity_gradient;
+    ndtype_data_ref_t<dtype::real, N> velocity;
+    ndtype_data_ref_t<dtype::real> pt16_velocity_reconstruction_diagonal;
+    ndtype_data_ref_t<dtype::real, N> pt16_velocity_reconstruction_rhs;
+    ndtype_data_ref_t<dtype::real, N> position;
+    ndtype_data_ref_t<dtype::real> time_of_birth;
 
     static void _require(group_type &g_) {
       // uniform fields
-      g_.template add_uniform<nd_dtype::real>("rest_density");
-      g_.template add_uniform<nd_dtype::real>(
+      g_.template add_uniform<dtype::real>("rest_density");
+      g_.template add_uniform<dtype::real>(
           "pt16_vorticity_diffusion_maximum_error");
-      g_.template add_uniform<nd_dtype::integer>(
+      g_.template add_uniform<dtype::integer>(
           "pt16_vorticity_diffusion_maximum_iterations");
-      g_.template add_uniform<nd_dtype::real>(
+      g_.template add_uniform<dtype::real>(
           "pt16_velocity_reconstruction_maximum_error");
-      g_.template add_uniform<nd_dtype::integer>(
+      g_.template add_uniform<dtype::integer>(
           "pt16_velocity_reconstruction_maximum_iterations");
 
       // varying fields
-      g_.template add_varying<nd_dtype::real>("mass");
-      g_.template add_varying<nd_dtype::real, N>("vorticity");
-      g_.template add_varying<nd_dtype::real>(
-          "pt16_vorticity_diffusion_diagonal");
-      g_.template add_varying<nd_dtype::real, N>(
-          "pt16_vorticity_diffusion_rhs");
-      g_.template add_varying<nd_dtype::real>("density");
-      g_.template add_varying<nd_dtype::real, N, N>("target_velocity_gradient");
-      g_.template add_varying<nd_dtype::real, N>("velocity");
-      g_.template add_varying<nd_dtype::real>(
+      g_.template add_varying<dtype::real>("mass");
+      g_.template add_varying<dtype::real, N>("vorticity");
+      g_.template add_varying<dtype::real>("pt16_vorticity_diffusion_diagonal");
+      g_.template add_varying<dtype::real, N>("pt16_vorticity_diffusion_rhs");
+      g_.template add_varying<dtype::real>("density");
+      g_.template add_varying<dtype::real, N, N>("target_velocity_gradient");
+      g_.template add_varying<dtype::real, N>("velocity");
+      g_.template add_varying<dtype::real>(
           "pt16_velocity_reconstruction_diagonal");
-      g_.template add_varying<nd_dtype::real, N>(
+      g_.template add_varying<dtype::real, N>(
           "pt16_velocity_reconstruction_rhs");
-      g_.template add_varying<nd_dtype::real, N>("position");
-      g_.template add_varying<nd_dtype::real>("time_of_birth");
+      g_.template add_varying<dtype::real, N>("position");
+      g_.template add_varying<dtype::real>("time_of_birth");
     }
 
     void _load(group_type const &g_) {
       _count = g_.size();
 
       // uniform fields
-      rest_density = g_.template get_uniform<nd_dtype::real>("rest_density");
+      rest_density = g_.template get_uniform<dtype::real>("rest_density");
       pt16_vorticity_diffusion_maximum_error =
-          g_.template get_uniform<nd_dtype::real>(
+          g_.template get_uniform<dtype::real>(
               "pt16_vorticity_diffusion_maximum_error");
       pt16_vorticity_diffusion_maximum_iterations =
-          g_.template get_uniform<nd_dtype::integer>(
+          g_.template get_uniform<dtype::integer>(
               "pt16_vorticity_diffusion_maximum_iterations");
       pt16_velocity_reconstruction_maximum_error =
-          g_.template get_uniform<nd_dtype::real>(
+          g_.template get_uniform<dtype::real>(
               "pt16_velocity_reconstruction_maximum_error");
       pt16_velocity_reconstruction_maximum_iterations =
-          g_.template get_uniform<nd_dtype::integer>(
+          g_.template get_uniform<dtype::integer>(
               "pt16_velocity_reconstruction_maximum_iterations");
 
       // varying fields
-      mass = g_.template get_varying<nd_dtype::real>("mass");
-      vorticity = g_.template get_varying<nd_dtype::real, N>("vorticity");
-      pt16_vorticity_diffusion_diagonal =
-          g_.template get_varying<nd_dtype::real>(
-              "pt16_vorticity_diffusion_diagonal");
-      pt16_vorticity_diffusion_rhs = g_.template get_varying<nd_dtype::real, N>(
+      mass = g_.template get_varying<dtype::real>("mass");
+      vorticity = g_.template get_varying<dtype::real, N>("vorticity");
+      pt16_vorticity_diffusion_diagonal = g_.template get_varying<dtype::real>(
+          "pt16_vorticity_diffusion_diagonal");
+      pt16_vorticity_diffusion_rhs = g_.template get_varying<dtype::real, N>(
           "pt16_vorticity_diffusion_rhs");
-      density = g_.template get_varying<nd_dtype::real>("density");
-      target_velocity_gradient = g_.template get_varying<nd_dtype::real, N, N>(
+      density = g_.template get_varying<dtype::real>("density");
+      target_velocity_gradient = g_.template get_varying<dtype::real, N, N>(
           "target_velocity_gradient");
-      velocity = g_.template get_varying<nd_dtype::real, N>("velocity");
+      velocity = g_.template get_varying<dtype::real, N>("velocity");
       pt16_velocity_reconstruction_diagonal =
-          g_.template get_varying<nd_dtype::real>(
+          g_.template get_varying<dtype::real>(
               "pt16_velocity_reconstruction_diagonal");
       pt16_velocity_reconstruction_rhs =
-          g_.template get_varying<nd_dtype::real, N>(
+          g_.template get_varying<dtype::real, N>(
               "pt16_velocity_reconstruction_rhs");
-      position = g_.template get_varying<nd_dtype::real, N>("position");
-      time_of_birth = g_.template get_varying<nd_dtype::real>("time_of_birth");
+      position = g_.template get_varying<dtype::real, N>("position");
+      time_of_birth = g_.template get_varying<dtype::real>("time_of_birth");
     }
   };
 
@@ -216,7 +212,7 @@ private:
   std::vector<per_thread_type> _per_thread;
   size_t _group_count;
 
-  using real = dtype_t<nd_dtype::real>;
+  using real = dtype_t<dtype::real>;
 
 public:
   template <typename NHood_> size_t vorticity_diffusion(NHood_ const &nhood_) {
@@ -224,8 +220,6 @@ public:
     auto &g = _data.global;
 
     // alias for the math_policy member types
-    using l = typename math_policy::literals;
-    using c = typename math_policy::constants;
     using o = typename math_policy::operations;
 
     size_t d = 0;
@@ -279,8 +273,6 @@ public:
     auto &g = _data.global;
 
     // alias for the math_policy member types
-    using l = typename math_policy::literals;
-    using c = typename math_policy::constants;
     using o = typename math_policy::operations;
 
     size_t d = 0;
@@ -328,7 +320,7 @@ public:
         size_t d_iterations = math_policy::solve_cg_dp(
             nhood_, _group_count, p, iterate, product, rhs, diagonal,
             max_error * 1e-5 * p.rest_density[0], max_iters, apply);
-        prtcl::rt::log::debug(
+        prtcl::core::log::debug(
             "app", "pt16", "dim=", d, " iterations ", d_iterations);
         iterations += d_iterations;
       }

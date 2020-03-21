@@ -26,22 +26,22 @@ void save_vtk(std::ostream &o_, basic_group<ModelPolicy_> const &g_) {
     return s.str();
   };
 
-  auto x = g_.template get_varying<nd_dtype::real, N>("position");
+  auto x = g_.template get_varying<dtype::real, N>("position");
   o_ << "POINTS " << g_.size() << " float\n";
   for (size_t i = 0; i < g_.size(); ++i)
     o_ << std::fixed << format_array(x[i]) << "\n";
 
   o_ << "POINT_DATA " << g_.size() << "\n";
 
-  if (g_.template has_varying<nd_dtype::real, N>("velocity")) {
-    auto v = g_.template get_varying<nd_dtype::real, N>("velocity");
+  if (g_.template has_varying<dtype::real, N>("velocity")) {
+    auto v = g_.template get_varying<dtype::real, N>("velocity");
     o_ << "VECTORS velocity float\n";
     for (size_t i = 0; i < g_.size(); ++i)
       o_ << std::fixed << format_array(v[i]) << "\n";
   }
 
-  if (g_.template has_varying<nd_dtype::real, N>("acceleration")) {
-    auto a = g_.template get_varying<nd_dtype::real, N>("acceleration");
+  if (g_.template has_varying<dtype::real, N>("acceleration")) {
+    auto a = g_.template get_varying<dtype::real, N>("acceleration");
     o_ << "VECTORS acceleration float\n";
     for (size_t i = 0; i < g_.size(); ++i)
       o_ << std::fixed << format_array(a[i]) << "\n";
@@ -52,32 +52,32 @@ void save_vtk(std::ostream &o_, basic_group<ModelPolicy_> const &g_) {
   for (size_t i = 0; i < g_.size(); ++i)
     o_ << std::fixed << i << "\n";
 
-  if (g_.template has_varying<nd_dtype::real>("mass")) {
-    auto m = g_.template get_varying<nd_dtype::real>("mass");
+  if (g_.template has_varying<dtype::real>("mass")) {
+    auto m = g_.template get_varying<dtype::real>("mass");
     o_ << "SCALARS mass float 1\n";
     o_ << "LOOKUP_TABLE default\n";
     for (size_t i = 0; i < g_.size(); ++i)
       o_ << std::fixed << m[i] << "\n";
   }
 
-  if (g_.template has_varying<nd_dtype::real>("volume")) {
-    auto v = g_.template get_varying<nd_dtype::real>("volume");
+  if (g_.template has_varying<dtype::real>("volume")) {
+    auto v = g_.template get_varying<dtype::real>("volume");
     o_ << "SCALARS volume float 1\n";
     o_ << "LOOKUP_TABLE default\n";
     for (size_t i = 0; i < g_.size(); ++i)
       o_ << std::fixed << v[i] << "\n";
   }
 
-  if (g_.template has_varying<nd_dtype::real>("density")) {
-    auto d = g_.template get_varying<nd_dtype::real>("density");
+  if (g_.template has_varying<dtype::real>("density")) {
+    auto d = g_.template get_varying<dtype::real>("density");
     o_ << "SCALARS density float 1\n";
     o_ << "LOOKUP_TABLE default\n";
     for (size_t i = 0; i < g_.size(); ++i)
       o_ << std::fixed << d[i] << "\n";
   }
 
-  if (g_.template has_varying<nd_dtype::real>("pressure")) {
-    auto p = g_.template get_varying<nd_dtype::real>("pressure");
+  if (g_.template has_varying<dtype::real>("pressure")) {
+    auto p = g_.template get_varying<dtype::real>("pressure");
     o_ << "SCALARS pressure float 1\n";
     o_ << "LOOKUP_TABLE default\n";
     for (size_t i = 0; i < g_.size(); ++i)

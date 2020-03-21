@@ -28,9 +28,8 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
   using real = typename type_policy::real;
 
   using o = math_policy::operations;
-  using c = math_policy::constants;
 
-  using prtcl::core::nd_dtype;
+  using prtcl::core::dtype;
 
   auto const h = static_cast<real>(1);
 
@@ -39,49 +38,49 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
   CHECK(2 == o::kernel_support_radius(h));
 
   auto eval_at_zeros_d1 =
-      o::kernel_h(c::template zeros<nd_dtype::real, 1>(), h);
+      o::kernel_h(o::template zeros<dtype::real, 1>(), h);
   auto eval_at_zeros_d2 =
-      o::kernel_h(c::template zeros<nd_dtype::real, 2>(), h);
+      o::kernel_h(o::template zeros<dtype::real, 2>(), h);
   auto eval_at_zeros_d3 =
-      o::kernel_h(c::template zeros<nd_dtype::real, 3>(), h);
+      o::kernel_h(o::template zeros<dtype::real, 3>(), h);
 
   CHECK(eval_at_zeros_d1 > eval_at_zeros_d2);
   CHECK(eval_at_zeros_d2 > eval_at_zeros_d3);
 
-  auto eval_at_pones_d1 = o::kernel_h(c::template ones<nd_dtype::real, 1>(), h);
+  auto eval_at_pones_d1 = o::kernel_h(o::template ones<dtype::real, 1>(), h);
   auto eval_at_nones_d1 =
-      o::kernel_h(-c::template ones<nd_dtype::real, 1>(), h);
+      o::kernel_h(-o::template ones<dtype::real, 1>(), h);
 
   CHECK(eval_at_pones_d1 < eval_at_zeros_d1);
   CHECK(eval_at_pones_d1 == eval_at_nones_d1);
 
-  auto eval_at_pones_d2 = o::kernel_h(c::template ones<nd_dtype::real, 2>(), h);
+  auto eval_at_pones_d2 = o::kernel_h(o::template ones<dtype::real, 2>(), h);
   auto eval_at_nones_d2 =
-      o::kernel_h(-c::template ones<nd_dtype::real, 2>(), h);
+      o::kernel_h(-o::template ones<dtype::real, 2>(), h);
 
   CHECK(eval_at_pones_d2 < eval_at_zeros_d2);
   CHECK(eval_at_pones_d2 == eval_at_nones_d2);
 
-  auto eval_at_pones_d3 = o::kernel_h(c::template ones<nd_dtype::real, 3>(), h);
+  auto eval_at_pones_d3 = o::kernel_h(o::template ones<dtype::real, 3>(), h);
   auto eval_at_nones_d3 =
-      o::kernel_h(-c::template ones<nd_dtype::real, 3>(), h);
+      o::kernel_h(-o::template ones<dtype::real, 3>(), h);
 
   CHECK(eval_at_pones_d3 < eval_at_zeros_d3);
   CHECK(eval_at_pones_d3 == eval_at_nones_d3);
 
   auto grad_at_zeros_d1 =
-      o::kernel_gradient_h(c::template zeros<nd_dtype::real, 1>(), h);
+      o::kernel_gradient_h(o::template zeros<dtype::real, 1>(), h);
   auto grad_at_zeros_d2 =
-      o::kernel_gradient_h(c::template zeros<nd_dtype::real, 2>(), h);
+      o::kernel_gradient_h(o::template zeros<dtype::real, 2>(), h);
   auto grad_at_zeros_d3 =
-      o::kernel_gradient_h(c::template zeros<nd_dtype::real, 3>(), h);
+      o::kernel_gradient_h(o::template zeros<dtype::real, 3>(), h);
 
   CHECK(0 == o::norm(grad_at_zeros_d1));
   CHECK(0 == o::norm(grad_at_zeros_d2));
   CHECK(0 == o::norm(grad_at_zeros_d3));
 
   auto grad_at_pones_d1 =
-      o::kernel_gradient_h(c::template ones<nd_dtype::real, 1>(), h);
+      o::kernel_gradient_h(o::template ones<dtype::real, 1>(), h);
 
   CHECK(grad_at_pones_d1[0] < 0);
   CHECK(
@@ -89,7 +88,7 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
       o::maximum_component(grad_at_pones_d1));
 
   auto grad_at_pones_d2 =
-      o::kernel_gradient_h(c::template ones<nd_dtype::real, 2>(), h);
+      o::kernel_gradient_h(o::template ones<dtype::real, 2>(), h);
 
   CHECK(grad_at_pones_d2[0] < 0);
   CHECK(
@@ -97,7 +96,7 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
       o::maximum_component(grad_at_pones_d2));
 
   auto grad_at_pones_d3 =
-      o::kernel_gradient_h(c::template ones<nd_dtype::real, 3>(), h);
+      o::kernel_gradient_h(o::template ones<dtype::real, 3>(), h);
 
   CHECK(grad_at_pones_d3[0] < 0);
   CHECK(
@@ -109,7 +108,7 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
 
     SECTION("1D") {
       auto eval = [h](auto const &x) {
-        return o::kernel_h(math_policy::nd_dtype_t<nd_dtype::real, 1>{x[0]}, h);
+        return o::kernel_h(math_policy::ndtype_t<dtype::real, 1>{x[0]}, h);
       };
       std::vector<std::pair<real, real>> bounds = {
           {0, o::kernel_support_radius(h)},
@@ -125,7 +124,7 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
     SECTION("2D") {
       auto eval = [h](auto const &x) {
         return o::kernel_h(
-            math_policy::nd_dtype_t<nd_dtype::real, 2>{x[0], x[1]}, h);
+            math_policy::ndtype_t<dtype::real, 2>{x[0], x[1]}, h);
       };
       std::vector<std::pair<real, real>> bounds = {
           {0, o::kernel_support_radius(h)},
@@ -142,7 +141,7 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
     SECTION("3D") {
       auto eval = [h](auto const &x) {
         return o::kernel_h(
-            math_policy::nd_dtype_t<nd_dtype::real, 3>{x[0], x[1], x[2]}, h);
+            math_policy::ndtype_t<dtype::real, 3>{x[0], x[1], x[2]}, h);
       };
       std::vector<std::pair<real, real>> bounds = {
           {0, o::kernel_support_radius(h)},
@@ -169,7 +168,7 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
     };
 
     SECTION("1D") {
-      using rvec = typename math_policy::template nd_dtype_t<nd_dtype::real, 1>;
+      using rvec = typename math_policy::template ndtype_t<dtype::real, 1>;
 
       std::vector<rvec> points(1000);
       for (size_t i = 0; i < points.size(); ++i) {
@@ -187,7 +186,7 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
     }
 
     SECTION("2D") {
-      using rvec = typename math_policy::template nd_dtype_t<nd_dtype::real, 2>;
+      using rvec = typename math_policy::template ndtype_t<dtype::real, 2>;
 
       std::vector<rvec> points(1000);
       for (size_t i = 0; i < points.size(); ++i) {
@@ -206,7 +205,7 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
     }
 
     SECTION("3D") {
-      using rvec = typename math_policy::template nd_dtype_t<nd_dtype::real, 3>;
+      using rvec = typename math_policy::template ndtype_t<dtype::real, 3>;
 
       std::vector<rvec> points(1000);
       for (size_t i = 0; i < points.size(); ++i) {
@@ -237,7 +236,7 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
     };
 
     SECTION("1D") {
-      using rvec = typename math_policy::template nd_dtype_t<nd_dtype::real, 1>;
+      using rvec = typename math_policy::template ndtype_t<dtype::real, 1>;
 
       std::vector<rvec> points(1000);
       for (size_t i = 0; i < points.size(); ++i) {
@@ -256,7 +255,7 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
     }
 
     SECTION("2D") {
-      using rvec = typename math_policy::template nd_dtype_t<nd_dtype::real, 2>;
+      using rvec = typename math_policy::template ndtype_t<dtype::real, 2>;
 
       std::vector<rvec> points(1000);
       for (size_t i = 0; i < points.size(); ++i) {
@@ -276,7 +275,7 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
     }
 
     SECTION("3D") {
-      using rvec = typename math_policy::template nd_dtype_t<nd_dtype::real, 3>;
+      using rvec = typename math_policy::template ndtype_t<dtype::real, 3>;
 
       std::vector<rvec> points(1000);
       for (size_t i = 0; i < points.size(); ++i) {

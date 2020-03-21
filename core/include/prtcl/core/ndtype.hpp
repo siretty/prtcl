@@ -4,11 +4,21 @@
 
 #include <vector>
 
+#include <boost/range/algorithm/equal.hpp>
+
 namespace prtcl::core {
 
 struct ndtype {
   dtype type;
   std::vector<unsigned> shape;
+
+  friend bool operator==(ndtype const &lhs, ndtype const &rhs) {
+    return (lhs.type == rhs.type) and boost::range::equal(lhs.shape, rhs.shape);
+  }
+
+  friend bool operator!=(ndtype const &lhs, ndtype const &rhs) {
+    return not(lhs == rhs);
+  }
 };
 
 inline std::string to_string(ndtype v_) {

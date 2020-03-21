@@ -25,17 +25,17 @@ template <typename GridType_> class neighbourhood {
 private:
   using model_type = basic_model<model_policy>;
 
-  using real = typename type_policy::template dtype_t<nd_dtype::real>;
+  using real = typename type_policy::template dtype_t<dtype::real>;
   static constexpr size_t dimensionality = model_policy::dimensionality;
 
-  template <nd_dtype DType_, size_t... Ns_>
-  using nd_dtype_data_ref_t =
-      typename data_policy::template nd_dtype_data_ref_t<DType_, Ns_...>;
+  template <dtype DType_, size_t... Ns_>
+  using ndtype_data_ref_t =
+      typename data_policy::template ndtype_data_ref_t<DType_, Ns_...>;
 
 private:
   struct group_data_type {
     bool has_position;
-    nd_dtype_data_ref_t<nd_dtype::real, dimensionality> position;
+    ndtype_data_ref_t<dtype::real, dimensionality> position;
     boost::container::flat_set<std::string> tags;
 
     bool has_tag(std::string const &tag) const { return tags.contains(tag); }
@@ -93,14 +93,14 @@ public:
       auto &group = model_.groups()[static_cast<difference_type>(i)];
       _data.groups[i].position = {};
       _data.groups[i].has_position =
-          group.template has_varying<nd_dtype::real, dimensionality>(
+          group.template has_varying<dtype::real, dimensionality>(
               "position");
       _data.groups[i].tags.clear();
       _data.groups[i].tags.insert(
           boost::begin(group.tags()), boost::end(group.tags()));
       if (_data.groups[i].has_position) {
         _data.groups[i].position =
-            group.template get_varying<nd_dtype::real, dimensionality>(
+            group.template get_varying<dtype::real, dimensionality>(
                 "position");
       }
     }

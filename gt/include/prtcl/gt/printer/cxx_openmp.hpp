@@ -3,13 +3,20 @@
 #include "../bits/cxx_escape_double_quotes.hpp"
 #include "../bits/cxx_inline_pragma.hpp"
 #include "../bits/printer_crtp.hpp"
+#include "prtcl/gt/bits/ast_define.hpp"
 
-#include "../ast.hpp"
+#include <prtcl/core/range.hpp>
 
-#include "../misc/alias_to_field_map.hpp"
-#include "../misc/alias_to_particle_selector_map.hpp"
-#include "../misc/particle_selector_to_fields_map.hpp"
-#include "../misc/reduction_set.hpp"
+#include <prtcl/gt/ast.hpp>
+
+#include <prtcl/gt/misc/find_global_fields.hpp>
+#include <prtcl/gt/misc/find_groups.hpp>
+#include <prtcl/gt/misc/find_reductions.hpp>
+
+//#include "../misc/alias_to_field_map.hpp"
+//#include "../misc/alias_to_particle_selector_map.hpp"
+//#include "../misc/particle_selector_to_fields_map.hpp"
+//#include "../misc/reduction_set.hpp"
 
 #include <set>
 #include <sstream>
@@ -36,47 +43,52 @@ protected:
     increase_indent();
   }
 
-  static std::string qualified_nd_dtype(ast::basic_type type) {
+  static std::string qualified_dtype_enum(ast::dtype type) {
     std::ostringstream ss;
-    ss << "nd_dtype::" << type;
-    return ss.str();
-  }
-
-  static std::string nd_template_args(ast::nd_type nd_type) {
-    std::ostringstream ss;
-    ss << qualified_nd_dtype(nd_type.type)
-       << (nd_type.shape.empty() ? "" : ", ")
-       << join(nd_type.shape, ", ", "", [](auto n) -> std::string {
-            return n == 0 ? "N" : boost::lexical_cast<std::string>(n);
-          });
-    return ss.str();
-  }
-
-  static ast::math::constant
-  rd_initializer(ast::stmt::reduce_op op_, ast::nd_type nd_type) {
-    auto nd_args = nd_template_args(nd_type);
-    switch (op_) {
-    case ast::stmt::reduce_op::add_assign:
-    case ast::stmt::reduce_op::sub_assign:
-      return ast::math::constant{"zeros", nd_type};
+    switch (type) {
+    case ast::dtype::real:
+    case ast::dtype::integer:
+    case ast::dtype::boolean:
+      ss << "dtype::" << to_string(type);
       break;
-    case ast::stmt::reduce_op::mul_assign:
-    case ast::stmt::reduce_op::div_assign:
-      return ast::math::constant{"ones", nd_type};
-      break;
-    case ast::stmt::reduce_op::max_assign:
-      return ast::math::constant{"negative_infinity", nd_type};
-      break;
-    case ast::stmt::reduce_op::min_assign:
-      return ast::math::constant{"positive_infinity", nd_type};
-      break;
+    default:
+      throw ast_printer_error{};
     }
-    throw "internal error: unexpected reduce_op";
+    return ss.str();
   }
 
-  static auto only_fields(ast::storage_qualifier storage_) {
-    return boost::adaptors::filtered(
-        [storage_](auto const &field) { return field.storage == storage_; });
+  static std::string ndtype_template_args(ast::ndtype type) {
+    std::ostringstream ss;
+    ss << qualified_dtype_enum(type.type);
+    if (not type.shape.empty()) {
+      ss << ", ";
+      ss << join(type.shape, ", ", "", [](auto n) -> std::string {
+        return n == 0 ? "N" : boost::lexical_cast<std::string>(n);
+      });
+    }
+    return ss.str();
+  }
+
+  static ast::n_math::operation
+  rd_initializer(ast::assign_op op_, ast::ndtype type) {
+    switch (op_) {
+    case ast::op_add_assign:
+    case ast::op_sub_assign:
+      return ast::n_math::operation{"zeros", type};
+      break;
+    case ast::op_mul_assign:
+    case ast::op_div_assign:
+      return ast::n_math::operation{"ones", type};
+      break;
+    case ast::op_max_assign:
+      return ast::n_math::operation{"negative_infinity", type};
+      break;
+    case ast::op_min_assign:
+      return ast::n_math::operation{"positive_infinity", type};
+      break;
+    default:
+      throw ast_printer_error{};
+    }
   }
 
 private:
@@ -111,208 +123,193 @@ private:
   )FOOTER";
 
 public:
-  //! Print a constant.
-  void operator()(ast::math::constant const &arg_) {
-    out() << "c::template " << arg_.constant_name << '<'
-          << nd_template_args(arg_.constant_type) << '>' << "()";
-  }
-
-  //! Print a literal. TODO: debug format
-  void operator()(ast::math::literal const &arg_) {
-    out() << "l::template narray<" << nd_template_args(arg_.type) << ">({"
-          << arg_.value << "})";
-  }
-
-  //! Print access to a field (eg. x[f]).
-  void operator()(ast::math::field_access const &arg_) {
+  void operator()(ast::assign_op op) {
     // {{{ implementation
-    if (auto field_opt = alias_to_field.search(arg_.field_name)) {
-      auto field = field_opt.value();
+    switch (op) {
+    case ast::op_assign:
+      break;
+    case ast::op_add_assign:
+      out() << '+';
+      break;
+    case ast::op_sub_assign:
+      out() << '-';
+      break;
+    case ast::op_mul_assign:
+      out() << '*';
+      break;
+    case ast::op_div_assign:
+      out() << '/';
+      break;
+    default:
+      throw ast_printer_error{};
+    }
+    out() << '=';
+    // }}}
+  }
 
-      char group, index;
-      if (field.storage == ast::storage_qualifier::global) {
-        group = 'g';
-        index = '0';
-      } else {
-        if (cur_particle and arg_.index_name == cur_particle->index_name) {
-          group = 'p';
-          index = 'i';
-        }
-        if (cur_neighbor and arg_.index_name == cur_neighbor->index_name) {
-          group = 'n';
-          index = 'j';
-        }
-        if (field.storage == ast::storage_qualifier::uniform)
-          index = '0';
-      }
-
-      out() << group << '.' << field.field_name << '[' << index << ']';
-    } else {
-      // assume local if neither varying, uniform or global
-      // TODO: better tracking of fields
-      out() << "l_" << arg_.field_name;
+  void operator()(ast::unary_arithmetic_op op) {
+    // {{{ implementation
+    switch (op) {
+    case ast::op_neg:
+      out() << '-';
+      break;
+    default:
+      throw ast_printer_error{};
     }
     // }}}
   }
 
+  void operator()(ast::multi_arithmetic_op op) {
+    // {{{ implementation
+    switch (op) {
+    case ast::op_add:
+      out() << '+';
+      break;
+    case ast::op_sub:
+      out() << '-';
+      break;
+    case ast::op_mul:
+      out() << '*';
+      break;
+    case ast::op_div:
+      out() << '/';
+      break;
+    default:
+      throw ast_printer_error{};
+    }
+    // }}}
+  }
+
+public:
+  //! Print a literal. TODO: debug format
+  void operator()(ast::n_math::literal const &node) {
+    out() << "o::template narray<" << ndtype_template_args(node.type) << ">({"
+          << node.value << "})";
+  }
+
   //! Print a function call.
-  void operator()(ast::math::function_call const &arg_) {
-    out() << "o::" << arg_.function_name << '(' << sep(arg_.arguments, ", ")
-          << ')';
+  void operator()(ast::n_math::operation const &node) {
+    // {{{ implementation
+    out() << "o::";
+    if (node.type.has_value()) {
+      out() << "template ";
+    }
+    out() << node.name;
+    if (node.type.has_value()) {
+      out() << '<' << ndtype_template_args(node.type.value()) << '>';
+    }
+    out() << '(' << sep(node.arguments, ", ") << ')';
+    // }}}
+  }
+
+  //! Print access to a field (eg. x[f]).
+  void operator()(ast::n_math::field_access const &node) {
+    // {{{ implementation
+    if (node.index.has_value()) {
+      if (cur_particle and node.index.value() == cur_particle->index_name) {
+        out() << "p." << node.field;
+        auto &g = groups.groups_for_name(cur_particle->selector_name);
+        if (g.uniform_fields.has_alias(node.field))
+          out() << "[0]";
+        else if (g.varying_fields.has_alias(node.field))
+          out() << "[i]";
+        else
+          throw ast_printer_error{};
+      } else if (
+          cur_neighbor and node.index.value() == cur_neighbor->index_name) {
+        out() << "n." << node.field;
+        auto &g = groups.groups_for_name(cur_neighbor->selector_name);
+        if (g.uniform_fields.has_alias(node.field))
+          out() << "[0]";
+        else if (g.varying_fields.has_alias(node.field))
+          out() << "[j]";
+        else
+          throw ast_printer_error{};
+      } else {
+        throw ast_printer_error{};
+      }
+    } else {
+      if (global.has_alias(node.field)) {
+        out() << "g." << node.field << "[0]";
+      } else {
+        out() << "l_" << node.field;
+      }
+    }
+    // }}}
   }
 
   //! Print the unary operation.
-  void operator()(ast::math::unary const &arg) {
-    out() << arg.op;
-    (*this)(arg.operand);
+  void operator()(ast::n_math::unary_arithmetic const &node) {
+    (*this)(node.op);
+    (*this)(node.operand);
   }
 
   //! Print the arithmetic n-ary operation.
-  void operator()(ast::math::arithmetic_nary const &arg_) {
+  void operator()(ast::n_math::multi_arithmetic const &node) {
     // {{{ implementation
-    if (not arg_.right_hand_sides.empty())
+    if (not node.right_hand_sides.empty())
       // enclose in braces for multiple operands
       out() << '(';
+
     // print the first operand
-    (*this)(arg_.first_operand);
-    for (auto const &anr : arg_.right_hand_sides) {
+    (*this)(node.operand);
+
+    for (auto const &rhs : node.right_hand_sides) {
       // print the operator
-      out() << ' ' << anr.op << ' ';
+      out() << ' ';
+      (*this)(rhs.op);
+      out() << ' ';
       // print the operand
-      (*this)(anr.rhs);
+      (*this)(rhs.operand);
     }
-    if (not arg_.right_hand_sides.empty())
+
+    if (not node.right_hand_sides.empty())
       // enclose in braces for multiple operands
       out() << ')';
     // }}}
   }
 
-  void operator()(ast::stmt::local const &arg_) {
+  void operator()(ast::n_scheme::local const &node) {
     // {{{ implemenetation
     // format the variable declaration
-    outi() << "nd_dtype_t<" << nd_template_args(arg_.local_type) << "> l_"
-           << arg_.local_name << " = ";
+    outi() << "ndtype_t<" << ndtype_template_args(node.type) << "> l_"
+           << node.name << " = ";
     // format the initialization
-    (*this)(arg_.expression);
+    (*this)(node.math);
     // end the statement
     out() << ';' << nl;
     // }}}
   }
 
-  void operator()(ast::stmt::reduce const &arg_, bool combine_ = false) {
+  void operator()(ast::n_scheme::compute const &node) {
     // {{{ implemenetation
-    auto field = alias_to_field.search(arg_.field_name).value();
-    if ((cur_particle and cur_neighbor) or
-        (cur_particle and not cur_neighbor)) {
-      if (field.storage == ast::storage_qualifier::varying)
-        throw "internal error: cannot reduce into varying fields";
-    } else
-      throw "internal error: reduce not placed in a particle or "
-            "particle/neighbor loop";
-
-    auto lhs = ast::math::field_access{arg_.field_name, arg_.index_name};
-
-    std::string op_str, suffix;
-    switch (arg_.op) {
-    case ast::stmt::reduce_op::max_assign:
-      op_str = "= o::max(";
-      suffix = ")";
-      break;
-    case ast::stmt::reduce_op::min_assign:
-      op_str = "= o::min(";
-      suffix = ")";
-      break;
-    default:
-      op_str = boost::lexical_cast<std::string>(arg_.op) + " ";
-      break;
-    }
-
     outi();
+    (*this)(node.left_hand_side);
+    out() << ' ';
 
-    if (combine_) {
-      (*this)(lhs);
-      out() << ' ' << op_str << "rd_" << field.field_name << suffix;
-    } else {
-      out() << "rd_" << field.field_name << ' ' << op_str;
-
-      switch (arg_.op) {
-      case ast::stmt::reduce_op::max_assign:
-      case ast::stmt::reduce_op::min_assign:
-        out() << "rd_" << field.field_name;
-        out() << ", ";
-        break;
-      default:
-        break;
-      }
-
-      (*this)(arg_.expression);
-      out() << suffix;
-    }
-
-    out() << ';' << nl;
-    // }}}
-  }
-
-  void operator()(ast::stmt::compute const &arg_) {
-    // {{{ implemenetation
-
-    auto print_assignee = [this, &arg_]() {
-      if (auto field_opt = alias_to_field.search(arg_.field_name)) {
-        auto field = field_opt.value();
-
-        if (field.storage != ast::storage_qualifier::varying)
-          throw "internal error: can only compute into varying fields";
-
-        auto lhs = ast::math::field_access{arg_.field_name, arg_.index_name};
-
-        (*this)(lhs);
-      } else {
-        // assume local if not a field alias
-        // TODO: better handling of local variables
-        out() << "l_" << arg_.field_name << ' ';
-      }
-    };
-
-    // auto field = alias_to_field.search(arg_.field_name).value();
-    // if (field.storage != ast::storage_qualifier::varying)
-    //  throw "internal error: can only compute into varying fields";
-
-    // auto lhs = ast::math::field_access{arg_.field_name, arg_.index_name};
-
-    std::string op_str;
-    switch (arg_.op) {
-    case ast::stmt::compute_op::max_assign:
-      op_str = "= o::max(";
+    switch (node.op) {
+    case ast::op_max_assign:
+      out() << "= o::max( ";
+      (*this)(node.left_hand_side);
+      out() << ", ";
       break;
-    case ast::stmt::compute_op::min_assign:
-      op_str = "= o::min(";
-      break;
-    default:
-      break;
-    }
-
-    outi();
-    print_assignee();
-    //(*this)(lhs);
-    switch (arg_.op) {
-    case ast::stmt::compute_op::max_assign:
-    case ast::stmt::compute_op::min_assign:
-      out() << ' ' << op_str;
-      print_assignee();
-      //(*this)(lhs);
+    case ast::op_min_assign:
+      out() << "= o::min( ";
+      (*this)(node.left_hand_side);
       out() << ", ";
       break;
     default:
-      out() << ' ' << arg_.op << ' ';
+      (*this)(node.op);
+      out() << ' ';
       break;
     }
 
-    (*this)(arg_.expression);
+    (*this)(node.math);
 
-    switch (arg_.op) {
-    case ast::stmt::compute_op::max_assign:
-    case ast::stmt::compute_op::min_assign:
-      out() << ")";
+    switch (node.op) {
+    case ast::op_max_assign:
+    case ast::op_min_assign:
+      out() << " )";
       break;
     default:
       break;
@@ -322,31 +319,80 @@ public:
     // }}}
   }
 
-  void operator()(ast::stmt::foreach_neighbor const &arg_) {
+  void operator()(ast::n_scheme::reduce const &node) {
+    // {{{ implemenetation
+    auto &lhs = node.left_hand_side;
+
+    std::string var;
+    if (lhs.index.has_value()) {
+      var += "urd_";
+      if (cur_particle and cur_particle->index_name == lhs.index.value())
+        var += cur_particle->selector_name;
+      else if (cur_neighbor and cur_neighbor->index_name == lhs.index.value())
+        var += cur_neighbor->selector_name;
+      else
+        throw ast_printer_error{};
+    } else {
+      var += "grd_" + lhs.field;
+    }
+
+    outi() << var << ' ';
+
+    switch (node.op) {
+    case ast::op_max_assign:
+      out() << "= o::max( " << var << ", ";
+      break;
+    case ast::op_min_assign:
+      out() << "= o::min( " << var << ", ";
+      break;
+    default:
+      (*this)(node.op);
+      out() << ' ';
+      break;
+    }
+
+    (*this)(node.math);
+
+    switch (node.op) {
+    case ast::op_max_assign:
+    case ast::op_min_assign:
+      out() << " )";
+      break;
+    default:
+      break;
+    }
+
+    out() << ';' << nl;
+    // }}}
+  }
+
+  void operator()(ast::n_scheme::foreach_neighbor const &loop) {
     // {{{ implementation
     if (cur_neighbor)
       throw "internal error: neighbor loop inside of neighbor loop";
     else
-      cur_neighbor = loop_type{arg_.selector_name, arg_.neighbor_index_name};
+      cur_neighbor = loop_type{loop.group, loop.index};
 
-    outi() << '{' << "// foreach " << arg_.selector_name << " neighbor "
-           << arg_.neighbor_index_name << nl;
+    outi() << "{ // foreach " << loop.group << " neighbor " << loop.index << nl;
     {
       increase_indent();
 
+#if defined(PRTCL_GT_CXX_OPENMP_TRACE_FOREACH_NEIGHBOR)
       outi() << "PRTCL_RT_LOG_TRACE_SCOPED(\"foreach_neighbor\", \"n="
-             << arg_.selector_name << "\");" << nl;
+             << loop.group << "\");" << nl;
       out() << nl;
+#endif // defined(PRTCL_GT_CXX_OPENMP_TRACE_FOREACH_NEIGHBOR)
 
-      outi() << "for (auto &n : _data.by_group_type." << arg_.selector_name
-             << ") {" << nl;
+      outi() << "for (auto &n : _data.groups." << loop.group << ") {" << nl;
       {
         increase_indent();
 
+#if defined(PRTCL_GT_CXX_OPENMP_TRACE_NEIGHBOR_COUNT)
         outi() << "PRTCL_RT_LOG_TRACE_PLOT_NUMBER(\"neighbor count\", "
                   "static_cast<int64_t>(neighbors[n._index].size()));"
                << nl;
         out() << nl;
+#endif // defined(PRTCL_GT_CXX_OPENMP_TRACE_NEIGHBOR_COUNT)
 
         outi() << "for (auto const j : neighbors[n._index]) {" << nl;
         {
@@ -354,7 +400,7 @@ public:
 
           // iterate over all child nodes
           bool first_iteration = true;
-          for (auto const &statement : arg_.statements) {
+          for (auto const &statement : loop.statements) {
             if (not first_iteration)
               out() << nl;
             else
@@ -372,7 +418,7 @@ public:
 
       decrease_indent();
     }
-    outi() << '}' << nl;
+    outi() << "} // foreach " << loop.group << " neighbor " << loop.index << nl;
 
     if (not cur_neighbor)
       throw "internal error: neighbor loop was already unset";
@@ -381,34 +427,33 @@ public:
     // }}}
   }
 
-  void operator()(ast::stmt::foreach_particle const &arg_) {
+  void operator()(ast::n_scheme::foreach_particle const &loop) {
     // {{{ implementation
     if (cur_particle)
       throw "internal error: particle loop inside of particle loop";
     else
-      cur_particle = loop_type{arg_.selector_name, arg_.particle_index_name};
+      cur_particle = loop_type{loop.group, loop.index};
 
-    auto reductions = make_reduction_set(arg_);
+    auto reductions = find_reductions(loop);
 
     bool const has_foreach_neighbor_offspring =
-        boost::range::count_if(arg_.statements, [](auto const &statement_) {
-          return std::holds_alternative<ast::stmt::foreach_neighbor>(
+        core::ranges::count_if(loop.statements, [](auto const &statement_) {
+          return std::holds_alternative<ast::n_scheme::foreach_neighbor>(
               statement_);
         });
 
-    outi() << "{ // foreach " << arg_.selector_name << " particle "
-           << arg_.particle_index_name << nl;
+    outi() << "{ // foreach " << loop.group << " particle " << loop.index << nl;
     increase_indent();
 
     outi() << "PRTCL_RT_LOG_TRACE_SCOPED(\"foreach_particle\", \"p="
-           << arg_.selector_name << "\");" << nl;
+           << loop.group << "\");" << nl;
     out() << nl;
 
     if (has_foreach_neighbor_offspring) {
       outi() << "// select and resize the neighbor storage for the current "
                 "thread"
              << nl;
-      outi() << "auto &neighbors = _per_thread[thread_index].neighbors;" << nl;
+      outi() << "auto &neighbors = t.neighbors;" << nl;
       outi() << "neighbors.resize(_group_count);" << nl;
       out() << nl;
       outi() << "for (auto &pgn : neighbors)" << nl;
@@ -421,23 +466,40 @@ public:
     }
 
     if (not reductions.empty()) {
-      for (auto const &reduce : reductions.items()) {
-        auto field = alias_to_field.search(reduce.field_name).value();
+      // {{{ implementation
+      if (not reductions.global.empty()) {
+        outi() << "// global reductions" << nl;
 
-        outi() << "// select and initialize this threads reduction variable"
-               << nl;
-        outi() << "auto &rd_" << field.field_name
-               << " = _per_thread[thread_index].rd_" << field.field_name << ";"
-               << nl;
-        outi() << "rd_" << field.field_name << " = ";
-        (*this)(rd_initializer(reduce.op, field.field_type));
-        out() << ";" << nl;
+        for (auto &[alias, op] : reductions.global.all()) {
+          auto type = global.type_for_alias(alias);
+          outi() << "auto &grd_" << alias << " = t.grd_" << alias << ";" << nl;
+          outi() << "grd_" << alias << " = ";
+          (*this)(rd_initializer(op, type));
+          out() << ";" << nl;
+        }
+
         out() << nl;
       }
+
+      for (auto &[groups_name, set] : reductions.uniform) {
+        outi() << "// uniform reductions (" << groups_name << ")" << nl;
+
+        for (auto &[alias, op] : set.all()) {
+          auto the_groups = groups.groups_for_name(groups_name);
+          auto type = the_groups.uniform_fields.type_for_alias(alias);
+          outi() << "auto &urd_" << groups_name << "_" << alias << " = t.urd_"
+                 << groups_name << "_" << alias << ";" << nl;
+          outi() << "urd_" << groups_name << "_" << alias << " = ";
+          (*this)(rd_initializer(op, type));
+          out() << ";" << nl;
+        }
+
+        out() << nl;
+      }
+      // }}}
     }
 
-    outi() << "for (auto &p : _data.by_group_type." << arg_.selector_name
-           << ") {" << nl;
+    outi() << "for (auto &p : _data.groups." << loop.group << ") {" << nl;
     {
       increase_indent();
 
@@ -469,7 +531,7 @@ public:
           outi() << "// no neighbours neccessary" << nl;
 
         // iterate over all child nodes
-        for (auto const &statement : arg_.statements) {
+        for (auto const &statement : loop.statements) {
           out() << nl;
           (*this)(statement);
         }
@@ -486,25 +548,85 @@ public:
       out() << nl;
       outi() << cxx_inline_pragma("omp critical") << " {" << nl;
       {
+        // {{{ implementation
         increase_indent();
 
-        outi() << "PRTCL_RT_LOG_TRACE_SCOPED(\"reduction\");" << nl;
-        out() << nl;
+        if (not reductions.global.empty()) {
+          outi() << "// global reductions" << nl;
+          for (auto &[alias, op] : reductions.global.all()) {
+            auto var = std::string{"grd_"} + alias;
 
-        outi() << "// combine all reduction variables" << nl;
-        for (auto const &reduce : reductions.items()) {
+            outi() << "g." << alias << "[0] ";
+
+            switch (op) {
+            case ast::op_max_assign:
+              out() << " = o::max( g." << alias << "[0], ";
+              break;
+            case ast::op_min_assign:
+              out() << " = o::min( g." << alias << "[0], ";
+              break;
+            default:
+              (*this)(op);
+            }
+
+            out() << " " << var;
+
+            switch (op) {
+            case ast::op_max_assign:
+            case ast::op_min_assign:
+              out() << " );" << nl;
+              break;
+            default:
+              out() << ';' << nl;
+            }
+          }
+
+          if (not reductions.uniform.empty())
+            out() << nl;
+        }
+
+        for (auto &[groups_name, set] : reductions.uniform) {
+          outi() << "// uniform reductions (" << groups_name << ")" << nl;
+
+          for (auto &[alias, op] : set.all()) {
+            auto var = std::string{"urd_"} + groups_name + "_" + alias;
+
+            outi() << "p." << alias << "[0] ";
+
+            switch (op) {
+            case ast::op_max_assign:
+              out() << " = o::max( p." << alias << "[0], ";
+              break;
+            case ast::op_min_assign:
+              out() << " = o::min( p." << alias << "[0], ";
+              break;
+            default:
+              (*this)(op);
+            }
+
+            out() << " " << var;
+
+            switch (op) {
+            case ast::op_max_assign:
+            case ast::op_min_assign:
+              out() << " );" << nl;
+              break;
+            default:
+              out() << ';' << nl;
+            }
+          }
+
           out() << nl;
-          (*this)(reduce, true);
         }
 
         decrease_indent();
+        // }}}
       }
       outi() << "} // pragma omp critical" << nl;
     }
 
     decrease_indent();
-    outi() << "} // foreach " << arg_.selector_name << " particle "
-           << arg_.particle_index_name << nl;
+    outi() << "} // foreach " << loop.group << " particle " << loop.index << nl;
 
     if (not cur_particle)
       throw "internal error: particle loop was already unset";
@@ -513,23 +635,54 @@ public:
     // }}}
   }
 
-  void operator()(ast::stmt::procedure const &arg_) {
+  void operator()(ast::n_scheme::n_solve::setup const &node) {
+    outi() << "// setup " << node.name << " into " << node.into << nl;
+  };
+
+  void operator()(ast::n_scheme::n_solve::product const &node) {
+    outi() << "// product " << node.name << " with " << node.with << " into "
+           << node.into << nl;
+  };
+
+  void operator()(ast::n_scheme::n_solve::apply const &node) {
+    outi() << "// apply " << node.with << nl;
+  };
+
+  void operator()(ast::n_scheme::solve const &node) {
+    outi() << "/* { solve not supported yet */" << nl;
+    outi() << "// solver: " << node.solver << nl;
+    outi() << "// type:   " << ndtype_template_args(node.type) << nl;
+    outi() << "// groups: " << node.groups << nl;
+    outi() << "// index:  " << node.index << nl;
+    (*this)(node.right_hand_side);
+    (*this)(node.guess);
+    (*this)(node.preconditioner);
+    (*this)(node.system);
+    (*this)(node.apply);
+    outi() << "/* } solve not supported yet */" << nl;
+  }
+
+  void operator()(ast::n_scheme::procedure const &proc) {
     out() << nl;
     cxx_access_modifier("public");
     outi() << "template <typename NHood_>" << nl;
-    outi() << "void " << arg_.procedure_name << "(NHood_ const &nhood_) {"
-           << nl;
+    outi() << "void " << proc.name << "(NHood_ const &nhood_) {" << nl;
     { // {{{ implementation
       increase_indent();
 
-      outi() << "// alias for the global data" << nl;
-      outi() << "auto &g = _data.global;" << nl;
-      out() << nl;
+      if (not global.empty()) {
+        outi() << "// alias for the global data" << nl;
+        outi() << "auto &g = _data.global;" << nl;
+        out() << nl;
+      }
 
       outi() << "// alias for the math_policy member types" << nl;
-      outi() << "using l = typename math_policy::literals;" << nl;
-      outi() << "using c = typename math_policy::constants;" << nl;
       outi() << "using o = typename math_policy::operations;" << nl;
+      out() << nl;
+      outi() << "// resize the per thread storage" << nl;
+      outi()
+          << "_per_thread.resize(static_cast<size_t>(omp_get_max_threads()));"
+          << nl;
 
       bool in_parallel_region = false;
       auto begin_parallel_region = [this, &in_parallel_region]() {
@@ -537,25 +690,9 @@ public:
           out() << nl;
           outi() << cxx_inline_pragma("omp parallel") << " {" << nl;
           increase_indent();
-          outi() << cxx_inline_pragma("omp single") << " {" << nl;
-          {
-            increase_indent();
 
-            outi() << "auto const thread_count = "
-                      "static_cast<size_t>(omp_get_num_threads());"
-                   << nl;
-
-            // always resize the vector containing thread local data (eg. global
-            // reductions which are independent of neighbor loops)
-            outi() << "_per_thread.resize(thread_count);" << nl;
-
-            decrease_indent();
-          }
-          outi() << "} // pragma omp single" << nl;
-
-          out() << nl;
-          outi() << "auto const thread_index = "
-                    "static_cast<size_t>(omp_get_thread_num());"
+          outi() << "auto &t = "
+                    "_per_thread[static_cast<size_t>(omp_get_thread_num())];"
                  << nl;
           out() << nl;
           in_parallel_region = true;
@@ -571,9 +708,9 @@ public:
       };
 
       // iterate over all child nodes
-      for (auto const &statement : arg_.statements) {
+      for (auto const &statement : proc.statements) {
         // conditionally begin and close the parallel region
-        if (std::holds_alternative<ast::stmt::foreach_particle>(statement))
+        if (std::holds_alternative<ast::n_scheme::foreach_particle>(statement))
           begin_parallel_region();
         else {
           close_parallel_region();
@@ -590,24 +727,93 @@ public:
     outi() << "}" << nl;
   }
 
-  void operator()(ast::init::field const &) {
-    // ignore
-  }
+  // Ignore scheme { groups ... { ... } }.
+  void operator()(ast::groups const &) {}
 
-  void operator()(ast::init::particle_selector const &) {
-    // ignore
-  }
+  // Ignore scheme { global { ... } }.
+  void operator()(ast::global const &) {}
 
-  void operator()(ast::stmt::let const &) {
-    // ignore
-  }
-
-  void operator()(ast::prtcl_source_file const &arg_) {
+  struct select_formatter {
     // {{{ implementation
-    alias_to_field = make_alias_to_field_map(arg_);
-    alias_to_particle_selector = make_alias_to_particle_selector_map(arg_);
-    particle_selector_to_fields = make_particle_selector_to_fields_map(arg_);
-    auto reductions = make_reduction_set(arg_);
+    void operator()(ast::n_groups::select_atom const &node) {
+      switch (node.kind) {
+      case ast::n_groups::select_type:
+        result += "(group.get_type() == \"" + node.name + "\")";
+        break;
+      case ast::n_groups::select_tag:
+        result += "group.has_tag(\"" + node.name + "\")";
+        break;
+      default:
+        throw ast_printer_error{};
+      }
+    }
+
+    void operator()(ast::n_groups::select_unary_logic const &node) {
+      switch (node.op) {
+      case ast::op_negation:
+        result += "not ";
+        break;
+      default:
+        throw ast_printer_error{};
+      }
+    }
+
+    void operator()(ast::n_groups::select_multi_logic const &node) {
+      if (not node.right_hand_sides.empty())
+        result += "(";
+
+      (*this)(node.operand);
+
+      for (auto const &rhs : node.right_hand_sides) {
+        switch (rhs.op) {
+        case ast::op_conjunction:
+          result += " and ";
+          break;
+        case ast::op_disjunction:
+          result += " or ";
+          break;
+        default:
+          throw ast_printer_error{};
+        }
+
+        (*this)(rhs.operand);
+      }
+
+      if (not node.right_hand_sides.empty())
+        result += ")";
+    }
+
+    // {{{ generic
+
+    // TODO: refactor into seperate type
+
+    template <typename... Ts_>
+    void operator()(std::variant<Ts_...> const &node_) {
+      std::visit(*this, node_);
+    }
+
+    template <typename T_> void operator()(value_ptr<T_> const &node_) {
+      if (not node_)
+        throw "empty value_ptr";
+      (*this)(*node_);
+    }
+
+    void operator()(std::monostate) { throw "monostate in ast traversal"; }
+
+    // }}}
+
+  public:
+    std::string result;
+    // }}}
+  };
+
+  void operator()(ast::scheme const &arg) {
+    // {{{ implementation
+    auto reductions = find_reductions(arg);
+
+    // find the global field aliases, names and types
+    global = find_global_fields(arg);
+    groups = find_groups(arg);
 
     out() << _hpp_header;
 
@@ -635,18 +841,33 @@ public:
       outi() << "using math_policy = typename model_policy::math_policy;" << nl;
       outi() << "using data_policy = typename model_policy::data_policy;" << nl;
       out() << nl;
-      outi() << "using nd_dtype = prtcl::rt::nd_dtype;" << nl;
+      outi() << "using dtype = prtcl::core::dtype;" << nl;
       out() << nl;
-      outi() << "template <nd_dtype DType_> using dtype_t = typename "
-                "type_policy::template dtype_t<DType_>;"
+      outi() << "template <dtype DType_> using dtype_t =" << nl;
+      {
+        increase_indent();
+        outi() << "typename type_policy::template dtype_t<DType_>;" << nl;
+        decrease_indent();
+      }
+      out() << nl;
+      outi() << "template <dtype DType_, size_t ...Ns_> using ndtype_t =" << nl;
+      {
+        increase_indent();
+        outi() << "typename math_policy::template ndtype_t<DType_, Ns_...>;"
+               << nl;
+        decrease_indent();
+      }
+      out() << nl;
+      outi() << "template <dtype DType_, size_t ...Ns_> using "
+                "ndtype_data_ref_t ="
              << nl;
-      outi() << "template <nd_dtype DType_, size_t ...Ns_> using nd_dtype_t = "
-                "typename math_policy::template nd_dtype_t<DType_, Ns_...>;"
-             << nl;
-      outi() << "template <nd_dtype DType_, size_t ...Ns_> using "
-                "nd_dtype_data_ref_t = typename data_policy::template "
-                "nd_dtype_data_ref_t<DType_, Ns_...>;"
-             << nl;
+      {
+        increase_indent();
+        outi() << "typename data_policy::template ndtype_data_ref_t<DType_, "
+                  "Ns_...>;"
+               << nl;
+        decrease_indent();
+      }
       out() << nl;
       outi() << "static constexpr size_t N = model_policy::dimensionality;"
              << nl;
@@ -658,40 +879,30 @@ public:
       out() << nl;
       // }}}
 
-      auto global_field_aliases_opt = particle_selector_to_fields.search("");
-      if (global_field_aliases_opt) {
-        auto const &global_field_aliases = global_field_aliases_opt.value();
-
+      if (not global.empty()) {
         cxx_access_modifier("private");
         outi() << "struct global_data {" << nl;
         { // {{{
           increase_indent();
 
-          for (auto const &alias : global_field_aliases) {
-            // HACK: local accesses are currently counted in global_field_alias
-            if (auto field_opt = alias_to_field.search(alias)) {
-              auto field = field_opt.value();
-              outi() << "nd_dtype_data_ref_t<"
-                     << nd_template_args(field.field_type) << "> "
-                     << field.field_name << ";" << nl;
-            }
+          using namespace core::range_adaptors;
+
+          // declare the data reference to the field
+          for (auto const &[alias, name, type] : global.all()) {
+            outi() << "ndtype_data_ref_t<" << ndtype_template_args(type) << "> "
+                   << alias << ";" << nl;
           }
 
           out() << nl;
 
-          outi() << "static void _require(model_type &m_) {" << nl;
+          outi() << "static void _require(model_type &model) {" << nl;
           { // {{{
             increase_indent();
 
-            for (auto const &alias : global_field_aliases) {
-              // HACK: local accesses are currently counted in
-              //       global_field_alias
-              if (auto field_opt = alias_to_field.search(alias)) {
-                auto field = field_opt.value();
-                outi() << "m_.template add_global<"
-                       << nd_template_args(field.field_type) << ">(\""
-                       << field.field_name << "\");" << nl;
-              }
+            for (auto const &[alias, name, type] : global.all()) {
+              outi() << "model.template add_global<"
+                     << ndtype_template_args(type) << ">(\"" << name << "\");"
+                     << nl;
             }
 
             decrease_indent();
@@ -700,20 +911,15 @@ public:
 
           out() << nl;
 
-          outi() << "void _load(model_type const &m_) {" << nl;
+          outi() << "void _load(model_type const &model) {" << nl;
           { // {{{
             increase_indent();
 
-            for (auto const &alias : global_field_aliases) {
-              // HACK: local accesses are currently counted in
-              //       global_field_alias
-              if (auto field_opt = alias_to_field.search(alias)) {
-                auto field = field_opt.value();
-                outi() << field.field_name << " = "
-                       << "m_.template get_global<"
-                       << nd_template_args(field.field_type) << ">(\""
-                       << field.field_name << "\");" << nl;
-              }
+            for (auto const &[alias, name, type] : global.all()) {
+              outi() << alias << " = "
+                     << "model.template get_global<"
+                     << ndtype_template_args(type) << ">(\"" << name << "\");"
+                     << nl;
             }
 
             decrease_indent();
@@ -726,14 +932,9 @@ public:
         out() << nl;
       }
 
-      for (auto [selector, aliases] : particle_selector_to_fields.items()) {
-        // skip the global fields
-        if (selector == "")
-          continue;
-        // TODO: have a better way to store the implicit global selector
-
+      for (auto [name, groups] : groups.all()) {
         cxx_access_modifier("private");
-        outi() << "struct " << selector << "_data {" << nl;
+        outi() << "struct groups_" << name << "_data {" << nl;
         { // {{{
           increase_indent();
 
@@ -743,60 +944,66 @@ public:
           outi() << "size_t _index;" << nl;
           out() << nl;
 
-          auto all_fields = aliases | alias_to_field.resolver();
-          if (not(all_fields | only_fields(ast::storage_qualifier::global))
-                     .empty())
-            throw "internal error: global fields used with index from particle "
-                  "loop";
-          auto uniform_fields =
-              all_fields | only_fields(ast::storage_qualifier::uniform);
-          auto varying_fields =
-              all_fields | only_fields(ast::storage_qualifier::varying);
-
           // {{{ members
-          if (not uniform_fields.empty()) {
+          if (not groups.uniform_fields.empty()) {
             outi() << "// uniform fields" << nl;
-            for (auto const &field : uniform_fields) {
-              outi() << "nd_dtype_data_ref_t<"
-                     << nd_template_args(field.field_type) << "> "
-                     << field.field_name << ";" << nl;
+            for (auto const &[alias, name, type] :
+                 groups.uniform_fields.all()) {
+              outi() << "ndtype_data_ref_t<" << ndtype_template_args(type)
+                     << "> " << alias << ";" << nl;
             }
             out() << nl;
           }
 
-          if (not varying_fields.empty()) {
+          if (not groups.varying_fields.empty()) {
             outi() << "// varying fields" << nl;
-            for (auto const &field : varying_fields) {
-              outi() << "nd_dtype_data_ref_t<"
-                     << nd_template_args(field.field_type) << "> "
-                     << field.field_name << ";" << nl;
+            for (auto const &[alias, name, type] :
+                 groups.varying_fields.all()) {
+              outi() << "ndtype_data_ref_t<" << ndtype_template_args(type)
+                     << "> " << alias << ";" << nl;
             }
             out() << nl;
           }
           // }}}
 
-          outi() << "static void _require(group_type &g_) {" << nl;
+          outi() << "static bool _selects(group_type &group) {" << nl;
           { // {{{
             increase_indent();
 
-            if (not uniform_fields.empty()) {
+            select_formatter formatter;
+            formatter(groups.select);
+            outi() << "return " << formatter.result << ";" << nl;
+
+            decrease_indent();
+          } // }}}
+          outi() << "}" << nl;
+
+          out() << nl;
+          outi() << "static void _require(group_type &group) {" << nl;
+          { // {{{
+            increase_indent();
+
+            auto &uf = groups.uniform_fields;
+            auto &vf = groups.varying_fields;
+
+            if (not uf.empty()) {
               outi() << "// uniform fields" << nl;
-              for (auto const &field : uniform_fields) {
-                outi() << "g_.template add_uniform<"
-                       << nd_template_args(field.field_type) << ">(\""
-                       << field.field_name << "\");" << nl;
+              for (auto const &[alias, name, type] : uf.all()) {
+                outi() << "group.template add_uniform<"
+                       << ndtype_template_args(type) << ">(\"" << name << "\");"
+                       << nl;
               }
             }
 
-            if (not uniform_fields.empty() and not varying_fields.empty())
+            if (not uf.empty() and not vf.empty())
               out() << nl;
 
-            if (not varying_fields.empty()) {
+            if (not vf.empty()) {
               outi() << "// varying fields" << nl;
-              for (auto const &field : varying_fields) {
-                outi() << "g_.template add_varying<"
-                       << nd_template_args(field.field_type) << ">(\""
-                       << field.field_name << "\");" << nl;
+              for (auto const &[alias, name, type] : vf.all()) {
+                outi() << "group.template add_varying<"
+                       << ndtype_template_args(type) << ">(\"" << name << "\");"
+                       << nl;
               }
             }
 
@@ -805,31 +1012,34 @@ public:
           outi() << "}" << nl;
 
           out() << nl;
-          outi() << "void _load(group_type const &g_) {" << nl;
+          outi() << "void _load(group_type const &group) {" << nl;
           { // {{{
             increase_indent();
 
-            outi() << "_count = g_.size();" << nl;
+            outi() << "_count = group.size();" << nl;
 
-            if (not uniform_fields.empty()) {
+            auto &uf = groups.uniform_fields;
+            auto &vf = groups.varying_fields;
+
+            if (not uf.empty()) {
               out() << nl;
               outi() << "// uniform fields" << nl;
-              for (auto const &field : uniform_fields) {
-                outi() << field.field_name << " = "
-                       << "g_.template get_uniform<"
-                       << nd_template_args(field.field_type) << ">(\""
-                       << field.field_name << "\");" << nl;
+              for (auto const &[alias, name, type] : uf.all()) {
+                outi() << alias << " = "
+                       << "group.template get_uniform<"
+                       << ndtype_template_args(type) << ">(\"" << name << "\");"
+                       << nl;
               }
             }
 
-            if (not varying_fields.empty()) {
+            if (not vf.empty()) {
               out() << nl;
               outi() << "// varying fields" << nl;
-              for (auto const &field : varying_fields) {
-                outi() << field.field_name << " = "
-                       << "g_.template get_varying<"
-                       << nd_template_args(field.field_type) << ">(\""
-                       << field.field_name << "\");" << nl;
+              for (auto const &[alias, name, type] : vf.all()) {
+                outi() << alias << " = "
+                       << "group.template get_varying<"
+                       << ndtype_template_args(type) << ">(\"" << name << "\");"
+                       << nl;
               }
             }
 
@@ -843,48 +1053,99 @@ public:
         out() << nl;
       }
 
-      cxx_access_modifier("public");
-      outi() << "static void require(model_type &m_) {" << nl;
+      cxx_access_modifier("private");
+      outi() << "struct {" << nl;
       { // {{{
         increase_indent();
 
-        outi() << "global_data::_require(m_);" << nl;
-        outi() << nl;
-        outi() << "for (auto &group : m_.groups()) {" << nl;
+        if (not global.empty()) {
+          outi() << "global_data global;" << nl;
+          out() << nl;
+        }
+
+        if (not groups.empty()) {
+          outi() << "struct {" << nl;
+          {
+            increase_indent();
+
+            for (auto const &[name, groups] : groups.all()) {
+              outi() << "std::vector<groups_" << name << "_data> " << name
+                     << ";" << nl;
+            }
+
+            decrease_indent();
+          }
+          outi() << "} groups;" << nl;
+        }
+
+        decrease_indent();
+      } // }}}
+      outi() << "} _data;" << nl;
+
+      out() << nl;
+
+      outi() << "struct per_thread_data {" << nl;
+      { // {{{
+        increase_indent();
+
+        outi() << "std::vector<std::vector<size_t>> neighbors;" << nl;
+
+        if (not reductions.empty()) {
+          if (not reductions.global.empty()) {
+            out() << nl;
+            outi() << "// global reductions" << nl;
+
+            for (auto &alias : reductions.global.aliases()) {
+              outi() << "ndtype_t<"
+                     << ndtype_template_args(global.type_for_alias(alias))
+                     << "> grd_" << alias << ";" << nl;
+            }
+          }
+
+          for (auto &[groups_name, set] : reductions.uniform) {
+            out() << nl;
+            outi() << "// uniform reductions (" << groups_name << ")" << nl;
+
+            auto &g = groups.groups_for_name(groups_name);
+
+            for (auto &alias : set.aliases()) {
+              outi() << "ndtype_t<"
+                     << ndtype_template_args(
+                            g.uniform_fields.type_for_alias(alias))
+                     << "> urd_" << groups_name << "_" << alias << ";" << nl;
+            }
+          }
+        }
+
+        decrease_indent();
+      } // }}}
+      outi() << "};" << nl;
+
+      out() << nl;
+
+      outi() << "std::vector<per_thread_data> _per_thread;" << nl;
+      outi() << "size_t _group_count;" << nl;
+
+      out() << nl;
+
+      cxx_access_modifier("public");
+      outi() << "static void require(model_type &model) {" << nl;
+      { // {{{
+        increase_indent();
+
+        outi() << "global_data::_require(model);" << nl;
+        out() << nl;
+        outi() << "for (auto &group : model.groups()) {" << nl;
         {
           increase_indent();
 
-          for (auto const &[selector_alias, aliases] :
-               particle_selector_to_fields.items()) {
-            // skip the global fields
-            if (selector_alias == "")
-              continue;
-            // TODO: have a better way to store the implicit global selector
-
-            auto selector =
-                alias_to_particle_selector.search(selector_alias).value();
-
-            outi() << "if (("
-                   << join(
-                          selector.type_disjunction, " or ", "true",
-                          [](auto type_name) {
-                            return "group.get_type() == \"" + type_name + "\"";
-                          })
-                   << ") and ("
-                   << join(
-                          selector.tag_conjunction, " and ", "true",
-                          [](auto tag_name) {
-                            return "group.has_tag(\"" + tag_name + "\")";
-                          })
-                   << "))"
-                   << " {" << nl;
-            // TODO: test tags
+          for (auto &[name, groups] : groups.all()) {
+            outi() << "if (groups_" << name << "_data::_selects(group))" << nl;
             {
               increase_indent();
-              outi() << selector_alias << "_data::_require(group);" << nl;
+              outi() << "groups_" << name << "_data::_require(group);" << nl;
               decrease_indent();
             }
-            outi() << "}" << nl;
           }
 
           decrease_indent();
@@ -898,24 +1159,26 @@ public:
       outi() << nl;
 
       cxx_access_modifier("public");
-      outi() << "void load(model_type &m_) {" << nl;
+      outi() << "void load(model_type &model) {" << nl;
       { // {{{
         increase_indent();
 
-        outi() << "_group_count = m_.groups().size();" << nl;
+        outi() << "_group_count = model.groups().size();" << nl;
         out() << nl;
-        outi() << "_data.global._load(m_);" << nl;
-        out() << nl;
-        for (auto const &[selector_alias, aliases] :
-             particle_selector_to_fields.items()) {
-          // skip the global fields
-          if (selector_alias == "")
-            continue;
-          outi() << "_data.by_group_type." << selector_alias << ".clear();"
-                 << nl;
+
+        if (not global.empty()) {
+          outi() << "_data.global._load(model);" << nl;
+          out() << nl;
         }
-        out() << nl;
-        outi() << "auto groups = m_.groups();" << nl;
+
+        if (not groups.empty()) {
+          for (auto &[name, groups] : groups.all()) {
+            outi() << "_data.groups." << name << ".clear();" << nl;
+          }
+          out() << nl;
+        }
+
+        outi() << "auto groups = model.groups();" << nl;
         outi() << "for (size_t i = 0; i < groups.size(); ++i) {" << nl;
         {
           increase_indent();
@@ -924,36 +1187,14 @@ public:
                     "decltype(groups)::difference_type>(i)];"
                  << nl;
 
-          for (auto const &[selector_alias, aliases] :
-               particle_selector_to_fields.items()) {
-            // skip the global fields
-            if (selector_alias == "")
-              continue;
-            // TODO: have a better way to store the implicit global selector
-
-            auto selector =
-                alias_to_particle_selector.search(selector_alias).value();
-
+          for (auto &[name, groups] : groups.all()) {
             out() << nl;
-            outi() << "if (("
-                   << join(
-                          selector.type_disjunction, " or ", "true",
-                          [](auto type_name) {
-                            return "group.get_type() == \"" + type_name + "\"";
-                          })
-                   << ") and ("
-                   << join(
-                          selector.tag_conjunction, " and ", "true",
-                          [](auto tag_name) {
-                            return "group.has_tag(\"" + tag_name + "\")";
-                          })
-                   << "))"
-                   << " {" << nl;
-            // TODO: test tags
+            outi() << "if (groups_" << name << "_data::_selects(group)) {"
+                   << nl;
             {
               increase_indent();
 
-              outi() << "auto &data = _data.by_group_type." << selector_alias
+              outi() << "auto &data = _data.groups." << name
                      << ".emplace_back();" << nl;
               outi() << "data._load(group);" << nl;
               outi() << "data._index = i;" << nl;
@@ -973,66 +1214,9 @@ public:
 
       outi() << nl;
 
-      cxx_access_modifier("private");
-      outi() << "struct {" << nl;
-      { // {{{
-        increase_indent();
-
-        outi() << "global_data global;" << nl;
-        outi() << "struct {" << nl;
-        {
-          increase_indent();
-
-          for (auto const &[selector_alias, aliases] :
-               particle_selector_to_fields.items()) {
-            // skip the global fields
-            if (selector_alias == "")
-              continue;
-            // TODO: have a better way to store the implicit global selector
-
-            outi() << "std::vector<" << selector_alias << "_data> "
-                   << selector_alias << ";" << nl;
-          }
-
-          decrease_indent();
-        }
-        outi() << "} by_group_type;" << nl;
-
-        decrease_indent();
-      } // }}}
-      outi() << "} _data;" << nl;
-
-      out() << nl;
-
-      outi() << "struct per_thread_type {" << nl;
-      { // {{{
-        increase_indent();
-
-        outi() << "std::vector<std::vector<size_t>> "
-                  "neighbors;"
-               << nl;
-        out() << nl;
-        outi() << "// reductions" << nl;
-        for (auto const &reduce : reductions.items()) {
-          auto field = alias_to_field.search(reduce.field_name).value();
-
-          outi() << "nd_dtype_t<" << nd_template_args(field.field_type)
-                 << "> rd_" << field.field_name << ';' << nl;
-        }
-
-        decrease_indent();
-      } // }}}
-      outi() << "};" << nl;
-
-      out() << nl;
-
-      outi() << "std::vector<per_thread_type> _per_thread;" << nl;
-      outi() << "size_t _group_count;" << nl;
-
       // iterate over all child nodes
-      for (auto const &statement : arg_.statements) {
+      for (auto const &statement : arg.statements)
         (*this)(statement);
-      }
 
       decrease_indent();
     }
@@ -1040,20 +1224,16 @@ public:
 
     out() << nl;
 
-    outi() << join(
-                  _namespaces | boost::adaptors::reversed, " ", "",
-                  [](auto ns_) { return "} /* namespace " + ns_ + "*/"; })
-           << nl;
+    { // close all nested namespaces
+      using namespace core::range_adaptors;
+      outi() << join(_namespaces | reversed, " ", "", [](auto ns_) {
+        return "} /* namespace " + ns_ + "*/";
+      }) << nl;
+    }
 
     out() << _hpp_footer;
 
-    // TODO: remove
-    // outi() << "} // namespace prtcl::schemes" << nl;
-    // out() << nl;
-    // outi() << "#if defined(__GNUG__)" << nl;
-    // outi() << "#pragma GCC diagnostic pop" << nl;
-    // outi() << "#endif" << nl;
-    // }}}
+    // }}} implementation
   }
 
 public:
@@ -1068,9 +1248,8 @@ private:
   std::vector<std::string> _namespaces;
 
 private:
-  alias_to_field_map alias_to_field;
-  alias_to_particle_selector_map alias_to_particle_selector;
-  particle_selector_to_fields_map particle_selector_to_fields;
+  field_map global;
+  groups_map groups;
 
   struct loop_type {
     std::string selector_name;

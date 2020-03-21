@@ -14,7 +14,6 @@
 #include <prtcl/rt/geometry/triangle_mesh.hpp>
 #include <prtcl/rt/grouped_uniform_grid.hpp>
 #include <prtcl/rt/integral_grid.hpp>
-#include <prtcl/rt/log/logger.hpp>
 #include <prtcl/rt/log/trace.hpp>
 #include <prtcl/rt/math/kernel/cubic_spline_kernel.hpp>
 #include <prtcl/rt/math/kernel_math_policy_mixin.hpp>
@@ -28,6 +27,8 @@
 
 #include <prtcl/rt/sample_surface.hpp>
 #include <prtcl/rt/sample_volume.hpp>
+
+#include <prtcl/core/log/logger.hpp>
 
 #include <algorithm>
 #include <fstream>
@@ -61,18 +62,17 @@ void load_all(Model_ &model, Schemes_ &... schemes_) {
 template <typename ModelPolicy_>
 void initialize_fluid(prtcl::rt::basic_model<ModelPolicy_> &model) {
   // {{{
-  using prtcl::core::nd_dtype;
+  using prtcl::core::dtype;
 
   static constexpr size_t N = ModelPolicy_::dimensionality;
 
   using type_policy = typename ModelPolicy_::type_policy;
   using math_policy = typename ModelPolicy_::math_policy;
-  using c = typename math_policy::constants;
+  using o = typename math_policy::operations;
 
-  using rvec = typename math_policy::template nd_dtype_t<nd_dtype::real, N>;
+  using rvec = typename math_policy::template ndtype_t<dtype::real, N>;
 
-  auto const h =
-      model.template get_global<nd_dtype::real>("smoothing_scale")[0];
+  auto const h = model.template get_global<dtype::real>("smoothing_scale")[0];
 
   std::mt19937 gen;
   std::uniform_real_distribution<typename type_policy::real> dis{-0.01f, 0.01f};
@@ -89,17 +89,17 @@ void initialize_fluid(prtcl::rt::basic_model<ModelPolicy_> &model) {
       continue;
 
     auto const rho0 =
-        group.template get_uniform<nd_dtype::real>("rest_density")[0];
+        group.template get_uniform<dtype::real>("rest_density")[0];
 
     auto const base_m = prtcl::core::constpow(h, N) * rho0;
 
-    auto x = group.template get_varying<nd_dtype::real, N>("position");
-    auto v = group.template get_varying<nd_dtype::real, N>("velocity");
-    auto m = group.template get_varying<nd_dtype::real>("mass");
+    auto x = group.template get_varying<dtype::real, N>("position");
+    auto v = group.template get_varying<dtype::real, N>("velocity");
+    auto m = group.template get_varying<dtype::real>("mass");
 
     for (size_t i = 0; i < group.size(); ++i) {
       x[i] += h * random_rvec();
-      v[i] = c::template zeros<nd_dtype::real, N>();
+      v[i] = o::template zeros<dtype::real, N>();
       m[i] = base_m + dis(gen) * base_m / 10;
     }
   }
@@ -119,9 +119,8 @@ void save_group(
       (frame ? "." + std::to_string(frame.value()) : std::string{}) + ".vtk";
   auto file_path = output_dir + "/" + file_name;
   std::ofstream file{file_path, file.trunc | file.out};
-  std::cout << "START SAVE_VTK " << output_dir << '\n';
   prtcl::rt::save_vtk(file, group);
-  std::cout << "CLOSE SAVE_VTK " << file_path << '\n';
+  core::log::debug("app", "save_vtk", "saved ", file_path);
 }
 
 template <typename ModelPolicy_> class basic_application {
@@ -200,21 +199,22 @@ private:
 
   static constexpr size_t N = model_policy::dimensionality;
 
-  using c = typename math_policy::constants;
   using o = typename math_policy::operations;
 
   using triangle_mesh_type = prtcl::rt::triangle_mesh<model_policy>;
 
-  using nd_dtype = prtcl::core::nd_dtype;
+  using dtype = prtcl::core::dtype;
 
   using real = typename type_policy::real;
-  using rvec = typename math_policy::template nd_dtype_t<nd_dtype::real, N>;
+  using rvec = typename math_policy::template ndtype_t<dtype::real, N>;
 
   using scheduler_type = virtual_scheduler<real>;
   using duration = typename scheduler_type::duration;
 
 public:
   int main(int argc_, char **argv_) {
+    namespace log = core::log;
+
     scheduler_type scheduler;
     auto &clock = scheduler.clock();
 
@@ -245,16 +245,16 @@ public:
 
     initialize_fluid(model);
 
-    rvec b_lo = c::template most_positive<nd_dtype::real, N>(),
-         b_hi = c::template most_negative<nd_dtype::real, N>();
+    rvec b_lo = o::template most_positive<dtype::real, N>(),
+         b_hi = o::template most_negative<dtype::real, N>();
 
     { // compute scene aabb
       // {{{
       for (auto &group : model.groups()) {
-        if (not group.template has_varying<nd_dtype::real, N>("position"))
+        if (not group.template has_varying<dtype::real, N>("position"))
           continue;
 
-        auto x = group.template get_varying<nd_dtype::real, N>("position");
+        auto x = group.template get_varying<dtype::real, N>("position");
         for (size_t i = 0; i < group.size(); ++i) {
           for (int n = 0; n < N; ++n) {
             b_lo[n] = std::min(b_lo[n], x[i][n]);
@@ -276,7 +276,7 @@ public:
 
     neighborhood_type nhood;
     nhood.set_radius(math_policy::operations::kernel_support_radius(
-        model.template get_global<nd_dtype::real>("smoothing_scale")[0]));
+        model.template get_global<dtype::real>("smoothing_scale")[0]));
 
     nhood.rebuild(model);
 
@@ -298,22 +298,25 @@ public:
     std::vector<rvec> spawned_positions, spawned_velocities;
 
     size_t const fps = 30;
-    size_t const max_frame = 60 * fps;
+    //size_t const max_frame = 60 * fps;
+    size_t const max_frame = 100;
 
     auto const seconds_per_frame = (1.0L / fps);
 
     auto const max_cfl =
-        model.template get_global<nd_dtype::real>("maximum_cfl")[0];
+        model.template get_global<dtype::real>("maximum_cfl")[0];
     auto const max_time_step =
-        model.template get_global<nd_dtype::real>("maximum_time_step")[0];
+        model.template get_global<dtype::real>("maximum_time_step")[0];
 
     // set the current time and the fade duration
-    model.template add_global<nd_dtype::real>("current_time")[0] =
+    model.template add_global<dtype::real>("current_time")[0] =
         clock.now().time_since_epoch().count();
-    model.template add_global<nd_dtype::real>("fade_duration")[0] =
+    model.template add_global<dtype::real>("fade_duration")[0] =
         static_cast<real>(2 * seconds_per_frame);
 
     for (size_t frame = 0; frame <= max_frame; ++frame) {
+      log::info_raii("app", "frame", '#', frame);
+
       for (auto &group : model.groups()) {
         if ("fluid" != group.get_type())
           continue;
@@ -339,10 +342,15 @@ public:
           // find all particles in group that are out-of-bounds
           remove_idxs.clear();
 
-          auto x = group.template get_varying<nd_dtype::real, N>("position");
-          for (size_t i = 0; i < x.size(); ++i)
-            if (not position_in_domain(x[i]))
+          auto x = group.template get_varying<dtype::real, N>("position");
+
+#pragma omp parallel for
+          for (size_t i = 0; i < x.size(); ++i) {
+            if (not position_in_domain(x[i])) {
+#pragma omp critical
               remove_idxs.push_back(i);
+            }
+          }
 
           if (remove_idxs.size() > 0) {
             group.erase(remove_idxs);
@@ -364,7 +372,7 @@ public:
       }
 
       auto h = static_cast<long double>(
-          model.template get_global<nd_dtype::real>("smoothing_scale")[0]);
+          model.template get_global<dtype::real>("smoothing_scale")[0]);
 
       auto frame_done = clock.now() + duration{seconds_per_frame};
 
@@ -391,7 +399,7 @@ public:
           }
         }
 
-        model.template get_global<nd_dtype::real>("maximum_speed")[0] = 0;
+        model.template get_global<dtype::real>("maximum_speed")[0] = 0;
 
         // run all computational steps
         this->do_prepare_step(model, nhood);
@@ -400,10 +408,10 @@ public:
 
         // fetch the maximum speed of any fluid particle
         auto max_speed = static_cast<long double>(
-            model.template get_global<nd_dtype::real>("maximum_speed")[0]);
+            model.template get_global<dtype::real>("maximum_speed")[0]);
 
         auto dt = static_cast<long double>(
-            model.template get_global<nd_dtype::real>("time_step")[0]);
+            model.template get_global<dtype::real>("time_step")[0]);
 
         // advance the simulation clock and run schedule
         clock.advance(dt);
@@ -414,25 +422,24 @@ public:
         if (max_speed > 0)
           next_time_step =
               std::min<real>(max_cfl * h / max_speed, max_time_step);
-        model.template get_global<nd_dtype::real>("time_step")[0] =
-            next_time_step;
+        model.template get_global<dtype::real>("time_step")[0] = next_time_step;
 
         if (next_time_step < max_time_step)
           log::debug(
               "app", "main", "REDUCED TIME STEP ",
-              model.template get_global<nd_dtype::real>("time_step")[0]);
+              model.template get_global<dtype::real>("time_step")[0]);
 
         // set the current time
-        model.template get_global<nd_dtype::real>("current_time")[0] =
+        model.template get_global<dtype::real>("current_time")[0] =
             clock.now().time_since_epoch().count();
       }
 
       log::debug(
           "app", "main", "current max_speed = ",
-          model.template get_global<nd_dtype::real>("maximum_speed")[0]);
+          model.template get_global<dtype::real>("maximum_speed")[0]);
       log::debug(
           "app", "main", "current time_step = ",
-          model.template get_global<nd_dtype::real>("time_step")[0]);
+          model.template get_global<dtype::real>("time_step")[0]);
 
       PRTCL_RT_LOG_TRACE_CFRAME_MARK();
     }

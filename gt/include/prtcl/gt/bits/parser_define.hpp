@@ -33,6 +33,8 @@ auto const identifier_def = x3::lexeme[           //
     (alpha | char_('_')) >> *(alnum | char_('_')) //
 ];
 
+// {{{ n_math::... rules
+
 namespace n_math {
 
 auto const expression_def = add_term;
@@ -67,6 +69,10 @@ auto const mul_term_def = primary >> *(mul_rhs | div_rhs);
 
 } // namespace n_math
 
+// }}}
+
+// {{{ n_global::... rules
+
 namespace n_global {
 
 auto const field_def =
@@ -74,8 +80,14 @@ auto const field_def =
 
 } // namespace n_global
 
-auto const global_def = lit("global") > '{' >> *(n_global::field) >> attr(0) >>
-                        '}';
+// }}}
+
+auto const global_def =              //
+    lit("global") > '{' >>           //
+    *(n_global::field) >> attr(0) >> //
+    '}';
+
+// {{{ n_groups::... rules
 
 namespace n_groups {
 
@@ -120,10 +132,15 @@ auto const field_def = uniform_field | varying_field;
 
 } // namespace n_groups
 
-auto const groups_def = //
-    lit("groups") > identifier > '{' >
-    lit("select") > n_groups::select_expression > ';' > *(n_groups::field_def) >
+// }}}
+
+auto const groups_def =                                 //
+    lit("groups") > identifier > '{' >                  //
+    lit("select") > n_groups::select_expression > ';' > //
+    *(n_groups::field_def) >                            //
     '}';
+
+// {{{ n_scheme::... rules
 
 namespace n_scheme {
 
@@ -185,7 +202,44 @@ auto const foreach_particle_def = //
      *(foreach_particle_statement) >> //
      '}');
 
-auto const procedure_statement_def = local | compute | foreach_particle;
+// {{{ n_solve::... rules
+
+namespace n_solve {
+
+auto const statement_def = //
+    n_scheme::local | n_scheme::compute | n_scheme::foreach_neighbor;
+
+auto const setup_def =                                           //
+    lit("setup") > identifier > lit("into") > identifier > '{' > //
+    *(statement) >                                               //
+    '}';
+
+auto const product_def =                                        //
+    lit("product") > identifier >                               //
+    lit("with") > identifier > lit("into") > identifier > '{' > //
+    *(statement) >                                              //
+    '}';
+
+auto const apply_def =                //
+    lit("apply") > identifier > '{' > //
+    *(statement) >                    //
+    '}';
+
+} // namespace n_solve
+
+// }}}
+
+auto const solve_def =                                              //
+    lit("solve") > identifier > ndtype >                            //
+    lit("over") > identifier > lit("particle") > identifier > '{' > //
+    n_solve::setup > /* right_hand_side */                          //
+    n_solve::setup > /* guess */                                    //
+    n_solve::product > /* preconditioner */                         //
+    n_solve::product > /* system */                                 //
+    n_solve::apply > /* apply */                                    //
+    '}';
+
+auto const procedure_statement_def = local | compute | foreach_particle | solve;
 
 auto const procedure_def =                        //
     lit("procedure") > (identifier >> '{' >>      //
@@ -193,6 +247,8 @@ auto const procedure_def =                        //
                         '}');
 
 } // namespace n_scheme
+
+// }}}
 
 auto const scheme_statement_def = groups | global | n_scheme::procedure;
 

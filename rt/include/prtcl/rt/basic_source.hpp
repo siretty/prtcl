@@ -5,11 +5,11 @@
 #include "basic_group.hpp"
 #include "basic_model.hpp"
 #include "initialize_particles.hpp"
-#include "log/logger.hpp"
 #include "nd_data_base.hpp"
 #include "virtual_clock.hpp"
 
 #include <prtcl/core/constpow.hpp>
+#include <prtcl/core/log/logger.hpp>
 
 #include <memory>
 #include <string>
@@ -38,20 +38,19 @@ private:
   using data_policy = typename ModelPolicy_::data_policy;
 
   using o = typename math_policy::operations;
-  using l = typename math_policy::literals;
 
-  template <nd_dtype DType_, size_t... Ns_>
-  using nd_dtype_data_t =
-      typename data_policy::template nd_dtype_data_t<DType_, Ns_...>;
+  template <dtype DType_, size_t... Ns_>
+  using ndtype_data_t =
+      typename data_policy::template ndtype_data_t<DType_, Ns_...>;
 
-  template <nd_dtype DType_, size_t... Ns_>
-  using nd_dtype_data_ref_t =
-      typename data_policy::template nd_dtype_data_ref_t<DType_, Ns_...>;
+  template <dtype DType_, size_t... Ns_>
+  using ndtype_data_ref_t =
+      typename data_policy::template ndtype_data_ref_t<DType_, Ns_...>;
 
   static constexpr auto N = model_policy::dimensionality;
 
   using real = typename type_policy::real;
-  using rvec = typename math_policy::template nd_dtype_t<nd_dtype::real, N>;
+  using rvec = typename math_policy::template ndtype_t<dtype::real, N>;
 
   using model_type = basic_model<model_policy>;
   using group_type = basic_group<model_policy>;
@@ -77,14 +76,16 @@ public:
         _velocity{velocity}, _radius{radius}, _remaining{remaining} {
     // compute the (virtual) time between spawns
     auto const h =
-        _model->template get_global<nd_dtype::real>("smoothing_scale")[0];
+        _model->template get_global<dtype::real>("smoothing_scale")[0];
     _regular_spawn_interval = duration{h / o::norm(velocity)};
   }
 
 public:
   auto operator()(virtual_scheduler<real> &scheduler_, duration delay) {
+    namespace log = core::log;
+
     auto const h =
-        _model->template get_global<nd_dtype::real>("smoothing_scale")[0];
+        _model->template get_global<dtype::real>("smoothing_scale")[0];
 
     rvec const orientation = o::normalized(_velocity);
     rvec const delta_x = (_regular_spawn_interval + delay).count() * _velocity;
@@ -98,9 +99,9 @@ public:
     // sample from the plane through origin with normal orientation
     if constexpr (N == 3) {
       std::array<rvec, 3> unit_vectors = {
-          l::template narray<nd_dtype::real, 3>({{1, 0, 0}}),
-          l::template narray<nd_dtype::real, 3>({{0, 1, 0}}),
-          l::template narray<nd_dtype::real, 3>({{0, 0, 1}}),
+          o::template narray<dtype::real, 3>({{1, 0, 0}}),
+          o::template narray<dtype::real, 3>({{0, 1, 0}}),
+          o::template narray<dtype::real, 3>({{0, 0, 1}}),
       };
       // choose a unit vector wich is not linearly dependent on orientation
       rvec tmp;
@@ -116,10 +117,8 @@ public:
       rvec const d1 = o::normalized(o::cross(orientation, tmp));
       rvec const d2 = o::normalized(o::cross(orientation, d1));
 
-      using rvec2 =
-          typename math_policy::template nd_dtype_t<nd_dtype::real, 2>;
-      using rmat2 =
-          typename math_policy::template nd_dtype_t<nd_dtype::real, 2, 2>;
+      using rvec2 = typename math_policy::template ndtype_t<dtype::real, 2>;
+      using rmat2 = typename math_policy::template ndtype_t<dtype::real, 2, 2>;
 
       // get pi as real
       auto const pi = boost::math::constants::pi<real>();
@@ -127,7 +126,7 @@ public:
       auto const twist_step = 2 * pi * (2 * _radius * pi) / h;
       real const twist = _age * twist_step;
       // compute the corresponding rotation matrix
-      rmat2 const plane_rotation = l::template narray<nd_dtype::real, 2, 2>(
+      rmat2 const plane_rotation = o::template narray<dtype::real, 2, 2>(
           {{{std::cos(twist), -std::sin(twist)},
             {std::sin(twist), std::cos(twist)}}});
 
@@ -152,12 +151,12 @@ public:
 
     // fetch target group fields
     auto rho0 =
-        _target_group->template get_uniform<nd_dtype::real>("rest_density")[0];
-    auto x = _target_group->template get_varying<nd_dtype::real, N>("position");
-    auto v = _target_group->template get_varying<nd_dtype::real, N>("velocity");
-    auto m = _target_group->template get_varying<nd_dtype::real>("mass");
+        _target_group->template get_uniform<dtype::real>("rest_density")[0];
+    auto x = _target_group->template get_varying<dtype::real, N>("position");
+    auto v = _target_group->template get_varying<dtype::real, N>("velocity");
+    auto m = _target_group->template get_varying<dtype::real>("mass");
     auto t_b =
-        _target_group->template get_varying<nd_dtype::real>("time_of_birth");
+        _target_group->template get_varying<dtype::real>("time_of_birth");
     // initialize created particles
     for (size_t i = 0; i < _position.size(); ++i) {
       x[indices[i]] = _position[i];

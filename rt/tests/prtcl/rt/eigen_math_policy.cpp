@@ -20,73 +20,69 @@ TEST_CASE("prtcl/rt/math/eigen_math_policy.hpp", "[prtcl][rt]") {
     CHECK(std::is_same<nd_boolean_t<math_policy>, bool>::value);
   }
 
-  using prtcl::core::nd_dtype;
+  using prtcl::core::dtype;
 
-  using l = typename math_policy::literals;
-  using c = typename math_policy::constants;
+  using o = typename math_policy::operations;
 
   SECTION("scalars") {
-    CHECK(0.f == c::zeros<nd_dtype::real>());
-    CHECK(0 == c::zeros<nd_dtype::integer>());
-    CHECK(false == c::zeros<nd_dtype::boolean>());
+    CHECK(0.f == o::zeros<dtype::real>());
+    CHECK(0 == o::zeros<dtype::integer>());
+    CHECK(false == o::zeros<dtype::boolean>());
 
-    CHECK(1.f == c::ones<nd_dtype::real>());
-    CHECK(1 == c::ones<nd_dtype::integer>());
-    CHECK(true == c::ones<nd_dtype::boolean>());
+    CHECK(1.f == o::ones<dtype::real>());
+    CHECK(1 == o::ones<dtype::integer>());
+    CHECK(true == o::ones<dtype::boolean>());
   }
 
   SECTION("three-dimensional real linear algebra") {
     using rvec3 = nd_real_t<math_policy, 3>;
     using rmat3 = nd_real_t<math_policy, 3, 3>;
 
-    CHECK(rvec3{0.f, 0.f, 0.f} == c::zeros<nd_dtype::real, 3>());
-    CHECK(rvec3{1.f, 1.f, 1.f} == c::ones<nd_dtype::real, 3>());
+    CHECK(rvec3{0.f, 0.f, 0.f} == o::zeros<dtype::real, 3>());
+    CHECK(rvec3{1.f, 1.f, 1.f} == o::ones<dtype::real, 3>());
 
     CHECK(
-        c::zeros<nd_dtype::real, 3>() ==
-        l::narray<nd_dtype::real, 3>({{0.f, 0.f, 0.f}}));
+        o::zeros<dtype::real, 3>() ==
+        o::narray<dtype::real, 3>({{0.f, 0.f, 0.f}}));
 
+    CHECK(o::most_positive<dtype::real>() == std::numeric_limits<float>::max());
     CHECK(
-        c::most_positive<nd_dtype::real>() ==
-        std::numeric_limits<float>::max());
-    CHECK(
-        c::most_negative<nd_dtype::real>() ==
+        o::most_negative<dtype::real>() ==
         std::numeric_limits<float>::lowest());
 
     rmat3 I;
     I << 1, 0, 0, //
         0, 1, 0,  //
         0, 0, 1;
-    CHECK(I == c::identity<nd_dtype::real, 3, 3>());
+    CHECK(I == o::identity<dtype::real, 3, 3>());
 
     CHECK(
-        c::positive_infinity<nd_dtype::real>() ==
+        o::positive_infinity<dtype::real>() ==
         std::numeric_limits<float>::infinity());
 
     CHECK(
-        c::negative_infinity<nd_dtype::real>() ==
+        o::negative_infinity<dtype::real>() ==
         -std::numeric_limits<float>::infinity());
   }
 
   SECTION("three-dimensional integer vectors") {
     using ivec3 = nd_integer_t<math_policy, 3>;
 
-    CHECK(ivec3{0, 0, 0} == c::zeros<nd_dtype::integer, 3>());
-    CHECK(ivec3{1, 1, 1} == c::ones<nd_dtype::integer, 3>());
+    CHECK(ivec3{0, 0, 0} == o::zeros<dtype::integer, 3>());
+    CHECK(ivec3{1, 1, 1} == o::ones<dtype::integer, 3>());
 
     CHECK(
-        c::most_positive<nd_dtype::integer>() ==
-        std::numeric_limits<int>::max());
+        o::most_positive<dtype::integer>() == std::numeric_limits<int>::max());
     CHECK(
-        c::most_negative<nd_dtype::integer>() ==
+        o::most_negative<dtype::integer>() ==
         std::numeric_limits<int>::lowest());
   }
 
   SECTION("three-dimensional boolean vectors") {
     using bvec3 = nd_boolean_t<math_policy, 3>;
 
-    CHECK(bvec3{false, false, false} == c::zeros<nd_dtype::boolean, 3>());
-    CHECK(bvec3{true, true, true} == c::ones<nd_dtype::boolean, 3>());
+    CHECK(bvec3{false, false, false} == o::zeros<dtype::boolean, 3>());
+    CHECK(bvec3{true, true, true} == o::ones<dtype::boolean, 3>());
   }
 
   // using o = typename math_policy::operations;

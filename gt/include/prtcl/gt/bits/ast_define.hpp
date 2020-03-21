@@ -2,6 +2,7 @@
 
 #include "../common.hpp"
 
+#include <initializer_list>
 #include <prtcl/core/ndtype.hpp>
 
 #include <optional>
@@ -156,6 +157,13 @@ struct operation : position_tagged {
   string name;
   optional<ndtype> type;
   vector<value_ptr<expression>> arguments;
+
+  operation() = default;
+
+  operation(string name_) : name{name_}, type{std::nullopt}, arguments{} {}
+
+  operation(string name_, ndtype type_)
+      : name{name_}, type{type_}, arguments{} {}
 };
 
 struct field_access : position_tagged {
@@ -309,8 +317,57 @@ struct foreach_particle : position_tagged {
   vector<statement> statements;
 };
 
+// }}}
+
+// {{{ solve
+
+// {{{ solve details
+
+namespace n_solve {
+
+using statement = variant<nil, local, compute, foreach_neighbor>;
+
+struct setup : position_tagged {
+  string name; // right_hand_side | guess
+  string into; // alias of the result field
+  vector<statement> statements;
+};
+
+struct product : position_tagged {
+  string name; // system | preconditioner
+  string with; // alias of the iterate field
+  string into; // alias of the result field
+  vector<statement> statements;
+};
+
+struct apply : position_tagged {
+  string with; // alias of the iterate field
+  vector<statement> statements;
+};
+
+} // namespace n_solve
+
+// }}}
+
+struct solve : position_tagged {
+  string solver;
+  ndtype type;
+  string groups;
+  string index;
+
+  n_solve::setup right_hand_side;
+  n_solve::setup guess;
+  n_solve::product preconditioner;
+  n_solve::product system;
+  n_solve::apply apply;
+};
+
+// }}}
+
+// {{{ procedure
+
 struct procedure : position_tagged {
-  using statement = variant<local, compute, foreach_particle>;
+  using statement = variant<local, compute, foreach_particle, solve>;
 
   string name;
   vector<statement> statements;

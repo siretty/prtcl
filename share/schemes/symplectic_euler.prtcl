@@ -1,60 +1,56 @@
 
-let dynamic = particle_selector types {} tags {dynamic};
+scheme symplectic_euler {
+  groups dynamic {
+    select tag dynamic;
 
-let x = field position : varying real[];
-let v = field velocity : varying real[];
-let a = field acceleration : varying real[];
+    varying field x = real[] position;
+    varying field v = real[] velocity;
+    varying field a = real[] acceleration;
 
-
-let dt = field time_step : global real;
-
-let t_b = field time_of_birth : varying real;
-let t_c = field current_time : global real;
-let d_f = field fade_duration : global real;
-
-let max_speed  = field maximum_speed : global real;
-
-procedure integrate_velocity_with_fade {
-  foreach dynamic particle i {
-    compute v[i] +=
-        dt[_] * a[i]
-      *
-        // accelerations "turn on" after a particle is older than d_f
-        unit_step_l(0, (t_c[_] - t_b[i]) - d_f[_])
-      //*
-      //  // accelerations "fade in" until a particle is older than d_f
-      //  smoothstep((t_c[_] - t_b[i] - d_f[_]) / d_f[_])
-      ;
+    varying field t_birth = real time_of_birth;
   }
-}
 
-procedure integrate_velocity {
-  foreach dynamic particle i {
-    compute v[i] +=
-        dt[_] * a[i];
+  global {
+    field dt = real time_step;
+
+    field t = real current_time;
+    field dt_fade = real fade_duration;
+
+    field max_speed = real maximum_speed;
   }
-}
 
-procedure integrate_position {
-  foreach dynamic particle i {
-    compute x[i] += dt[_] * v[i];
-
-    reduce max_speed[_] max= norm(v[i]);
+  procedure integrate_velocity {
+    foreach dynamic particle i {
+      compute v[i] += dt * a[i];
+    }
   }
-}
 
-// procedure integrate_with_fade {
-procedure advect_symplectic_euler {
-  foreach dynamic particle i {
-    compute v[i] +=
-        dt[_] * a[i]
-      *
-        unit_step_l(0, (t_c[_] - t_b[i]) - d_f[_])
-        // smoothstep((t_c[_] - t_b[i]) / d_f[_])
-      ;
-    compute x[i] += dt[_] * v[i];
+  procedure integrate_velocity_with_hard_fade {
+    foreach dynamic particle i {
+      compute v[i] +=
+          dt * a[i]
+        *
+          // accelerations "turn on" after a particle is older than dt_fade
+          unit_step_l(0, (t - t_birth[i]) - dt_fade);
+    }
+  }
 
-    reduce max_speed[_] max= norm(v[i]);
+  procedure integrate_velocity_with_smooth_fade {
+    foreach dynamic particle i {
+      compute v[i] +=
+          dt * a[i]
+        *
+          // accelerations "fade in" until a particle is older than dt_fade
+          smoothstep((t - t_birth[i] - dt_fade) / dt_fade);
+    }
+  }
+
+  procedure integrate_position {
+    foreach dynamic particle i {
+      compute x[i] += dt * v[i];
+
+      reduce max_speed max= norm(v[i]);
+    }
   }
 }
 

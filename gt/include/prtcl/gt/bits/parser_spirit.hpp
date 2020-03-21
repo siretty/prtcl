@@ -61,6 +61,15 @@ BOOST_SPIRIT_DEFINE(foreach_neighbor_statement, foreach_neighbor)
 
 BOOST_SPIRIT_DEFINE(foreach_particle_statement, foreach_particle)
 
+namespace n_solve {
+
+BOOST_SPIRIT_DEFINE(statement);
+BOOST_SPIRIT_DEFINE(setup, product, apply);
+
+} // namespace n_solve
+
+BOOST_SPIRIT_DEFINE(solve);
+
 BOOST_SPIRIT_DEFINE(procedure_statement, procedure);
 
 } // namespace n_scheme

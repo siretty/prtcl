@@ -1,10 +1,10 @@
+#include "prtcl/schemes/density.hpp"
 #include <prtcl/rt/basic_application.hpp>
-
-#include <prtcl/rt/log/logger.hpp>
 #include <prtcl/rt/math/aat13_math_policy_mixin.hpp>
 
 #include <prtcl/schemes/aat13.hpp>
-#include <prtcl/schemes/boundary.hpp>
+#include <prtcl/schemes/aiast12.hpp>
+#include <prtcl/schemes/density.hpp>
 #include <prtcl/schemes/gravity.hpp>
 #include <prtcl/schemes/he14.hpp>
 #include <prtcl/schemes/iisph.hpp>
@@ -33,17 +33,17 @@ public:
   using model_type = typename base_type::model_type;
   using neighborhood_type = typename base_type::neighborhood_type;
 
-  using nd_dtype = prtcl::core::nd_dtype;
+  using dtype = prtcl::core::dtype;
 
-  using c = typename math_policy::constants;
+  using o = typename math_policy::operations;
 
   static constexpr size_t N = model_policy::dimensionality;
 
 public:
   void on_require_schemes(model_type &model) override {
     require_all(
-        model, advect, boundary, iisph, gravity, viscosity, implicit_viscosity,
-        implicit_viscosity_solvers);
+        model, advect, boundary, density, iisph, gravity, viscosity,
+        implicit_viscosity, implicit_viscosity_solvers);
 #if SURFACE_TENSION != 0
     surface_tension.require(model);
 #endif
@@ -51,8 +51,8 @@ public:
 
   void on_load_schemes(model_type &model) override {
     load_all(
-        model, advect, boundary, iisph, gravity, viscosity, implicit_viscosity,
-        implicit_viscosity_solvers);
+        model, advect, boundary, density, iisph, gravity, viscosity,
+        implicit_viscosity, implicit_viscosity_solvers);
 #if SURFACE_TENSION != 0
     surface_tension.load(model);
 #endif
@@ -62,13 +62,13 @@ public:
   on_prepare_simulation(model_type &model, neighborhood_type &nhood) override {
     boundary.compute_volume(nhood);
 
-    auto g = model.template add_global<nd_dtype::real, N>("gravity");
-    g[0] = c::template zeros<nd_dtype::real, N>();
+    auto g = model.template add_global<dtype::real, N>("gravity");
+    g[0] = o::template zeros<dtype::real, N>();
     g[0][1] = -9.81;
 
-    prtcl::rt::log::debug(
+    prtcl::core::log::debug(
         "app", "pt16", "implicit viscosity = ",
-        1 - model.get_group("f").template get_uniform<nd_dtype::real>(
+        1 - model.get_group("f").template get_uniform<dtype::real>(
                 "viscosity")[0]);
   }
 
@@ -77,7 +77,7 @@ public:
   }
 
   void on_step(model_type &model, neighborhood_type &nhood) override {
-    iisph.compute_density(nhood);
+    density.compute_density(nhood);
 
     gravity.initialize_acceleration(nhood);
 
@@ -96,17 +96,15 @@ public:
 #endif
 
     // predict the velocity at the next timestep (explicit)
-    advect.integrate_velocity_with_fade(nhood);
+    advect.integrate_velocity_with_hard_fade(nhood);
 
     { // pressure solver
-      auto aprde = model.template get_global<nd_dtype::real>("iisph_aprde");
-      auto nprde = model.template get_global<nd_dtype::integer>("iisph_nprde");
-
-      iisph.setup_a(nhood);
+      auto aprde = model.template get_global<dtype::real>("iisph_aprde");
+      auto nprde = model.template get_global<dtype::integer>("iisph_nprde");
 
       // reset the particle counter
       nprde[0] = 0;
-      iisph.setup_b(nhood);
+      iisph.setup(nhood);
 
       constexpr int min_solver_iterations = 3;
       constexpr int max_solver_iterations = 2000;
@@ -136,26 +134,25 @@ public:
         cur_aprde = aprde[0] / nprde[0];
       }
 
-      prtcl::rt::log::debug(
+      prtcl::core::log::debug(
           "app", "iisph", "last aprde = ", aprde[0],
           " cur_aprde = ", cur_aprde);
-      prtcl::rt::log::debug(
+      prtcl::core::log::debug(
           "app", "iisph", "no. iterations ", pressure_iteration);
     }
 
     // predict the velocity at the next timestep (explicit + pressure)
-    advect.integrate_velocity_with_fade(nhood);
+    advect.integrate_velocity_with_hard_fade(nhood);
 
     { // viscosity solver
-      auto vg = model.get_group("f").template get_varying<nd_dtype::real, N, N>(
+      auto vg = model.get_group("f").template get_varying<dtype::real, N, N>(
           "velocity_gradient");
-      auto omega = model.get_group("f").template get_varying<nd_dtype::real, N>(
+      auto omega = model.get_group("f").template get_varying<dtype::real, N>(
           "vorticity");
-      auto omega_dgn =
-          model.get_group("f").template get_varying<nd_dtype::real>(
-              "pt16_vorticity_diffusion_diagonal");
+      auto omega_dgn = model.get_group("f").template get_varying<dtype::real>(
+          "pt16_vorticity_diffusion_diagonal");
       auto omega_rhs =
-          model.get_group("f").template get_varying<nd_dtype::real, N>(
+          model.get_group("f").template get_varying<dtype::real, N>(
               "pt16_vorticity_diffusion_rhs");
 
       implicit_viscosity.compute_velocity_gradient_and_vorticity(nhood);
@@ -165,7 +162,7 @@ public:
           implicit_viscosity_solvers.vorticity_diffusion(nhood);
       implicit_viscosity.compute_target_velocity_gradient(nhood);
 
-      prtcl::rt::log::debug(
+      prtcl::core::log::debug(
           "app", "pt16", "no. iterations (vorticity) ", vorticity_iterations);
 
       implicit_viscosity.compute_velocity_reconstruction_rhs(nhood);
@@ -173,7 +170,7 @@ public:
           implicit_viscosity_solvers.velocity_reconstruction(nhood);
 
       if (omega.size() > 0) {
-        prtcl::rt::log::debug(
+        prtcl::core::log::debug(
             "app", "pt16", "no. iterations (velocity) ", velocity_iterations);
       }
     }
@@ -182,8 +179,9 @@ public:
     advect.integrate_position(nhood);
   }
 
+  prtcl::schemes::density<model_policy> density;
   prtcl::schemes::symplectic_euler<model_policy> advect;
-  prtcl::schemes::boundary<model_policy> boundary;
+  prtcl::schemes::aiast12<model_policy> boundary;
   prtcl::schemes::iisph<model_policy> iisph;
   prtcl::schemes::gravity<model_policy> gravity;
   prtcl::schemes::viscosity<model_policy> viscosity;
@@ -217,4 +215,3 @@ int main(int argc_, char **argv_) {
   iisph_pt16_application<model_policy> application;
   application.main(argc_, argv_);
 }
-

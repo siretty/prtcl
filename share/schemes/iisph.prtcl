@@ -69,6 +69,8 @@ scheme iisph {
       }
     }
 
+    compute nprde = integer{0};
+
     foreach fluid particle f {
       // reset the pressure
       compute p[f] = 0;
@@ -127,7 +129,7 @@ scheme iisph {
       }
 
       // finalize source term
-      compute s[f] = rho0[f] - rho[f] - dt[_] * (rho0[f] / rho[f]) * s[f];
+      compute s[f] = rho0[f] - rho[f] - dt * (rho0[f] / rho[f]) * s[f];
       // finalize diagonal element
       compute AA[f] *= dt * dt * (rho0[f] / rho[f]);
 

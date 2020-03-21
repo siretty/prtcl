@@ -1,10 +1,12 @@
+#include "prtcl/schemes/aiast12.hpp"
 #include <prtcl/rt/basic_application.hpp>
-
-#include <prtcl/rt/log/logger.hpp>
 #include <prtcl/rt/math/aat13_math_policy_mixin.hpp>
 
+#include <prtcl/core/log/logger.hpp>
+
 #include <prtcl/schemes/aat13.hpp>
-#include <prtcl/schemes/boundary.hpp>
+#include <prtcl/schemes/aiast12.hpp>
+#include <prtcl/schemes/density.hpp>
 #include <prtcl/schemes/gravity.hpp>
 #include <prtcl/schemes/he14.hpp>
 #include <prtcl/schemes/iisph.hpp>
@@ -31,22 +33,22 @@ public:
   using model_type = typename base_type::model_type;
   using neighborhood_type = typename base_type::neighborhood_type;
 
-  using nd_dtype = prtcl::core::nd_dtype;
+  using dtype = prtcl::core::dtype;
 
-  using c = typename math_policy::constants;
+  using o = typename math_policy::operations;
 
   static constexpr size_t N = model_policy::dimensionality;
 
 public:
   void on_require_schemes(model_type &model) override {
-    require_all(model, advect, boundary, iisph, gravity, viscosity);
+    require_all(model, advect, boundary, density, iisph, gravity, viscosity);
 #if SURFACE_TENSION != 0
     surface_tension.require(model);
 #endif
   }
 
   void on_load_schemes(model_type &model) override {
-    load_all(model, advect, boundary, iisph, gravity, viscosity);
+    load_all(model, advect, boundary, density, iisph, gravity, viscosity);
 #if SURFACE_TENSION != 0
     surface_tension.load(model);
 #endif
@@ -56,8 +58,8 @@ public:
   on_prepare_simulation(model_type &model, neighborhood_type &nhood) override {
     boundary.compute_volume(nhood);
 
-    auto g = model.template add_global<nd_dtype::real, N>("gravity");
-    g[0] = c::template zeros<nd_dtype::real, N>();
+    auto g = model.template add_global<dtype::real, N>("gravity");
+    g[0] = o::template zeros<dtype::real, N>();
     g[0][1] = -9.81;
   }
 
@@ -66,7 +68,9 @@ public:
   }
 
   void on_step(model_type &model, neighborhood_type &nhood) override {
-    iisph.compute_density(nhood);
+    namespace log = prtcl::core::log;
+
+    density.compute_density(nhood);
 
     gravity.initialize_acceleration(nhood);
     viscosity.accumulate_acceleration(nhood);
@@ -86,17 +90,15 @@ public:
 #endif
 
     // predict the velocity at the next timestep (explicit)
-    advect.integrate_velocity_with_fade(nhood);
+    advect.integrate_velocity_with_hard_fade(nhood);
 
     { // pressure solver
-      auto aprde = model.template get_global<nd_dtype::real>("iisph_aprde");
-      auto nprde = model.template get_global<nd_dtype::integer>("iisph_nprde");
-
-      iisph.setup_a(nhood);
+      auto aprde = model.template get_global<dtype::real>("iisph_aprde");
+      auto nprde = model.template get_global<dtype::integer>("iisph_nprde");
 
       // reset the particle counter
       nprde[0] = 0;
-      iisph.setup_b(nhood);
+      iisph.setup(nhood);
 
       constexpr int min_solver_iterations = 3;
       constexpr int max_solver_iterations = 2000;
@@ -113,8 +115,11 @@ public:
           break;
 
         // break the loop if there are no particles
-        if (nprde[0] == 0)
+        if (nprde[0] == 0) {
+          log::debug(
+              "app", "iisph", "pressure iteration canceled, no particles");
           break;
+        }
 
         // reset the accum. positive relative density error
         aprde[0] = 0;
@@ -126,22 +131,22 @@ public:
         cur_aprde = aprde[0] / nprde[0];
       }
 
-      prtcl::rt::log::debug(
+      log::debug(
           "app", "iisph", "last aprde = ", aprde[0],
           " cur_aprde = ", cur_aprde);
-      prtcl::rt::log::debug(
-          "app", "iisph", "no. iterations ", pressure_iteration);
+      log::debug("app", "iisph", "no. iterations ", pressure_iteration);
     }
 
     // predict the velocity at the next timestep (explicit + pressure)
-    advect.integrate_velocity_with_fade(nhood);
+    advect.integrate_velocity_with_hard_fade(nhood);
 
     // integrate the particle position
     advect.integrate_position(nhood);
   }
 
+  prtcl::schemes::density<model_policy> density;
   prtcl::schemes::symplectic_euler<model_policy> advect;
-  prtcl::schemes::boundary<model_policy> boundary;
+  prtcl::schemes::aiast12<model_policy> boundary;
   prtcl::schemes::iisph<model_policy> iisph;
   prtcl::schemes::gravity<model_policy> gravity;
   prtcl::schemes::viscosity<model_policy> viscosity;

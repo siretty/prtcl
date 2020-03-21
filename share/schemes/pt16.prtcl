@@ -1,122 +1,120 @@
 
-let fluid = particle_selector types {fluid} tags {};
+scheme pt16 {
+  groups fluid {
+    select type fluid;
 
-let x = field position : varying real[];
-let v = field velocity : varying real[];
-let a = field acceleration : varying real[];
+    varying field x = real[] position;
+    varying field v = real[] velocity;
+    varying field a = real[] acceleration;
 
-let vg = field velocity_gradient : varying real[][];
-let tvg = field target_velocity_gradient : varying real[][];
+    varying field rho = real density;
+    varying field m = real mass;
 
-let omega = field vorticity : varying real[];
+    uniform field rho0 = real rest_density;
 
-let omega_diagonal = field pt16_vorticity_diffusion_diagonal : varying real;
-let omega_rhs = field pt16_vorticity_diffusion_rhs : varying real[];
+    varying field omega = real[] vorticity;
 
-let v_rec_diagonal = field pt16_velocity_reconstruction_diagonal : varying real;
-let v_rec_rhs = field pt16_velocity_reconstruction_rhs : varying real[];
+    varying field vg  = real[][] velocity_gradient;
+    varying field tvg = real[][] target_velocity_gradient;
 
-let rho = field density : varying real;
-let p = field pressure : varying real;
-let m = field mass : varying real;
-let V = field volume : varying real;
+    varying field omega_diagonal = real   pt16_vorticity_diffusion_diagonal;
+    varying field omega_rhs      = real[] pt16_vorticity_diffusion_rhs;
 
-let rho0 = field rest_density : uniform real;
-let xi = field pt16_viscosity : uniform real;
+    varying field v_rec_diagonal = real   pt16_velocity_reconstruction_diagonal;
+    varying field v_rec_rhs      = real[] pt16_velocity_reconstruction_rhs;
 
-let h = field smoothing_scale : global real;
-
-let dt = field time_step : global real;
-
-// advect
-let t_b = field time_of_birth : varying real;
-let t_c = field current_time : global real;
-let d_f = field fade_duration : global real;
-let max_speed  = field maximum_speed : global real;
-
-procedure compute_velocity_gradient_and_vorticity {
-  foreach fluid particle f {
-    // compute the velocity gradient
-    local vg_f : real[][] = zeros<real[][]>;
-    foreach fluid neighbor f_f {
-      compute vg_f[_] +=
-          m[f_f] / rho[f]
-        *
-          outer_product(
-            v[f_f] - v[f],
-            kernel_gradient_h(x[f] - x[f_f], h[_])
-          );
-    }
-
-    compute vg[f] = vg_f[_];
-
-    // decompose the velocity gradient into spin, expansion and shear rate
-    local divergence_f : real = trace(vg_f[_]);
-    local R_f : real[][] = (vg_f[_] - transpose(vg_f[_])) / 2;
-    local V_f : real[][] = (divergence_f[_] / 3) * identity<real[][]>;
-    local S_f : real[][] = (vg_f[_] + transpose(vg_f[_])) / 2 - V_f[_];
-
-    // extract the vorticity from the spin rate
-    compute omega[f] = 2 * vector_from_cross_product_matrix(R_f[_]);
-
-    // partially compose the target velocity gradient (without spin rate)
-    compute tvg[f] =
-        // TODO: convoluted way to write "or"
-        unit_step_r(0, rho[f] - rho0[f], divergence_f[_])
-      *
-        V_f[_]
-      +
-        xi[f] * S_f[_];
-
-    // compute fluid-only density for the vorticity diffusion system
-    local fluid_rho_f : real = zeros<real>;
-    foreach fluid neighbor f_f {
-      compute fluid_rho_f[_] += m[f_f] * kernel_h(x[f] - x[f_f], h[_]);
-    }
-
-    // compute the diagonal element of the vorticity diffusion system
-    compute omega_diagonal[f] = fluid_rho_f[_] - m[f] * kernel_h(zeros<real[]>, h[_]);
-
-    // compute the diagonal element of the velocity reconstruction system
-    compute v_rec_diagonal[f] = rho[f] - m[f] * kernel_h(zeros<real[]>, h[_]);
+    uniform field xi = real pt16_viscosity;
   }
-}
 
-procedure compute_vorticity_rhs {
-  // compute the right-hand-side of the vorticity diffusion system
-  foreach fluid particle f {
-    compute omega_rhs[f] = zeros<real[]>;
-    foreach fluid neighbor f_f {
-      compute omega_rhs[f] +=
-          xi[f]
+  global {
+    field h = real smoothing_scale;
+    field dt = real time_step;
+  }
+
+  procedure compute_velocity_gradient_and_vorticity {
+    foreach fluid particle f {
+      // compute the velocity gradient
+      local vg_f : real[][] = zeros<real[][]>();
+
+      foreach fluid neighbor f_f {
+        compute vg_f +=
+            m[f_f] / rho[f]
+          *
+            outer_product(
+              v[f_f] - v[f],
+              kernel_gradient_h(x[f] - x[f_f], h)
+            );
+      }
+
+      compute vg[f] = vg_f;
+
+      // decompose the velocity gradient into spin, expansion and shear rate
+      local divergence_f : real = trace(vg_f);
+      local R_f : real[][] = (vg_f - transpose(vg_f)) / 2;
+      local V_f : real[][] = (divergence_f / 3) * identity<real[][]>();
+      local S_f : real[][] = (vg_f + transpose(vg_f)) / 2 - V_f;
+
+      // extract the vorticity from the spin rate
+      compute omega[f] = 2 * vector_from_cross_product_matrix(R_f);
+
+      // partially compose the target velocity gradient (without spin rate)
+      compute tvg[f] =
+          unit_step_r(0, rho[f] - rho0[f], divergence_f)
         *
-          m[f_f]
-        *
-          (omega[f] - omega[f_f])
-        *
-          kernel_h(x[f] - x[f_f], h[_]);
+          V_f
+        +
+          xi[f] * S_f;
+
+      // compute fluid-only density for the vorticity diffusion system
+      local fluid_rho_f : real = zeros<real>();
+      foreach fluid neighbor f_f {
+        compute fluid_rho_f += m[f_f] * kernel_h(x[f] - x[f_f], h);
+      }
+
+      // compute the diagonal element of the vorticity diffusion system
+      compute omega_diagonal[f] = fluid_rho_f - m[f] * kernel_h(zeros<real[]>(), h);
+
+      // compute the diagonal element of the velocity reconstruction system
+      compute v_rec_diagonal[f] = rho[f] - m[f] * kernel_h(zeros<real[]>(), h);
     }
   }
-}
 
-procedure compute_target_velocity_gradient {
-  foreach fluid particle f {
-    // add the target spin rate (from the diffused vorticity) to the velocity gradient
-    compute tvg[f] += cross_product_matrix_from_vector(omega[f] / 2);
+  procedure compute_vorticity_rhs {
+    // compute the right-hand-side of the vorticity diffusion system
+    foreach fluid particle f {
+      compute omega_rhs[f] = zeros<real[]>();
+      foreach fluid neighbor f_f {
+        compute omega_rhs[f] +=
+            xi[f]
+          *
+            m[f_f]
+          *
+            (omega[f] - omega[f_f])
+          *
+            kernel_h(x[f] - x[f_f], h);
+      }
+    }
   }
-}
-  
-procedure compute_velocity_reconstruction_rhs {
-  // compute the right-hand-side of the velocity reconstruction system
-  foreach fluid particle f {
-    compute v_rec_rhs[f] = zeros<real[]>;
-    foreach fluid neighbor f_f {
-      compute v_rec_rhs[f] +=
-          m[f_f]
-        *
-          ((0.5 * tvg[f] + 0.5 * tvg[f_f]) * (x[f] - x[f_f]))
-        *
-          kernel_h(x[f] - x[f_f], h[_]);
+
+  procedure compute_target_velocity_gradient {
+    foreach fluid particle f {
+      // add the target spin rate (from the diffused vorticity) to the velocity gradient
+      compute tvg[f] += cross_product_matrix_from_vector(omega[f] / 2);
+    }
+  }
+    
+  procedure compute_velocity_reconstruction_rhs {
+    // compute the right-hand-side of the velocity reconstruction system
+    foreach fluid particle f {
+      compute v_rec_rhs[f] = zeros<real[]>();
+      foreach fluid neighbor f_f {
+        compute v_rec_rhs[f] +=
+            m[f_f]
+          *
+            ((0.5 * tvg[f] + 0.5 * tvg[f_f]) * (x[f] - x[f_f]))
+          *
+            kernel_h(x[f] - x[f_f], h);
+      }
     }
   }
 }
@@ -127,11 +125,11 @@ procedure compute_velocity_reconstruction_rhs {
 //      // compute fluid-only density for the vorticity diffusion system
 //      local fluid_rho_f : real = zeros<real>;
 //      foreach fluid neighbor f_f {
-//        compute fluid_rho_f[_] += m[f_f] * kernel_h(x[f] - x[f_f], h[_]);
+//        compute fluid_rho_f += m[f_f] * kernel_h(x[f] - x[f_f], h);
 //      }
 //
 //      // compute the diagonal element of the vorticity diffusion system
-//      compute result[f] = fluid_rho_f[_] - m[f] * kernel_h(zeros<real[]>, h[_]);
+//      compute result[f] = fluid_rho_f - m[f] * kernel_h(zeros<real[]>, h);
 //    }
 //  }
 //
@@ -140,15 +138,15 @@ procedure compute_velocity_reconstruction_rhs {
 //      // compute fluid-only density for the vorticity diffusion system
 //      local fluid_rho_f : real = zeros<real>;
 //      foreach fluid neighbor f_f {
-//        compute fluid_rho_f[_] += m[f_f] * kernel_h(x[f] - x[f_f], h[_]);
+//        compute fluid_rho_f += m[f_f] * kernel_h(x[f] - x[f_f], h);
 //      }
 //
 //      // compute the product at the diagonal element
-//      compute result[f] = (fluid_rho_f - m[f] * kernel_h(zeros<real[]>, h[_])) * omega[f];
+//      compute result[f] = (fluid_rho_f - m[f] * kernel_h(zeros<real[]>, h)) * omega[f];
 //
 //      // accumulate the off-diagonal elements
 //      foreach fluid particle f_f {
-//        result[f] -= m[f_f] * kernel_h(x[f] - x[f_f], h[_]) * omega[f_f];
+//        result[f] -= m[f_f] * kernel_h(x[f] - x[f_f], h) * omega[f_f];
 //      }
 //    }
 //  }

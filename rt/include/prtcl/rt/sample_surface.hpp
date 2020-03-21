@@ -28,14 +28,14 @@ void sample_surface(
     triangle_mesh<ModelPolicy_> const &mesh_, OutputIt_ it_,
     sample_surface_parameters const &p_) {
   using type_policy = typename ModelPolicy_::type_policy;
-  using real = typename type_policy::template dtype_t<nd_dtype::real>;
+  using real = typename type_policy::template dtype_t<dtype::real>;
 
   using math_policy = typename ModelPolicy_::math_policy;
   using o = typename math_policy::operations;
 
-  using rvec = typename math_policy::template nd_dtype_t<nd_dtype::real, 3>;
-  using rmat2 = typename math_policy::template nd_dtype_t<nd_dtype::real, 2, 2>;
-  using rvec2 = typename math_policy::template nd_dtype_t<nd_dtype::real, 2>;
+  using rvec = typename math_policy::template ndtype_t<dtype::real, 3>;
+  using rmat2 = typename math_policy::template ndtype_t<dtype::real, 2, 2>;
+  using rvec2 = typename math_policy::template ndtype_t<dtype::real, 2>;
 
   using index_type =
       typename prtcl::core::remove_cvref_t<decltype(mesh_)>::index_type;

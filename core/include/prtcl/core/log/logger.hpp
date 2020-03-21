@@ -5,6 +5,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <type_traits>
 
 namespace prtcl::core::log {
 
@@ -12,7 +13,12 @@ template <typename, typename> class basic_logger;
 
 using logger = basic_logger<char, std::char_traits<char>>;
 
-enum class log_level { debug, info, error };
+enum class log_level {
+  debug = (1 << 1),
+  info = (1 << 2),
+  warning = (1 << 3),
+  error = (1 << 4),
+};
 
 inline logger &get_logger();
 
@@ -69,11 +75,21 @@ public:
 public:
   virtual ~basic_logger() {}
 
-public:
-  virtual basic_logger &
-  log(log_level /* level */, string_view /* target */, string_view /* origin */,
+protected:
+  virtual basic_logger &log_impl(
+      log_level /* level */, string_view /* target */, string_view /* origin */,
       string_view /* message */) {
     return *this;
+  }
+
+public:
+  basic_logger &
+  log(log_level level, string_view target, string_view origin,
+      string_view message) {
+    if (enabled(level))
+      return this->log_impl(level, target, origin, message);
+    else
+      return *this;
   }
 
 public:
@@ -128,6 +144,24 @@ public:
     (ss << ... << std::forward<Args_>(args));
     return raii(log_level::debug, target, origin, ss.str());
   }
+
+public:
+  bool change(log_level level, bool state = true) {
+    if (state)
+      level_mask |= static_cast<std::underlying_type_t<log_level>>(level);
+    else
+      level_mask &= ~static_cast<std::underlying_type_t<log_level>>(level);
+  }
+
+  bool toggle(log_level level) { change(level, not enabled(level)); }
+
+  bool enabled(log_level level) const {
+    return 0 !=
+           (level_mask & static_cast<std::underlying_type_t<log_level>>(level));
+  }
+
+private:
+  std::underlying_type_t<log_level> level_mask;
 };
 
 using logger = basic_logger<char>;
@@ -142,9 +176,12 @@ private:
   using string_view = typename basic_logger_type::string_view;
 
 public:
-  basic_logger_type &
-  log(log_level level, string_view target, string_view origin,
+  basic_logger_type &log_impl(
+      log_level level, string_view target, string_view origin,
       string_view message) override {
+    // fetch the start time once
+    static auto const start_time = details::get_start_time();
+    // format the log level
     switch (level) {
     case log_level::debug:
       (*_ostream) << "D ";
@@ -159,10 +196,10 @@ public:
       (*_ostream) << "? ";
       break;
     }
-    (*_ostream)
-        << '['
-        << (details::get_current_time() - details::get_start_time()).count()
-        << '|' << target << '|' << origin << "] " << message << std::endl;
+    // format the rest of the message
+    (*_ostream) << '[' << (details::get_current_time() - start_time).count()
+                << '|' << target << '|' << origin << "] " << message
+                << std::endl;
     return *this;
   }
 

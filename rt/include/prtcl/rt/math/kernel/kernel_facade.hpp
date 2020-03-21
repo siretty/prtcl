@@ -69,6 +69,8 @@ private:
   using type_policy = typename impl_traits_type::type_policy;
   using math_policy = typename impl_traits_type::math_policy;
 
+  using o = typename math_policy::operations;
+
 public:
   using real = typename type_policy::real;
 
@@ -96,18 +98,16 @@ public:
   /// Evaluate the kernel itself.
   template <typename V> constexpr real eval(V const &v, real h) const {
     constexpr size_t d = math_policy::template extent_v<V, 0>;
-    return evalr(math_policy::operations::norm(v), h, d);
+    return evalr(o::norm(v), h, d);
   }
 
   /// Evaluate the kernel gradient.
   template <typename V> constexpr auto evalgrad(const V &v, real h) const {
     constexpr size_t d = math_policy::template extent_v<V, 0>;
-    using vector_type =
-        typename math_policy::template nd_dtype_t<nd_dtype::real, d>;
-    real const r = math_policy::operations::norm(v);
-    if (r < math_policy::constants::template epsilon<nd_dtype::real>())
-      return vector_type{
-          math_policy::constants::template zeros<nd_dtype::real, d>()};
+    using vector_type = typename math_policy::template ndtype_t<dtype::real, d>;
+    real const r = o::norm(v);
+    if (r < o::template epsilon<dtype::real>())
+      return vector_type{o::template zeros<dtype::real, d>()};
     return vector_type{(evaldr(r, h, d) / r) * v};
   }
 

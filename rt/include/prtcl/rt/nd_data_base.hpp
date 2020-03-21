@@ -11,9 +11,7 @@ public:
   virtual ~nd_data_base() {}
 
 public:
-  virtual nd_dtype dtype() const = 0;
-
-  virtual nd_shape shape() const = 0;
+  virtual struct ndtype ndtype() const = 0;
 
 public:
   virtual size_t size() const = 0;

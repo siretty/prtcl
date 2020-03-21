@@ -34,9 +34,8 @@ void sample_volume(
     axis_aligned_box<ModelPolicy_, N_> const &aab_, OutputIt_ it_,
     sample_volume_parameters const &p_) {
   using math_policy = typename ModelPolicy_::math_policy;
-  using c = typename math_policy::constants;
   using o = typename math_policy::operations;
-  using rvec = typename math_policy::template nd_dtype_t<nd_dtype::real, 3>;
+  using rvec = typename math_policy::template ndtype_t<dtype::real, 3>;
 
   auto const delta = aab_.hi() - aab_.lo();
   rvec step, offset;
@@ -52,7 +51,7 @@ void sample_volume(
 
   rvec g_vec;
   for (auto const &g_arr : grid) {
-    g_vec = c::template from_array<nd_dtype::real>(g_arr);
+    g_vec = o::template from_array<dtype::real>(g_arr);
     *(it_++) = aab_.lo() + o::cmul(g_vec, step) + offset;
   }
 }
@@ -63,7 +62,7 @@ void sample_volume(
 //    sample_volume_parameters const &p_) {
 //  using math_policy = typename ModelPolicy_::math_policy;
 //  using c = typename math_policy::constants;
-//  using rvec = typename math_policy::template nd_dtype_t<nd_dtype::real, 3>;
+//  using rvec = typename math_policy::template ndtype_t<dtype::real, 3>;
 //
 //  auto const delta = aab_.hi() - aab_.lo();
 //  rvec step;
@@ -84,7 +83,7 @@ void sample_volume(
 //
 //  rvec g_vec;
 //  for (auto const &g_arr : grid) {
-//    g_vec = c::template from_array<nd_dtype::real>(g_arr);
+//    g_vec = o::template from_array<dtype::real>(g_arr);
 //    *(it_++) = aab_.lo() + (g_vec.array() * step.array()).matrix();
 //  }
 //}
@@ -101,14 +100,13 @@ void sample_volume(
   using real = typename type_policy::real;
 
   using math_policy = typename ModelPolicy_::math_policy;
-  using c = typename math_policy::constants;
   using o = typename math_policy::operations;
 
-  using rvec = typename math_policy::template nd_dtype_t<nd_dtype::real, 3>;
+  using rvec = typename math_policy::template ndtype_t<dtype::real, 3>;
 
   // compute aabb of the mesh
-  rvec x_lo = c::template positive_infinity<nd_dtype::real, N>(),
-       x_hi = c::template negative_infinity<nd_dtype::real, N>();
+  rvec x_lo = o::template positive_infinity<dtype::real, N>(),
+       x_hi = o::template negative_infinity<dtype::real, N>();
   for (auto const &x : mesh_.vertices()) {
     for (size_t n = 0; n < N; ++n) {
       x_lo[n] = std::min(x_lo[n], x[n]);
@@ -188,8 +186,7 @@ void sample_volume(
   // TODO: implement a non-naive variant of this check
   for (auto &g_arr : grid) {
     // compute the point on the grid
-    rvec g =
-        x_lo + o::cmul(c::template from_array<nd_dtype::real>(g_arr), step);
+    rvec g = x_lo + o::cmul(o::template from_array<dtype::real>(g_arr), step);
 
     // std::cerr << "DEBUG: i " << g_arr[0] << " " << g_arr[1] << " " <<
     // g_arr[2]

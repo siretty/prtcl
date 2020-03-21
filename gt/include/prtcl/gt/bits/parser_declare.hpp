@@ -186,6 +186,8 @@ struct global_class : x3::annotate_on_success {};
 
 // {{{ scheme { groups ... { ... } } rules
 
+// {{{ n_groups::... rules
+
 namespace n_groups {
 
 /// Parse a selector expression.
@@ -255,6 +257,8 @@ struct varying_field_class : x3::annotate_on_success {};
 
 } // namespace n_groups
 
+// }}}
+
 struct groups_class;
 
 /// Parse a groups selector.
@@ -263,6 +267,8 @@ x3::rule<groups_class, ast::groups> groups = "groups definition";
 struct groups_class : x3::annotate_on_success {};
 
 // }}}
+
+// {{{ n_scheme::... rules
 
 namespace n_scheme {
 
@@ -314,6 +320,37 @@ x3::rule<
 x3::rule<foreach_particle_class, ast::n_scheme::foreach_particle>
     foreach_particle = "foreach particle loop";
 
+// {{{ n_solve::... rules
+
+namespace n_solve {
+
+x3::rule<class statement, ast::n_scheme::n_solve::statement> statement =
+    "statement (part of solve { ... })";
+
+class setup_class;
+class product_class;
+class apply_class;
+
+x3::rule<setup_class, ast::n_scheme::n_solve::setup> setup = "setup";
+
+x3::rule<product_class, ast::n_scheme::n_solve::product> product = "product";
+
+x3::rule<apply_class, ast::n_scheme::n_solve::apply> apply = "apply";
+
+class setup_class : x3::annotate_on_success {};
+class product_class : x3::annotate_on_success {};
+class apply_class : x3::annotate_on_success {};
+
+} // namespace n_solve
+
+// }}}
+
+class solve_class;
+
+x3::rule<solve_class, ast::n_scheme::solve> solve = "solve";
+
+class solve_class : x3::annotate_on_success {};
+
 /// Parse a statement that is part of a procedure.
 x3::rule<class procedure_statement_class, ast::n_scheme::procedure::statement>
     procedure_statement = "statement (part of a procedure)";
@@ -334,6 +371,8 @@ struct procedure_class : x3::annotate_on_success {};
 // }}}
 
 } // namespace n_scheme
+
+// }}}
 
 // {{{ declaration of the rule id types (..._class)
 

@@ -2,7 +2,7 @@
   "name_value": {
     "model": {
       "parameters": {
-        "maximum_time_step": 0.001
+        "maximum_time_step": 0.01
       },
       "group": {
         "f": {
@@ -11,14 +11,19 @@
           "tag": "density",
           "parameters": {
             "surface_tension": 1,
-            "viscosity": 1000,
+            "viscosity": 10,
             "wkbb18_maximum_error": 0.01,
-            "wkbb18_maximum_iterations": 50
+            "wkbb18_maximum_iterations": 50,
+            "pt16_viscosity": 0.9,
+            "pt16_vorticity_error": 1,
+            "pt16_vorticity_iters": 50,
+            "pt16_velocity_error": 10,
+            "pt16_velocity_iters": 50
           },
           "source": {
             "center": { "0": -18, "1": 60, "2": -18, "adaptive": true },
             "velocity": { "0": 0, "1": -70, "2": 70, "adaptive": true },
-            "count": 100000
+            "count": 10000
           },
           "source": {
             "center": { "0": 18, "1": 60, "2": 18, "adaptive": true },

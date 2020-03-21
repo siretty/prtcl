@@ -38,13 +38,13 @@ private:
   using math_policy = typename ModelPolicy_::math_policy;
   using data_policy = typename ModelPolicy_::data_policy;
 
-  template <nd_dtype DType_, size_t... Ns_>
-  using nd_dtype_data_t =
-      typename data_policy::template nd_dtype_data_t<DType_, Ns_...>;
+  template <dtype DType_, size_t... Ns_>
+  using ndtype_data_t =
+      typename data_policy::template ndtype_data_t<DType_, Ns_...>;
 
-  template <nd_dtype DType_, size_t... Ns_>
-  using nd_dtype_data_ref_t =
-      typename data_policy::template nd_dtype_data_ref_t<DType_, Ns_...>;
+  template <dtype DType_, size_t... Ns_>
+  using ndtype_data_ref_t =
+      typename data_policy::template ndtype_data_ref_t<DType_, Ns_...>;
 
 public:
   std::string_view get_name() const { return _group_name; }
@@ -128,50 +128,48 @@ public:
   }
 
 public:
-  template <nd_dtype DType_, size_t... Ns_>
-  auto add_uniform(std::string name_) {
-    using data_type = nd_dtype_data_t<DType_, Ns_...>;
+  template <dtype DType_, size_t... Ns_> auto add_uniform(std::string name_) {
+    using data_type = ndtype_data_t<DType_, Ns_...>;
     auto data = std::make_unique<data_type>();
     data->resize(1);
     auto [it, inserted] = _uniform.emplace(name_, std::move(data));
-    return nd_dtype_data_ref_t<DType_, Ns_...>{
+    return ndtype_data_ref_t<DType_, Ns_...>{
         *static_cast<data_type *>(it->second.get())};
   }
 
-  template <nd_dtype DType_, size_t... Ns_>
+  template <dtype DType_, size_t... Ns_>
   auto get_uniform(std::string name_) const {
     if (auto it = _uniform.find(name_); it != _uniform.end())
-      return nd_dtype_data_ref_t<DType_, Ns_...>{
-          *static_cast<nd_dtype_data_t<DType_, Ns_...> *>(it->second.get())};
+      return ndtype_data_ref_t<DType_, Ns_...>{
+          *static_cast<ndtype_data_t<DType_, Ns_...> *>(it->second.get())};
     else
       throw std::runtime_error{"unknown name"};
   }
 
 public:
-  template <nd_dtype DType_, size_t... Ns_>
-  auto add_varying(std::string name_) {
-    using data_type = nd_dtype_data_t<DType_, Ns_...>;
+  template <dtype DType_, size_t... Ns_> auto add_varying(std::string name_) {
+    using data_type = ndtype_data_t<DType_, Ns_...>;
     auto data = std::make_unique<data_type>();
     data->resize(_size);
     auto [it, inserted] = _varying.emplace(name_, std::move(data));
-    return nd_dtype_data_ref_t<DType_, Ns_...>{
+    return ndtype_data_ref_t<DType_, Ns_...>{
         *static_cast<data_type *>(it->second.get())};
   }
 
-  template <nd_dtype DType_, size_t... Ns_>
+  template <dtype DType_, size_t... Ns_>
   auto get_varying(std::string name_) const {
     if (auto it = _varying.find(name_); it != _varying.end())
-      return nd_dtype_data_ref_t<DType_, Ns_...>{
-          *static_cast<nd_dtype_data_t<DType_, Ns_...> *>(it->second.get())};
+      return ndtype_data_ref_t<DType_, Ns_...>{
+          *static_cast<ndtype_data_t<DType_, Ns_...> *>(it->second.get())};
     else
       throw std::runtime_error{"unknown name"};
   }
 
-  template <nd_dtype DType_, size_t... Ns_>
+  template <dtype DType_, size_t... Ns_>
   bool has_varying(std::string name_) const {
     if (auto it = _varying.find(name_); it != _varying.end()) {
       nd_data_base *base = it->second.get();
-      return base->dtype() == DType_ and base->shape() == nd_shape{Ns_...};
+      return base->ndtype() == ndtype{DType_, {Ns_...}};
     } else
       return false;
   }

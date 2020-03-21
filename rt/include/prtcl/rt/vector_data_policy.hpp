@@ -20,20 +20,23 @@
 
 namespace prtcl::rt {
 
-template <typename MathPolicy_, nd_dtype DType_, size_t... Ns_>
+template <typename MathPolicy_, dtype DType_, size_t... Ns_>
 class vector_nd_data : public nd_data_base {
   // {{{
+  using math_policy = MathPolicy_;
+  using o = typename math_policy::operations;
+
 public:
-  using value_type = typename MathPolicy_::template nd_dtype_t<DType_, Ns_...>;
+  using value_type = typename MathPolicy_::template ndtype_t<DType_, Ns_...>;
   using reference = value_type &;
   using const_reference = value_type const &;
   using pointer = value_type *;
   using const_pointer = value_type const *;
 
 public:
-  nd_dtype dtype() const final { return DType_; }
-
-  nd_shape shape() const final { return {Ns_...}; }
+  struct ndtype ndtype() const final {
+    return {DType_, {Ns_...}};
+  }
 
 public:
   size_t size() const final { return _data.size(); }
@@ -57,7 +60,12 @@ public:
   void swap(vector_nd_data &other) { _data.swap(other.data()); }
 
 public:
-  void resize(size_t size_) final { _data.resize(size_); }
+  void resize(size_t size_) final {
+    size_t old_size = _data.size();
+    _data.resize(size_);
+    for (size_t i = old_size; i < _data.size(); ++i)
+      _data[i] = o::template zeros<DType_, Ns_...>();
+  }
 
 public:
   void permute(size_t *perm_) final {
@@ -70,20 +78,20 @@ private:
   // }}}
 };
 
-template <typename MathPolicy_, nd_dtype DType_, size_t... Ns_>
+template <typename MathPolicy_, dtype DType_, size_t... Ns_>
 class vector_nd_data_ref
     : public boost::equality_comparable<
           vector_nd_data_ref<MathPolicy_, DType_, Ns_...>> {
   // {{{
 public:
-  using value_type = typename MathPolicy_::template nd_dtype_t<DType_, Ns_...>;
+  using value_type = typename MathPolicy_::template ndtype_t<DType_, Ns_...>;
   using reference = value_type &;
   using pointer = value_type *;
 
 public:
-  nd_dtype dtype() const { return DType_; }
-
-  nd_shape shape() const { return {Ns_...}; }
+  struct ndtype ndtype() const {
+    return {DType_, {Ns_...}};
+  }
 
 public:
   size_t size() const { return _size; }
@@ -140,15 +148,15 @@ private:
 
 template <typename MathPolicy_> struct vector_data_policy {
 private:
-  template <nd_dtype DType_, size_t... Ns_>
-  using nd_dtype_t = typename MathPolicy_::template nd_dtype_t<DType_, Ns_...>;
+  template <dtype DType_, size_t... Ns_>
+  using ndtype_t = typename MathPolicy_::template ndtype_t<DType_, Ns_...>;
 
 public:
-  template <nd_dtype DType_, size_t... Ns_>
-  using nd_dtype_data_t = vector_nd_data<MathPolicy_, DType_, Ns_...>;
+  template <dtype DType_, size_t... Ns_>
+  using ndtype_data_t = vector_nd_data<MathPolicy_, DType_, Ns_...>;
 
-  template <nd_dtype DType_, size_t... Ns_>
-  using nd_dtype_data_ref_t = vector_nd_data_ref<MathPolicy_, DType_, Ns_...>;
+  template <dtype DType_, size_t... Ns_>
+  using ndtype_data_ref_t = vector_nd_data_ref<MathPolicy_, DType_, Ns_...>;
 };
 
 } // namespace prtcl::rt

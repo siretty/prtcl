@@ -116,6 +116,27 @@ BOOST_FUSION_ADAPT_STRUCT(                      //
     group, index, statements                    //
 );
 
+BOOST_FUSION_ADAPT_STRUCT(                    //
+    prtcl::gt::ast::n_scheme::n_solve::setup, //
+    name, into, statements                    //
+);
+
+BOOST_FUSION_ADAPT_STRUCT(                      //
+    prtcl::gt::ast::n_scheme::n_solve::product, //
+    name, with, into, statements                //
+);
+
+BOOST_FUSION_ADAPT_STRUCT(                    //
+    prtcl::gt::ast::n_scheme::n_solve::apply, //
+    with, statements                          //
+);
+
+BOOST_FUSION_ADAPT_STRUCT(                                //
+    prtcl::gt::ast::n_scheme::solve,                      //
+    solver, type, groups, index,                          //
+    right_hand_side, guess, preconditioner, system, apply //
+);
+
 BOOST_FUSION_ADAPT_STRUCT(               //
     prtcl::gt::ast::n_scheme::procedure, //
     name, statements                     //

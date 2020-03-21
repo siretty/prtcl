@@ -15,12 +15,9 @@ struct mixed_math_policy {
     using base_math_policy = MathPolicy_<TypePolicy_>;
 
   public:
-    template <nd_dtype DType_>
-    using dtype_t = typename type_policy::template dtype_t<DType_>;
-
-    template <nd_dtype DType_, size_t... Ns_>
-    using nd_dtype_t =
-        typename base_math_policy::template nd_dtype_t<DType_, Ns_...>;
+    template <dtype DType_, size_t... Ns_>
+    using ndtype_t =
+        typename base_math_policy::template ndtype_t<DType_, Ns_...>;
 
     template <typename NDType_, size_t Dimension_>
     static constexpr size_t extent_v =
@@ -29,10 +26,6 @@ struct mixed_math_policy {
     struct operations
         : base_math_policy::operations,
           Mixins_::template mixin<base_math_policy>::operations... {};
-
-    struct constants : base_math_policy::constants,
-                       Mixins_::template mixin<base_math_policy>::constants... {
-    };
   };
 };
 

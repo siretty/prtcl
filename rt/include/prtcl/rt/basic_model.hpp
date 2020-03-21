@@ -26,13 +26,13 @@ private:
   using math_policy = typename ModelPolicy_::math_policy;
   using data_policy = typename ModelPolicy_::data_policy;
 
-  template <nd_dtype DType_, size_t... Ns_>
-  using nd_dtype_data_t =
-      typename data_policy::template nd_dtype_data_t<DType_, Ns_...>;
+  template <dtype DType_, size_t... Ns_>
+  using ndtype_data_t =
+      typename data_policy::template ndtype_data_t<DType_, Ns_...>;
 
-  template <nd_dtype DType_, size_t... Ns_>
-  using nd_dtype_data_ref_t =
-      typename data_policy::template nd_dtype_data_ref_t<DType_, Ns_...>;
+  template <dtype DType_, size_t... Ns_>
+  using ndtype_data_ref_t =
+      typename data_policy::template ndtype_data_ref_t<DType_, Ns_...>;
 
 public:
   using group_type = basic_group<ModelPolicy_>;
@@ -66,21 +66,21 @@ public:
   }
 
 public:
-  template <nd_dtype DType_, size_t... Ns_> auto add_global(std::string name_) {
-    using data_type = nd_dtype_data_t<DType_, Ns_...>;
+  template <dtype DType_, size_t... Ns_> auto add_global(std::string name_) {
+    using data_type = ndtype_data_t<DType_, Ns_...>;
     auto data = std::make_unique<data_type>();
     data->resize(1);
     auto [it, inserted] = _global.emplace(name_, std::move(data));
-    return nd_dtype_data_ref_t<DType_, Ns_...>{
+    return ndtype_data_ref_t<DType_, Ns_...>{
         *static_cast<data_type *>(it->second.get())};
   }
 
 public:
-  template <nd_dtype DType_, size_t... Ns_>
+  template <dtype DType_, size_t... Ns_>
   auto get_global(std::string name_) const {
     if (auto it = _global.find(name_); it != _global.end())
-      return nd_dtype_data_ref_t<DType_, Ns_...>{
-          *static_cast<nd_dtype_data_t<DType_, Ns_...> *>(it->second.get())};
+      return ndtype_data_ref_t<DType_, Ns_...>{
+          *static_cast<ndtype_data_t<DType_, Ns_...> *>(it->second.get())};
     else
       throw std::runtime_error{"unknown name"};
   }
