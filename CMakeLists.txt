@@ -1,4 +1,4 @@
-cmake_minimum_required( VERSION 3.5 FATAL_ERROR )
+cmake_minimum_required( VERSION 3.12 FATAL_ERROR )
 
 project(
   prtcl
@@ -8,9 +8,6 @@ project(
 
 # generate compilation database
 set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
-
-# setup the dependency prefix
-list( APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/deps/prefix" )
 
 # allow loading our own modules
 list( APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" )

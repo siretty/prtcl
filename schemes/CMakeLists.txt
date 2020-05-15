@@ -1,6 +1,4 @@
 
-cmake_minimum_required( VERSION 3.5 FATAL_ERROR )
-
 project(
   prtcl-schemes
   VERSION 0.1
@@ -20,7 +18,6 @@ set( _BLD ${CMAKE_CURRENT_BINARY_DIR} )
 
 
 find_package( Threads REQUIRED )
-find_package( Eigen3 REQUIRED )
 find_package( OpenMP REQUIRED )
 
 

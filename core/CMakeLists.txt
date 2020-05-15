@@ -1,6 +1,4 @@
 
-cmake_minimum_required( VERSION 3.5 FATAL_ERROR )
-
 project(
   prtcl-core
   VERSION 0.1
