@@ -3,4 +3,4 @@
 /bld
 schemes/include/**/*.hpp
 !schemes/include/**/pt16_solvers.hpp
-/tools/superbuild/third_party/archives
+/third_party/archives
