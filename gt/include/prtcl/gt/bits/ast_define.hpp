@@ -304,7 +304,7 @@ struct reduce : position_tagged {
 struct foreach_neighbor : position_tagged {
   using statement = variant<local, compute, reduce>;
 
-  string group;
+  optional<string> group;
   string index;
   vector<statement> statements;
 };
@@ -345,22 +345,35 @@ struct apply : position_tagged {
   vector<statement> statements;
 };
 
-} // namespace n_solve
-
-// }}}
-
-struct solve : position_tagged {
-  string solver;
+struct solve_pcg : position_tagged {
   ndtype type;
   string groups;
   string index;
 
-  n_solve::setup right_hand_side;
-  n_solve::setup guess;
-  n_solve::product preconditioner;
-  n_solve::product system;
-  n_solve::apply apply;
+  setup right_hand_side;
+  setup guess;
+  product preconditioner;
+  product system;
+  apply apply;
 };
+
+} // namespace n_solve
+
+// }}}
+
+using solve = variant<nil, n_solve::solve_pcg>;
+// struct solve : position_tagged {
+//  string solver;
+//  ndtype type;
+//  string groups;
+//  string index;
+//
+//  n_solve::setup right_hand_side;
+//  n_solve::setup guess;
+//  n_solve::product preconditioner;
+//  n_solve::product system;
+//  n_solve::apply apply;
+//};
 
 // }}}
 

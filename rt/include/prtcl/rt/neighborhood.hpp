@@ -93,15 +93,13 @@ public:
       auto &group = model_.groups()[static_cast<difference_type>(i)];
       _data.groups[i].position = {};
       _data.groups[i].has_position =
-          group.template has_varying<dtype::real, dimensionality>(
-              "position");
+          group.template has_varying<dtype::real, dimensionality>("position");
       _data.groups[i].tags.clear();
       _data.groups[i].tags.insert(
           boost::begin(group.tags()), boost::end(group.tags()));
       if (_data.groups[i].has_position) {
         _data.groups[i].position =
-            group.template get_varying<dtype::real, dimensionality>(
-                "position");
+            group.template get_varying<dtype::real, dimensionality>("position");
       }
     }
   }
@@ -125,7 +123,7 @@ public:
     // resize the permutation for each group and fetch the iterator
     for (size_t i = 0; i < model_.groups().size(); ++i) {
       _perm[i].clear();
-      _perm[i].reserve(model_.groups()[i].size());
+      _perm[i].reserve(model_.groups()[static_cast<ssize_t>(i)].size());
       _perm_it.push_back(std::back_inserter(_perm[i]));
     }
     // compute all permutations
@@ -133,7 +131,7 @@ public:
 #pragma omp parallel
     {
       for (size_t i = 0; i < model_.groups().size(); ++i)
-        model_.groups()[i].permute(_perm[i]);
+        model_.groups()[static_cast<ssize_t>(i)].permute(_perm[i]);
     }
     // update the grid with the permuted positions
     _grid.update(_data);
@@ -141,7 +139,10 @@ public:
 
 public:
   template <typename Fn> void neighbors(size_t g_, size_t i_, Fn &&fn) const {
+#ifdef PRTCL_RT_NEIGHBORHOOD_DEBUG_SEARCH
     PRTCL_RT_LOG_TRACE_SCOPED("neighbor search", "g=", g_, " i=", i_);
+#endif
+
     if (_data.groups[g_].has_position)
       _grid.neighbors(g_, i_, _data, std::forward<Fn>(fn));
   }

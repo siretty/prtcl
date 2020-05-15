@@ -60,6 +60,7 @@ endfunction( prtcl_generate_scheme_header )
 prtcl_generate_scheme_header( density )
 prtcl_generate_scheme_header( gravity )
 prtcl_generate_scheme_header( viscosity )
+prtcl_generate_scheme_header( correction )
 
 prtcl_generate_scheme_header( symplectic_euler )
 
@@ -79,6 +80,7 @@ prtcl_add_library(
     ${_INC}/prtcl/schemes/density.hpp
     ${_INC}/prtcl/schemes/gravity.hpp
     ${_INC}/prtcl/schemes/viscosity.hpp
+    ${_INC}/prtcl/schemes/correction.hpp
 
     ${_INC}/prtcl/schemes/symplectic_euler.hpp
 

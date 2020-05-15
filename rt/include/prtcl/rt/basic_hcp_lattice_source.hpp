@@ -60,6 +60,10 @@ private:
 
   static_assert(2 <= N and N <= 3, "");
 
+private:
+  static auto SQRT_3() { return static_cast<real>(std::sqrt(3.0L)); }
+  static auto SQRT_6() { return static_cast<real>(std::sqrt(6.0L)); }
+
 public:
   basic_hcp_lattice_source() = delete;
 
@@ -79,7 +83,7 @@ public:
     auto const h =
         _model->template get_global<dtype::real>("smoothing_scale")[0];
     // compute the height of the layers
-    real const height = std::sqrt(6.0L) * h / 3;
+    real const height = SQRT_6() * h / 3;
     // compute the (virtual) time between spawns
     _regular_spawn_interval = duration{height / o::norm(velocity)};
   }
@@ -127,20 +131,24 @@ public:
       using rvec2 = typename math_policy::template ndtype_t<dtype::real, 2>;
 
       // column and row offsets for planar (triangular) grid
-      rvec2 const coffset{g, 0}, roffset{g / 2, std::sqrt(3.0L) * g / 2};
+      rvec2 const coffset{g, 0}, roffset{g / 2, SQRT_3() * g / 2};
       // offset for the current layer for planar (triangular) grid
       rvec2 loffset{0, 0};
       switch (_age % 2) {
+#ifdef PRTCL_RT_HCP_LATTICE_DEBUG
       case 0:
         log::debug("app", "source", "hcp lattice layer a");
         break;
+#endif
       case 1:
+#ifdef PRTCL_RT_HCP_LATTICE_DEBUG
         log::debug("app", "source", "hcp lattice layer b");
-        loffset = rvec2{g / 2, std::sqrt(3.0L) * g / 6};
+#endif
+        loffset = rvec2{g / 2, SQRT_3() * g / 6};
         break;
       }
 
-      int const half_extent = std::floor(_radius / h) + 1;
+      int const half_extent = static_cast<int>(std::floor(_radius / h)) + 1;
       for (int i1 = -half_extent; i1 <= half_extent; ++i1) {
         for (int i2 = -half_extent; i2 <= half_extent; ++i2) {
           // sample a regular planar grid
@@ -170,19 +178,23 @@ public:
 
     // initialize created particles
     for (size_t i = 0; i < _position.size(); ++i) {
-      x[indices[i]] = _position[i];
-      v[indices[i]] = _velocity;
-      m[indices[i]] = static_cast<real>(prtcl::core::constpow(h, N)) * rho0;
-      t_b[indices[i]] = scheduler_.clock().now().time_since_epoch().count();
+      using difference_type = typename decltype(indices)::difference_type;
+      auto const j = indices[static_cast<difference_type>(i)];
+      x[j] = _position[i];
+      v[j] = _velocity;
+      m[j] = static_cast<real>(prtcl::core::constpow(h, N)) * rho0;
+      t_b[j] = scheduler_.clock().now().time_since_epoch().count();
     }
 
     // adjust the remaining particle count
-    _remaining -= _position.size();
+    _remaining -= static_cast<ssize_t>(_position.size());
     _position.clear();
 
+#ifdef PRTCL_RT_HCP_LATTICE_DEBUG
     log::debug(
         "app", "source", "at age ", _age, " created ", indices.size(), " of ",
         _remaining, " particles in group ", _target_group->get_name());
+#endif
 
     // increase age
     ++_age;
@@ -190,10 +202,14 @@ public:
     // reschedule if this source is not finished
     if (_remaining > 0) {
       auto after = _regular_spawn_interval - delay;
+#ifdef PRTCL_RT_HCP_LATTICE_DEBUG
       log::debug("app", "source", "rescheduling after ", after.count(), "s");
+#endif
       return scheduler_.reschedule_after(after);
     } else {
+#ifdef PRTCL_RT_HCP_LATTICE_DEBUG
       log::debug("app", "source", "source exhausted, not rescheduling");
+#endif
       return scheduler_.do_nothing();
     }
   }

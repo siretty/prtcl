@@ -188,10 +188,10 @@ auto const reduce_def = //
 auto const foreach_neighbor_statement_def = local | compute | reduce;
 
 auto const foreach_neighbor_def = //
-    (lit("foreach") >> identifier >> "neighbor") >
-    (identifier >> '{' >>             //
-     *(foreach_neighbor_statement) >> //
-     '}');
+    (lit("foreach") >> ("particle" >> attr(std::nullopt) | identifier) >>
+     "neighbor" >> identifier) > ('{' >>                           //
+                                  *(foreach_neighbor_statement) >> //
+                                  '}');
 
 auto const foreach_particle_statement_def =
     local | compute | reduce | foreach_neighbor;
@@ -225,12 +225,8 @@ auto const apply_def =                //
     *(statement) >                    //
     '}';
 
-} // namespace n_solve
-
-// }}}
-
-auto const solve_def =                                              //
-    lit("solve") > identifier > ndtype >                            //
+auto const solve_pcg_def =                                          //
+    lit("pcg") > ndtype >                                           //
     lit("over") > identifier > lit("particle") > identifier > '{' > //
     n_solve::setup > /* right_hand_side */                          //
     n_solve::setup > /* guess */                                    //
@@ -238,6 +234,22 @@ auto const solve_def =                                              //
     n_solve::product > /* system */                                 //
     n_solve::apply > /* apply */                                    //
     '}';
+
+} // namespace n_solve
+
+// }}}
+
+auto const solve_def = //
+    lit("solve") > n_solve::solve_pcg;
+// auto const solve_def =                                              //
+//    lit("solve") > identifier > ndtype >                            //
+//    lit("over") > identifier > lit("particle") > identifier > '{' > //
+//    n_solve::setup > /* right_hand_side */                          //
+//    n_solve::setup > /* guess */                                    //
+//    n_solve::product > /* preconditioner */                         //
+//    n_solve::product > /* system */                                 //
+//    n_solve::apply > /* apply */                                    //
+//    '}';
 
 auto const procedure_statement_def = local | compute | foreach_particle | solve;
 

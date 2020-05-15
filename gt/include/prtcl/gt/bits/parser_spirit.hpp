@@ -66,6 +66,8 @@ namespace n_solve {
 BOOST_SPIRIT_DEFINE(statement);
 BOOST_SPIRIT_DEFINE(setup, product, apply);
 
+BOOST_SPIRIT_DEFINE(solve_pcg);
+
 } // namespace n_solve
 
 BOOST_SPIRIT_DEFINE(solve);

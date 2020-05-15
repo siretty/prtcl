@@ -5,6 +5,8 @@
 #include <prtcl/rt/basic_group.hpp>
 #include <prtcl/rt/basic_model.hpp>
 
+#include <prtcl/rt/openmp/solver/cg.hpp>
+
 #include <prtcl/rt/log/trace.hpp>
 
 #include <prtcl/core/log/logger.hpp>
@@ -222,26 +224,79 @@ public:
     // alias for the math_policy member types
     using o = typename math_policy::operations;
 
+    _per_thread.resize(omp_get_max_threads());
+    for (auto &t : _per_thread)
+      t.neighbors.resize(this->_group_count);
+
+    static prtcl::rt::openmp::cg<model_policy> solver;
+
+    size_t iterations = 0;
+
+    for (auto &p : _data.by_group_type.fluid) {
+      auto max_error = p.pt16_vorticity_diffusion_maximum_error[0];
+      auto max_iters = p.pt16_vorticity_diffusion_maximum_iterations[0];
+
+      for (size_t d = 0; d < N; ++d) {
+        auto rhs = [d](auto &p, size_t f, auto &r) {
+          r[f] = p.pt16_vorticity_diffusion_rhs[f][d];
+        };
+
+        auto guess = [d](auto &p, size_t f, auto &r) {
+          r[f] = p.vorticity[f][d];
+        };
+
+        auto system = [this, &nhood_, &g](auto &p, size_t f, auto &r, auto &v) {
+          auto const h = g.smoothing_scale[0];
+
+          auto &neighbors = this->_per_thread[omp_get_thread_num()].neighbors;
+          for (auto &pgn : neighbors)
+            pgn.clear();
+          nhood_.neighbors(p._index, f, [&neighbors](auto n_index, auto j) {
+            neighbors[n_index].push_back(j);
+          });
+
+          r[f] = p.density[f] * v[f];
+
+          for (auto f_f : neighbors[p._index]) {
+            r[f] -= p.mass[f_f] *
+                    o::kernel_h(p.position[f] - p.position[f_f], h) * v[f_f];
+          }
+        };
+
+        auto precond = [](auto &p, size_t f, auto &r, auto &v) { r[f] = v[f]; };
+
+        auto apply = [d, &g](auto &p, size_t f, auto &v) {
+          p.vorticity[f][d] = v[f];
+        };
+
+        iterations += solver.solve(
+            p, rhs, guess, system, precond, apply,
+            max_error * 1e-5 * p.rest_density[0], max_iters);
+      }
+    }
+
+    return iterations;
+
+    /* {{{
     size_t d = 0;
 
     auto diagonal = [](auto &p, size_t f, auto &) {
       return p.pt16_vorticity_diffusion_diagonal[f];
     };
 
-    auto product = [&g, &diagonal](
-                       auto &p, size_t f, auto &neighbors, auto const &x) {
-      auto const h = g.smoothing_scale[0];
+    auto product =
+        [&g, &diagonal](auto &p, size_t f, auto &neighbors, auto const &x) {
+          auto const h = g.smoothing_scale[0];
 
-      real result = diagonal(p, f, neighbors) * x(f);
+          real result = p.density[f] * x(f);
 
-      for (auto f_f : neighbors[p._index]) {
-        if (f != f_f)
-          result -= p.mass[f_f] *
-                    o::kernel_h(p.position[f] - p.position[f_f], h) * x(f_f);
-      }
+          for (auto f_f : neighbors[p._index]) {
+            result -= p.mass[f_f] *
+                      o::kernel_h(p.position[f] - p.position[f_f], h) * x(f_f);
+          }
 
-      return result;
-    };
+          return result;
+        };
 
     auto rhs = [&d](auto &p, size_t f, auto &) {
       return p.pt16_vorticity_diffusion_rhs[f][d];
@@ -264,6 +319,7 @@ public:
     }
 
     return iterations;
+    }}} */
   }
 
 public:
@@ -275,26 +331,85 @@ public:
     // alias for the math_policy member types
     using o = typename math_policy::operations;
 
-    size_t d = 0;
+    _per_thread.resize(omp_get_max_threads());
+    for (auto &t : _per_thread)
+      t.neighbors.resize(this->_group_count);
 
+    static prtcl::rt::openmp::cg<model_policy> solver;
+
+    size_t iterations = 0;
+
+    for (auto &p : _data.by_group_type.fluid) {
+      auto max_error = p.pt16_velocity_reconstruction_maximum_error[0];
+      auto max_iters = p.pt16_velocity_reconstruction_maximum_iterations[0];
+
+      for (size_t d = 0; d < N; ++d) {
+        auto rhs = [d](auto &p, size_t f, auto &r) {
+          r[f] = p.pt16_velocity_reconstruction_rhs[f][d];
+        };
+
+        auto guess = [d](auto &p, size_t f, auto &r) {
+          r[f] = p.velocity[f][d];
+        };
+
+        auto system = [this, &nhood_, &g](auto &p, size_t f, auto &r, auto &v) {
+          auto const h = g.smoothing_scale[0];
+
+          auto &neighbors = this->_per_thread[omp_get_thread_num()].neighbors;
+          for (auto &pgn : neighbors)
+            pgn.clear();
+          nhood_.neighbors(p._index, f, [&neighbors](auto n_index, auto j) {
+            neighbors[n_index].push_back(j);
+          });
+
+          r[f] = p.density[f] * v[f];
+
+          for (auto f_f : neighbors[p._index]) {
+            r[f] -= p.mass[f_f] *
+                    o::kernel_h(p.position[f] - p.position[f_f], h) * v[f_f];
+          }
+        };
+
+        auto precond = [](auto &p, size_t f, auto &r, auto &v) {
+          r[f] = v[f]; // * o::reciprocal_or_zero(
+                       //     p.pt16_velocity_reconstruction_diagonal[f],
+                       //     1 / p.rest_density[0]);
+        };
+
+        auto apply = [d, &g](auto &p, size_t f, auto &v) {
+          if (g.current_time[0] - p.time_of_birth[f] > g.fade_duration[0])
+            p.velocity[f][d] = v[f];
+        };
+
+        size_t d_iterations = solver.solve(
+            p, rhs, guess, system, precond, apply,
+            max_error * p.rest_density[0], max_iters);
+        prtcl::core::log::debug(
+            "app", "pt16", "dim=", d, " iterations ", d_iterations);
+        iterations += d_iterations;
+      }
+    }
+
+    return iterations;
+
+    /* {{{
     auto diagonal = [&g](auto &p, size_t f, auto &) {
       return p.pt16_velocity_reconstruction_diagonal[f];
     };
 
-    auto product = [&g, &diagonal](
-                       auto &p, size_t f, auto &neighbors, auto const &x) {
-      auto const h = g.smoothing_scale[0];
+    auto product =
+        [&g, &diagonal](auto &p, size_t f, auto &neighbors, auto const &x) {
+          auto const h = g.smoothing_scale[0];
 
-      real result = diagonal(p, f, neighbors) * x(f);
+          real result = p.density[f] * x(f);
 
-      for (auto f_f : neighbors[p._index]) {
-        if (f != f_f)
-          result -= p.mass[f_f] *
-                    o::kernel_h(p.position[f] - p.position[f_f], h) * x(f_f);
-      }
+          for (auto f_f : neighbors[p._index]) {
+            result -= p.mass[f_f] *
+                      o::kernel_h(p.position[f] - p.position[f_f], h) * x(f_f);
+          }
 
-      return result;
-    };
+          return result;
+        };
 
     auto rhs = [&d](auto &p, size_t f, auto &) {
       return p.pt16_velocity_reconstruction_rhs[f][d];
@@ -327,6 +442,7 @@ public:
     }
 
     return iterations;
+    }}} */
   }
 };
 

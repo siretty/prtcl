@@ -86,6 +86,12 @@ public:
   }
 
 public:
+  template <dtype DType_, size_t... Ns_>
+  bool has_global(std::string name_) const {
+    return _global.find(name_) != _global.end();
+  }
+
+public:
   auto globals() const { return boost::make_iterator_range(_global); }
 
 private:

@@ -11,7 +11,7 @@ scheme viscosity {
     varying field m = real mass;
 
     uniform field rho0 = real rest_density;
-    uniform field nu = real viscosity;
+    uniform field mu = real dynamic_viscosity;
   }
 
   groups boundary {
@@ -21,7 +21,7 @@ scheme viscosity {
 
     varying field V = real volume;
 
-    uniform field nu = real viscosity;
+    uniform field mu = real dynamic_viscosity;
   }
 
   global {
@@ -36,7 +36,7 @@ scheme viscosity {
             (
                 10 // HACK: this is actually a dimensionality correction factor (10 in 3D, 8 in 2D)
               *
-                nu[f]
+                (mu[f] / rho[f])
               *
                 (m[f_f] / rho[f_f])
               *
@@ -54,9 +54,9 @@ scheme viscosity {
             (
                 10 // HACK: this is actually a dimensionality correction factor (10 in 3D, 8 in 2D)
               *
-                nu[f_b]
+                (mu[f_b] / rho[f])
               *
-                rho0[f] * V[f_b] / rho[f]
+                (rho0[f] * V[f_b] / rho[f])
               *
                 // TODO: fix velocity for boundaries
                 dot(v[f] - zeros<real[]>(), x[f] - x[f_b])

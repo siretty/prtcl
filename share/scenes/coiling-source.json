@@ -13,24 +13,19 @@
           "tag": "density",
           "parameters": {
             "surface_tension": 0.01,
-            "dynamic_viscosity": 1000.0,
-            "wkbb18_maximum_error": 0.01,
+            "dynamic_viscosity": 4000.0,
+            "wkbb18_maximum_error": 0.1,
             "wkbb18_maximum_iterations": 100,
             "strain_rate_viscosity": 0.5,
             "pt16_vorticity_error": 1,
-            "pt16_vorticity_iters": 5000,
-            "pt16_velocity_error": 1,
-            "pt16_velocity_iters": 5000
+            "pt16_vorticity_iters": 500,
+            "pt16_velocity_error": 0.0001,
+            "pt16_velocity_iters": 500
           },
-          "sample": {
-            "volume": {
-              "what": "triangle_mesh",
-              "file_type": "obj",
-              "file_path": "share/models/cube.obj",
-              "scaling" :     { "0": 2.5, "1": 100, "2": 1, "adaptive": true },
-              "translation" : { "0": 0, "1": 101, "2": 0, "adaptive": true },
-              "factor": 0.9
-            }
+          "source": {
+            "center": { "0": -30, "1": 100, "2": -30, "adaptive": true },
+            "velocity": { "0": 20, "1": -100, "2": 20, "adaptive": true },
+            "count": 10000
           }
         },
         "b": {
@@ -49,7 +44,16 @@
               "scaling" :     { "0": 40, "1": 0.5, "2": 40, "adaptive": true },
               "translation" : { "0": 0, "1": -1, "2": 0, "adaptive": true },
               "rotation_axis": {"0": 1, "1": 0, "2": 0},
-              "rotation_angle": 0.1
+              "rotation_angle": 0
+            }
+          },
+          "sample": {
+            "volume": {
+              "what": "triangle_mesh",
+              "file_type": "obj",
+              "file_path": "share/models/cube.obj",
+              "scaling" :     { "0": 1, "1": 1, "2": 1, "adaptive": true },
+              "translation" : { "0": 0, "1": 400, "2": 0, "adaptive": true }
             }
           }
         }
@@ -57,5 +61,3 @@
     }
   }
 }
-
-

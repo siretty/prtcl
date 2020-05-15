@@ -1,5 +1,5 @@
-#include "prtcl/schemes/aiast12.hpp"
-#include <fenv.h>
+#include <prtcl/core/log/logger.hpp>
+
 #include <prtcl/rt/basic_application.hpp>
 #include <prtcl/rt/math/aat13_math_policy_mixin.hpp>
 
@@ -34,6 +34,7 @@ class iisph_wkbb18_application final
 
 public:
   using model_policy = typename base_type::model_policy;
+  using type_policy = typename model_policy::type_policy;
   using math_policy = typename model_policy::math_policy;
 
   using model_type = typename base_type::model_type;
@@ -41,6 +42,7 @@ public:
 
   using dtype = prtcl::core::dtype;
 
+  using real = typename type_policy::real;
   using o = typename math_policy::operations;
 
   static constexpr size_t N = model_policy::dimensionality;
@@ -70,15 +72,9 @@ public:
 
     auto g = model.template add_global<dtype::real, N>("gravity");
     g[0] = o::template zeros<dtype::real, N>();
-    g[0][1] = -9.81;
+    g[0][1] = static_cast<real>(-9.81);
 
-    prtcl::core::log::debug(
-        "app", "pt16", "implicit viscosity = ",
-        1 - model.get_group("f").template get_uniform<dtype::real>(
-                "viscosity")[0]);
-
-    //::feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
-    ::feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
+    ::feenableexcept(FE_DIVBYZERO | FE_OVERFLOW | FE_INVALID);
   }
 
   void on_prepare_step(model_type &, neighborhood_type &) override {
@@ -86,6 +82,8 @@ public:
   }
 
   void on_step(model_type &model, neighborhood_type &nhood) override {
+    namespace log = prtcl::core::log;
+
     density.compute_density(nhood);
 
     gravity.initialize_acceleration(nhood);
@@ -108,6 +106,8 @@ public:
     advect.integrate_velocity_with_hard_fade(nhood);
 
     { // pressure solver
+      PRTCL_RT_LOG_TRACE_SCOPED("pressure solver");
+
       auto aprde = model.template get_global<dtype::real>("iisph_aprde");
       auto nprde = model.template get_global<dtype::integer>("iisph_nprde");
 
@@ -117,9 +117,9 @@ public:
 
       constexpr int min_solver_iterations = 3;
       constexpr int max_solver_iterations = 2000;
-      constexpr typename model_policy::type_policy::real max_aprde = 0.001;
+      constexpr auto const max_aprde = static_cast<real>(0.001);
 
-      typename model_policy::type_policy::real cur_aprde = 0;
+      real cur_aprde = 0;
 
       int pressure_iteration = 0;
       for (;
@@ -140,24 +140,27 @@ public:
         iisph.iteration_pressure(nhood);
 
         // compute the average positive relative density error
-        cur_aprde = aprde[0] / nprde[0];
+        cur_aprde = aprde[0] / static_cast<real>(nprde[0]);
       }
 
       // prtcl::core::log::debug(
       //    "app", "iisph", "last aprde = ", aprde[0],
       //    " cur_aprde = ", cur_aprde);
-      // prtcl::core::log::debug(
-      //    "app", "iisph", "no. iterations ", pressure_iteration);
+      prtcl::core::log::debug(
+          "app", "iisph", "no. iterations ", pressure_iteration);
     }
 
     // predict the velocity at the next timestep (explicit + pressure)
     advect.integrate_velocity_with_hard_fade(nhood);
 
     { // viscosity solver
-      implicit_viscosity.compute_diagonal(nhood);
+      PRTCL_RT_LOG_TRACE_SCOPED("viscosity solver");
 
-      size_t iterations =
-          implicit_viscosity_solvers.accumulate_acceleration(nhood);
+      implicit_viscosity.compute_diagonal(nhood);
+      implicit_viscosity.accumulate_acceleration(nhood);
+
+      // size_t iterations =
+      //    implicit_viscosity_solvers.accumulate_acceleration(nhood);
 
       // prtcl::core::log::debug("app", "wkbb18", "no. iterations ",
       // iterations);
@@ -204,5 +207,5 @@ int main(int argc_, char **argv_) {
   std::getchar();
 
   iisph_wkbb18_application<model_policy> application;
-  application.main(argc_, argv_);
+  return application.main(argc_, argv_);
 }

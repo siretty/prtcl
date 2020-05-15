@@ -10,14 +10,14 @@ TEST_CASE("prtcl/rt/math/eigen_math_policy.hpp", "[prtcl][rt]") {
   using type_policy = prtcl::rt::fib_type_policy;
   using math_policy = prtcl::rt::eigen_math_policy<type_policy>;
 
-  using prtcl::rt::nd_boolean_t;
-  using prtcl::rt::nd_integer_t;
-  using prtcl::rt::nd_real_t;
+  using prtcl::rt::nboolean_t;
+  using prtcl::rt::ninteger_t;
+  using prtcl::rt::nreal_t;
 
   SECTION("math policy types") {
-    CHECK(std::is_same<nd_real_t<math_policy>, float>::value);
-    CHECK(std::is_same<nd_integer_t<math_policy>, int>::value);
-    CHECK(std::is_same<nd_boolean_t<math_policy>, bool>::value);
+    CHECK(std::is_same<nreal_t<math_policy>, float>::value);
+    CHECK(std::is_same<ninteger_t<math_policy>, int>::value);
+    CHECK(std::is_same<nboolean_t<math_policy>, bool>::value);
   }
 
   using prtcl::core::dtype;
@@ -35,8 +35,8 @@ TEST_CASE("prtcl/rt/math/eigen_math_policy.hpp", "[prtcl][rt]") {
   }
 
   SECTION("three-dimensional real linear algebra") {
-    using rvec3 = nd_real_t<math_policy, 3>;
-    using rmat3 = nd_real_t<math_policy, 3, 3>;
+    using rvec3 = nreal_t<math_policy, 3>;
+    using rmat3 = nreal_t<math_policy, 3, 3>;
 
     CHECK(rvec3{0.f, 0.f, 0.f} == o::zeros<dtype::real, 3>());
     CHECK(rvec3{1.f, 1.f, 1.f} == o::ones<dtype::real, 3>());
@@ -66,7 +66,7 @@ TEST_CASE("prtcl/rt/math/eigen_math_policy.hpp", "[prtcl][rt]") {
   }
 
   SECTION("three-dimensional integer vectors") {
-    using ivec3 = nd_integer_t<math_policy, 3>;
+    using ivec3 = ninteger_t<math_policy, 3>;
 
     CHECK(ivec3{0, 0, 0} == o::zeros<dtype::integer, 3>());
     CHECK(ivec3{1, 1, 1} == o::ones<dtype::integer, 3>());
@@ -79,7 +79,7 @@ TEST_CASE("prtcl/rt/math/eigen_math_policy.hpp", "[prtcl][rt]") {
   }
 
   SECTION("three-dimensional boolean vectors") {
-    using bvec3 = nd_boolean_t<math_policy, 3>;
+    using bvec3 = nboolean_t<math_policy, 3>;
 
     CHECK(bvec3{false, false, false} == o::zeros<dtype::boolean, 3>());
     CHECK(bvec3{true, true, true} == o::ones<dtype::boolean, 3>());

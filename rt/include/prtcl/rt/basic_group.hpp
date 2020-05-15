@@ -124,7 +124,9 @@ public:
     // destroyed are in the end
     permute(_destroy_perm);
     // remove the particles by resizing this group
-    resize(size() - std::distance(first, _destroy_perm.end()));
+    resize(
+        size() -
+        static_cast<size_t>(std::distance(first, _destroy_perm.end())));
   }
 
 public:

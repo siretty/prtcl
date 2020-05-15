@@ -2,7 +2,7 @@
 
 #include "common.hpp"
 
-#include <prtcl/rt/math/math_policy.hpp>
+#include <prtcl/rt/type_traits.hpp>
 
 #include <prtcl/core/identity.hpp>
 #include <prtcl/core/log/logger.hpp>
@@ -319,6 +319,7 @@ template <
     typename DiagonalF_>
 class BlockDiagonalMatrix {
   static constexpr size_t N = BlockSize_;
+  static constexpr int Ni = static_cast<int>(N);
 
 public:
   using StorageIndex = StorageIndex_;
@@ -337,8 +338,8 @@ public:
     _diagonal.resize(_size);
   }
 
-  Eigen::Index rows() const { return _size * BlockSize_; }
-  Eigen::Index cols() const { return _size * BlockSize_; }
+  Eigen::Index rows() const { return static_cast<Eigen::Index>(_size * N); }
+  Eigen::Index cols() const { return static_cast<Eigen::Index>(_size * N); }
 
   Eigen::ComputationInfo info() { return Eigen::Success; }
 
@@ -372,9 +373,8 @@ public:
     {
 #pragma omp for
       for (size_t i = 0; i < _size; i++) {
-        column.template block<BlockSize_, 1>(BlockSize_ * i, 0) =
-            _diagonal[i] *
-            right_hand_side.template block<BlockSize_, 1>(BlockSize_ * i, 0);
+        column.template block<Ni, 1>(Ni * i, 0) =
+            _diagonal[i] * right_hand_side.template block<Ni, 1>(Ni * i, 0);
       }
     }
   }
@@ -389,7 +389,7 @@ public:
 private:
   size_t _size;
   DiagonalF_ *_functor = nullptr;
-  std::vector<Eigen::Matrix<Scalar, BlockSize_, BlockSize_>> _diagonal;
+  std::vector<Eigen::Matrix<Scalar, Ni, Ni>> _diagonal;
 };
 
 // }}}
@@ -523,6 +523,21 @@ public:
       return std::forward<Arg_>(arg_).minCoeff();
     }
 
+    /// Returns the sum of all coefficients of arg.
+    template <typename Arg_> static decltype(auto) sum(Arg_ &&arg) {
+      return std::forward<Arg_>(arg).sum();
+    }
+
+    /// Returns the product of all coefficients of arg.
+    template <typename Arg_> static decltype(auto) product(Arg_ &&arg) {
+      return std::forward<Arg_>(arg).prod();
+    }
+
+    /// Compute the inverse.
+    template <typename A_> static decltype(auto) invert(A_ &&a_) {
+      return std::forward<A_>(a_).inverse();
+    }
+
     /// Compute the Penrose-Moore Pseudo-Inverse.
     template <typename A_> static decltype(auto) invert_pm(A_ &&a_) {
       return std::forward<A_>(a_)
@@ -560,7 +575,7 @@ public:
     template <typename Eps_, typename... Arg_>
     static real unit_step_l(Eps_ &&eps_, Arg_ &&... arg) {
       real const eps = static_cast<real>(std::forward<Eps_>(eps_));
-      if (((static_cast<real>(std::forward<Arg_>(arg)) > eps) or ...))
+      if (((eps < static_cast<real>(std::forward<Arg_>(arg))) or ...))
         return real{1};
       else
         return real{0};
@@ -568,12 +583,12 @@ public:
 
     /// Unit Step / Heaviside Step function (right-continuous variant).
     ///   x \mapsto
-    ///       1   if x > eps
+    ///       1   if x >= eps
     ///       0   otherwise
     template <typename Eps_, typename... Arg_>
     static real unit_step_r(Eps_ &&eps_, Arg_ &&... arg) {
       real const eps = static_cast<real>(std::forward<Eps_>(eps_));
-      if (((static_cast<real>(std::forward<Arg_>(arg)) > eps) or ...))
+      if (((eps <= static_cast<real>(std::forward<Arg_>(arg))) or ...))
         return real{1};
       else
         return real{0};
@@ -631,6 +646,17 @@ public:
       else
         return n_eigen::select_eigen_type_t<type, Ns_...>::Constant(
             most_positive<DType_>());
+    }
+
+    template <dtype DType_, size_t... Ns_>
+    static decltype(auto) smallest_positive() {
+      static_assert(dtype::real == DType_ or dtype::integer == DType_, "");
+      using type = ndtype_t<DType_>;
+      if constexpr (0 == sizeof...(Ns_))
+        return std::numeric_limits<type>::min();
+      else
+        return n_eigen::select_eigen_type_t<type, Ns_...>::Constant(
+            smallest_positive<DType_>());
     }
 
     template <dtype DType_, size_t... Ns_>

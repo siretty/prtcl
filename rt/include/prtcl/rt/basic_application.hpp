@@ -79,8 +79,8 @@ void initialize_fluid(prtcl::rt::basic_model<ModelPolicy_> &model) {
 
   auto random_rvec = [&gen, &dis]() {
     rvec result;
-    for (size_t i = 0; i < result.size(); ++i)
-      result[i] = dis(gen);
+    for (int d = 0; d < result.size(); ++d)
+      result[d] = dis(gen);
     return result;
   };
 
@@ -144,7 +144,9 @@ protected:
   virtual void on_require_schemes(model_type &) {}
   virtual void on_load_schemes(model_type &) {}
 
-  virtual void on_prepare_simulation(model_type &, neighborhood_type &) {}
+  virtual void on_prepare_simulation(model_type &, neighborhood_type &) {
+    core::log::get_logger().change(core::log::log_level::debug, false);
+  }
 
   virtual void on_prepare_frame(model_type &, neighborhood_type &) {}
   virtual void on_prepare_step(model_type &, neighborhood_type &) {}
@@ -211,6 +213,150 @@ private:
   using scheduler_type = virtual_scheduler<real>;
   using duration = typename scheduler_type::duration;
 
+private:
+  template <typename RemoveIdxs_, typename PositionInDomain_>
+  void do_frame(
+      size_t frame, model_type &model, neighborhood_type &nhood,
+      scheduler_type &scheduler, long double seconds_per_frame,
+      RemoveIdxs_ &remove_idxs, PositionInDomain_ &position_in_domain) {
+    namespace log = prtcl::core::log;
+
+    log::info_raii("app", "frame", '#', frame);
+
+    // remove particles by permuting them to the end and resizing the storage
+    if (0 == frame % 4) {
+      bool particles_were_erased = false;
+
+      // {{{ implementation
+      for (size_t group_index = 0; group_index < model.groups().size();
+           ++group_index) {
+
+        auto &group = model.get_group(group_index);
+        if (group.get_type() != "fluid")
+          continue;
+
+        // find all particles in group that are out-of-bounds
+        remove_idxs.clear();
+
+        auto x = group.template get_varying<dtype::real, N>("position");
+
+#pragma omp parallel for
+        for (size_t i = 0; i < x.size(); ++i) {
+          if (not position_in_domain(x[i])) {
+#pragma omp critical
+            remove_idxs.push_back(i);
+          }
+        }
+
+        if (remove_idxs.size() > 0) {
+          group.erase(remove_idxs);
+          particles_were_erased = true;
+        }
+      }
+      // }}}
+
+      // in case particles were erased ...
+      if (particles_were_erased) {
+        // ... and reload the schemes
+        this->do_load_schemes(model);
+        // ... rebuild the neighborhood
+        nhood.rebuild(model);
+
+        for (auto &group : model.groups())
+          group.dirty(false);
+      }
+    }
+
+    auto h = model.template get_global<dtype::real>("smoothing_scale")[0];
+
+    auto &clock = scheduler.clock();
+    auto frame_done = clock.now() + duration{seconds_per_frame};
+
+    while (clock.now() < frame_done) {
+      PRTCL_RT_LOG_TRACE_SCOPED(
+          "step", "t=", clock.now().time_since_epoch().count());
+
+      if (boost::algorithm::any_of(model.groups(), [](auto const &group) {
+            return group.dirty();
+          })) {
+        this->do_load_schemes(model);
+        nhood.rebuild(model);
+
+        for (auto &group : model.groups())
+          group.dirty(false);
+      } else {
+        // update the neighborhood
+        nhood.update();
+
+        // permute the particles according to the neighborhood
+        if (0 == frame % 8) {
+          nhood.permute(model);
+          nhood.update();
+        }
+      }
+
+      model.template get_global<dtype::real>("maximum_speed")[0] = 0;
+
+      // run all computational steps
+      this->do_prepare_step(model, nhood);
+      this->do_step(model, nhood);
+      this->do_step_done(model, nhood);
+
+      auto dt = static_cast<long double>(
+          model.template get_global<dtype::real>("time_step")[0]);
+
+      // advance the simulation clock and run schedule
+      clock.advance(static_cast<real>(dt));
+      scheduler.tick();
+
+      adjust_time_step(model);
+
+      // set the current time
+      model.template get_global<dtype::real>("current_time")[0] =
+          clock.now().time_since_epoch().count();
+    }
+
+    log::debug(
+        "app", "main", "current max_speed = ",
+        model.template get_global<dtype::real>("maximum_speed")[0]);
+    log::debug(
+        "app", "main", "current time_step = ",
+        model.template get_global<dtype::real>("time_step")[0]);
+
+    PRTCL_RT_LOG_TRACE_CFRAME_MARK();
+  }
+
+  void adjust_time_step(model_type &model) {
+    namespace log = prtcl::core::log;
+
+    // fetch the maximum time step
+    auto const max_time_step =
+        model.template get_global<dtype::real>("maximum_time_step")[0];
+    // fetch the minimum time step
+    auto const min_time_step =
+        model.template get_global<dtype::real>("minimum_time_step")[0];
+    // fetch the smoothing scale of the simulation
+    auto const h = model.template get_global<dtype::real>("smoothing_scale")[0];
+    // fetch the maximum speed of any fluid particle
+    auto const max_speed =
+        model.template get_global<dtype::real>("maximum_speed")[0];
+    // fetch the maximum allowed cfl number used to compute the time step
+    auto const max_cfl =
+        model.template get_global<dtype::real>("maximum_cfl")[0];
+
+    // modify the timestep
+    auto next_time_step = max_time_step;
+    if (max_speed > 0)
+      next_time_step = std::max(
+          std::min(max_cfl * h / max_speed, max_time_step), min_time_step);
+    model.template get_global<dtype::real>("time_step")[0] = next_time_step;
+
+    if (next_time_step < max_time_step)
+      log::debug(
+          "app", "main", "REDUCED TIME STEP ",
+          model.template get_global<dtype::real>("time_step")[0]);
+  }
+
 public:
   int main(int argc_, char **argv_) {
     namespace log = core::log;
@@ -256,7 +402,7 @@ public:
 
         auto x = group.template get_varying<dtype::real, N>("position");
         for (size_t i = 0; i < group.size(); ++i) {
-          for (int n = 0; n < N; ++n) {
+          for (int n = 0; n < static_cast<int>(N); ++n) {
             b_lo[n] = std::min(b_lo[n], x[i][n]);
             b_hi[n] = std::max(b_hi[n], x[i][n]);
           }
@@ -297,16 +443,18 @@ public:
     std::vector<size_t> remove_idxs, remove_perm;
     std::vector<rvec> spawned_positions, spawned_velocities;
 
+    auto const max_seconds = [&model] {
+      if (model.template has_global<dtype::real>("maximum_simulation_seconds"))
+        return model.template get_global<dtype::real>(
+            "maximum_simulation_seconds")[0];
+      else
+        return real{1};
+    }();
+
     size_t const fps = 30;
-    //size_t const max_frame = 60 * fps;
-    size_t const max_frame = 100;
+    size_t const max_frame = static_cast<size_t>(std::round(max_seconds * fps));
 
     auto const seconds_per_frame = (1.0L / fps);
-
-    auto const max_cfl =
-        model.template get_global<dtype::real>("maximum_cfl")[0];
-    auto const max_time_step =
-        model.template get_global<dtype::real>("maximum_time_step")[0];
 
     // set the current time and the fade duration
     model.template add_global<dtype::real>("current_time")[0] =
@@ -315,8 +463,6 @@ public:
         static_cast<real>(2 * seconds_per_frame);
 
     for (size_t frame = 0; frame <= max_frame; ++frame) {
-      log::info_raii("app", "frame", '#', frame);
-
       for (auto &group : model.groups()) {
         if ("fluid" != group.get_type())
           continue;
@@ -324,125 +470,15 @@ public:
         save_group(output_dir, group, frame);
       }
 
-      if (frame == max_frame)
-        break;
-
-      // remove particles by permuting them to the end and resizing the storage
-      if (0 == frame % 4) {
-        bool particles_were_erased = false;
-
-        // {{{ implementation
-        for (size_t group_index = 0; group_index < model.groups().size();
-             ++group_index) {
-
-          auto &group = model.get_group(group_index);
-          if (group.get_type() != "fluid")
-            continue;
-
-          // find all particles in group that are out-of-bounds
-          remove_idxs.clear();
-
-          auto x = group.template get_varying<dtype::real, N>("position");
-
-#pragma omp parallel for
-          for (size_t i = 0; i < x.size(); ++i) {
-            if (not position_in_domain(x[i])) {
-#pragma omp critical
-              remove_idxs.push_back(i);
-            }
-          }
-
-          if (remove_idxs.size() > 0) {
-            group.erase(remove_idxs);
-            particles_were_erased = true;
-          }
-        }
-        // }}}
-
-        // in case particles were erased ...
-        if (particles_were_erased) {
-          // ... and reload the schemes
-          this->do_load_schemes(model);
-          // ... rebuild the neighborhood
-          nhood.rebuild(model);
-
-          for (auto &group : model.groups())
-            group.dirty(false);
-        }
-      }
-
-      auto h = static_cast<long double>(
-          model.template get_global<dtype::real>("smoothing_scale")[0]);
-
-      auto frame_done = clock.now() + duration{seconds_per_frame};
-
-      while (clock.now() < frame_done) {
-        PRTCL_RT_LOG_TRACE_SCOPED(
-            "step", "t=", clock.now().time_since_epoch().count());
-
-        if (boost::algorithm::any_of(model.groups(), [](auto const &group) {
-              return group.dirty();
-            })) {
-          this->do_load_schemes(model);
-          nhood.rebuild(model);
-
-          for (auto &group : model.groups())
-            group.dirty(false);
-        } else {
-          // update the neighborhood
-          nhood.update();
-
-          // permute the particles according to the neighborhood
-          if (0 == frame % 8) {
-            nhood.permute(model);
-            nhood.update();
-          }
-        }
-
-        model.template get_global<dtype::real>("maximum_speed")[0] = 0;
-
-        // run all computational steps
-        this->do_prepare_step(model, nhood);
-        this->do_step(model, nhood);
-        this->do_step_done(model, nhood);
-
-        // fetch the maximum speed of any fluid particle
-        auto max_speed = static_cast<long double>(
-            model.template get_global<dtype::real>("maximum_speed")[0]);
-
-        auto dt = static_cast<long double>(
-            model.template get_global<dtype::real>("time_step")[0]);
-
-        // advance the simulation clock and run schedule
-        clock.advance(dt);
-        scheduler.tick();
-
-        // modify the timestep
-        auto next_time_step = max_time_step;
-        if (max_speed > 0)
-          next_time_step =
-              std::min<real>(max_cfl * h / max_speed, max_time_step);
-        model.template get_global<dtype::real>("time_step")[0] = next_time_step;
-
-        if (next_time_step < max_time_step)
-          log::debug(
-              "app", "main", "REDUCED TIME STEP ",
-              model.template get_global<dtype::real>("time_step")[0]);
-
-        // set the current time
-        model.template get_global<dtype::real>("current_time")[0] =
-            clock.now().time_since_epoch().count();
-      }
-
-      log::debug(
-          "app", "main", "current max_speed = ",
-          model.template get_global<dtype::real>("maximum_speed")[0]);
-      log::debug(
-          "app", "main", "current time_step = ",
-          model.template get_global<dtype::real>("time_step")[0]);
-
-      PRTCL_RT_LOG_TRACE_CFRAME_MARK();
+      if (frame < max_frame)
+        this->do_frame(
+            frame, model, nhood, scheduler, seconds_per_frame, remove_idxs,
+            position_in_domain);
     }
+
+    log::info("app", "loop", "maximum frame #", max_frame, " reached");
+
+    return 0;
   }
 };
 

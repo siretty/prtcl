@@ -30,11 +30,13 @@ void initialize_particles(
     auto const t_b = group.template add_varying<dtype::real>("time_of_birth");
 
     for (auto const i : indices) {
-      x[i] = o::template zeros<dtype::real, N>();
-      v[i] = o::template zeros<dtype::real, N>();
-      a[i] = o::template zeros<dtype::real, N>();
+      const auto j = static_cast<size_t>(i);
 
-      t_b[i] = o::template zeros<dtype::real>();
+      x[j] = o::template zeros<dtype::real, N>();
+      v[j] = o::template zeros<dtype::real, N>();
+      a[j] = o::template zeros<dtype::real, N>();
+
+      t_b[j] = o::template zeros<dtype::real>();
     }
   }
 
@@ -49,8 +51,10 @@ void initialize_particles(
       auto const rho = group.template add_varying<dtype::real>("density");
 
       for (auto const i : indices) {
-        m[i] = core::constpow(h[0], N) * rho0[0];
-        rho[i] = 0;
+        auto const j = static_cast<size_t>(i);
+
+        m[j] = core::constpow(h[0], N) * rho0[0];
+        rho[j] = 0;
       }
     }
   }
@@ -59,7 +63,9 @@ void initialize_particles(
     auto const V = group.template add_varying<dtype::real>("volume");
 
     for (auto const i : indices) {
-      V[i] = 0;
+      auto const j = static_cast<size_t>(i);
+
+      V[j] = 0;
     }
   }
 }

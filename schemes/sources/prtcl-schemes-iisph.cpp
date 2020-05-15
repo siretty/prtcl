@@ -28,6 +28,7 @@ class iisph_application final
 
 public:
   using model_policy = typename base_type::model_policy;
+  using type_policy = typename model_policy::type_policy;
   using math_policy = typename model_policy::math_policy;
 
   using model_type = typename base_type::model_type;
@@ -35,6 +36,7 @@ public:
 
   using dtype = prtcl::core::dtype;
 
+  using real = typename type_policy::real;
   using o = typename math_policy::operations;
 
   static constexpr size_t N = model_policy::dimensionality;
@@ -60,7 +62,7 @@ public:
 
     auto g = model.template add_global<dtype::real, N>("gravity");
     g[0] = o::template zeros<dtype::real, N>();
-    g[0][1] = -9.81;
+    g[0][1] = static_cast<real>(-9.81);
   }
 
   void on_prepare_step(model_type &, neighborhood_type &) override {
@@ -102,9 +104,9 @@ public:
 
       constexpr int min_solver_iterations = 3;
       constexpr int max_solver_iterations = 2000;
-      constexpr typename model_policy::type_policy::real max_aprde = 0.001;
+      constexpr auto const max_aprde = static_cast<real>(0.001);
 
-      typename model_policy::type_policy::real cur_aprde = 0;
+      real cur_aprde = 0;
 
       int pressure_iteration = 0;
       for (;
@@ -128,7 +130,7 @@ public:
         iisph.iteration_pressure(nhood);
 
         // compute the average positive relative density error
-        cur_aprde = aprde[0] / nprde[0];
+        cur_aprde = aprde[0] / static_cast<real>(nprde[0]);
       }
 
       log::debug(

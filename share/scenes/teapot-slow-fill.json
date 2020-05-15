@@ -2,7 +2,9 @@
   "name_value": {
     "model": {
       "parameters": {
-        "maximum_time_step": 0.01
+        "maximum_time_step": 0.005,
+        "minimum_time_step": 0.005,
+        "maximum_simulation_seconds": 20
       },
       "group": {
         "f": {
@@ -11,24 +13,24 @@
           "tag": "density",
           "parameters": {
             "surface_tension": 1,
-            "viscosity": 10,
-            "wkbb18_maximum_error": 0.01,
-            "wkbb18_maximum_iterations": 50,
-            "pt16_viscosity": 0.9,
-            "pt16_vorticity_error": 1,
-            "pt16_vorticity_iters": 50,
-            "pt16_velocity_error": 10,
-            "pt16_velocity_iters": 50
+            "dynamic_viscosity": 10.0,
+            "wkbb18_maximum_error": 0.05,
+            "wkbb18_maximum_iterations": 100,
+            "strain_rate_viscosity": 1.0,
+            "pt16_vorticity_error": 10,
+            "pt16_vorticity_iters": 500,
+            "pt16_velocity_error": 0.0001,
+            "pt16_velocity_iters": 500
           },
           "source": {
             "center": { "0": -18, "1": 60, "2": -18, "adaptive": true },
             "velocity": { "0": 0, "1": -70, "2": 70, "adaptive": true },
-            "count": 10000
+            "count": 100000
           },
           "source": {
             "center": { "0": 18, "1": 60, "2": 18, "adaptive": true },
             "velocity": { "0": -70, "1": -70, "2": 0, "adaptive": true },
-            "count": 10000
+            "count": 100000
           }
         },
         "b": {
@@ -37,7 +39,7 @@
           "tag": "volume",
           "parameters": {
             "adhesion": 2,
-            "viscosity": 0.01
+            "dynamic_viscosity": 0.01
           },
           "sample": {
             "surface": {

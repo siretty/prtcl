@@ -29,8 +29,8 @@
 #pragma GCC diagnostic pop
 
 // enable memory profiling
-void *operator new(size_t);
-void operator delete(void *)noexcept;
+//void *operator new(size_t);
+//void operator delete(void *)noexcept;
 
 #define PRTCL_RT_LOG_TRACE_SCOPED(...)                                         \
   _Pragma("GCC diagnostic push");                                              \

@@ -272,8 +272,8 @@ public:
   }
 
   void operator()(ast::n_scheme::foreach_neighbor const &arg) {
-    out() << indent() << "foreach " << arg.group << " neighbor " << arg.index
-          << " {" << nl;
+    out() << indent() << "foreach " << ' ' << arg.group.value_or("particle")
+          << " neighbor " << arg.index << " {" << nl;
     increase_indent();
     for (auto const &statement : arg.statements) {
       (*this)(statement);

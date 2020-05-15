@@ -1,0 +1,37 @@
+
+scheme correction {
+  groups fluid {
+    select type fluid;
+
+    varying field x = real[] position;
+
+    varying field rho = real density;
+    varying field m = real mass;
+
+    varying field L  = real[][] gradient_correction;
+  }
+
+  global {
+    field h = real smoothing_scale;
+  }
+
+  procedure compute_gradient_correction {
+    foreach fluid particle f {
+      // compute the velocity gradient
+      local L_f : real[][] = zeros<real[][]>();
+
+      foreach fluid neighbor f_f {
+        compute L_f +=
+            (m[f_f] / rho[f])
+          *
+            outer_product(
+              kernel_gradient_h(x[f] - x[f_f], h),
+              x[f_f] - x[f]
+            );
+      }
+
+      compute L[f] = invert_pm(L_f);
+    }
+  }
+}
+

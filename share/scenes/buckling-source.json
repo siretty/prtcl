@@ -2,7 +2,9 @@
   "name_value": {
     "model": {
       "parameters": {
-        "maximum_time_step": 0.002
+        "maximum_time_step": 0.001,
+        "minimum_time_step": 0.001,
+        "maximum_simulation_seconds": 10
       },
       "group": {
         "f": {
@@ -10,18 +12,18 @@
           "tag": "dynamic",
           "tag": "density",
           "parameters": {
-            "surface_tension": 0,
-            "viscosity": 0.3,
+            "surface_tension": 0.01,
+            "strain_rate_viscosity": 0.95,
             "pt16_vorticity_error": 1,
             "pt16_vorticity_iters": 500,
-            "pt16_velocity_error": 20,
+            "pt16_velocity_error": 1,
             "pt16_velocity_iters": 500
           },
           "source": {
-            "center": { "0": 0, "1": 40, "2": 20, "adaptive": true },
-            "velocity": { "0": 0, "1": -40, "2": -10, "adaptive": true },
-            "radius": 1.9,
-            "count": 10000
+            "center": { "0": -30, "1": 100, "2": -30, "adaptive": true },
+            "velocity": { "0": 20, "1": -100, "2": 20, "adaptive": true },
+            "count": 10000,
+            "radius": 1.7
           }
         },
         "b": {
@@ -29,8 +31,7 @@
           "tag": "static",
           "tag": "volume",
           "parameters": {
-            "adhesion": 0,
-            "viscosity": 0.001
+            "adhesion": 2
           },
           "sample": {
             "volume": {
@@ -57,5 +58,3 @@
     }
   }
 }
-
-

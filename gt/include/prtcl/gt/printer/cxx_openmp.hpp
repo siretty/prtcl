@@ -57,14 +57,24 @@ protected:
     return ss.str();
   }
 
+  template <typename R>
+  static std::string ndtype_shape_template_args(R &shape) {
+    std::ostringstream ss;
+    ss << join(shape, ", ", "", [](auto n) -> std::string {
+      return n == 0 ? "N" : boost::lexical_cast<std::string>(n);
+    });
+    return ss.str();
+  }
+
   static std::string ndtype_template_args(ast::ndtype type) {
     std::ostringstream ss;
     ss << qualified_dtype_enum(type.type);
     if (not type.shape.empty()) {
       ss << ", ";
-      ss << join(type.shape, ", ", "", [](auto n) -> std::string {
-        return n == 0 ? "N" : boost::lexical_cast<std::string>(n);
-      });
+      ss << ndtype_shape_template_args(type.shape);
+      // ss << join(type.shape, ", ", "", [](auto n) -> std::string {
+      //  return n == 0 ? "N" : boost::lexical_cast<std::string>(n);
+      //});
     }
     return ss.str();
   }
@@ -99,6 +109,8 @@ private:
 
 #include <prtcl/rt/basic_group.hpp>
 #include <prtcl/rt/basic_model.hpp>
+
+#include <prtcl/rt/openmp/solver/cg.hpp>
 
 #include <prtcl/rt/log/trace.hpp>
 
@@ -183,8 +195,12 @@ public:
 public:
   //! Print a literal. TODO: debug format
   void operator()(ast::n_math::literal const &node) {
-    out() << "o::template narray<" << ndtype_template_args(node.type) << ">({"
-          << node.value << "})";
+    // TODO: implement proper (array) literals
+    if (node.type.shape.size() > 0)
+      throw ast_printer_error{};
+    auto const targs = ndtype_template_args(node.type);
+    out() << "o::template narray<" << targs << ">({static_cast<ndtype_t<"
+          << targs << ">>(" << node.value << ")})";
   }
 
   //! Print a function call.
@@ -207,24 +223,37 @@ public:
     // {{{ implementation
     if (node.index.has_value()) {
       if (cur_particle and node.index.value() == cur_particle->index_name) {
-        out() << "p." << node.field;
-        auto &g = groups.groups_for_name(cur_particle->selector_name);
-        if (g.uniform_fields.has_alias(node.field))
-          out() << "[0]";
-        else if (g.varying_fields.has_alias(node.field))
-          out() << "[i]";
-        else
-          throw ast_printer_error{};
+        if ((cg_with and cg_with.value() == node.field) or
+            (cg_into and cg_into.value() == node.field))
+          out() << "l_" << node.field << "[i]";
+        else {
+          out() << "p." << node.field;
+          auto &g = groups.groups_for_name(cur_particle->selector_name);
+          if (g.uniform_fields.has_alias(node.field))
+            out() << "[0]";
+          else if (g.varying_fields.has_alias(node.field))
+            out() << "[i]";
+          else
+            throw ast_printer_error{};
+        }
       } else if (
           cur_neighbor and node.index.value() == cur_neighbor->index_name) {
-        out() << "n." << node.field;
-        auto &g = groups.groups_for_name(cur_neighbor->selector_name);
-        if (g.uniform_fields.has_alias(node.field))
-          out() << "[0]";
-        else if (g.varying_fields.has_alias(node.field))
-          out() << "[j]";
-        else
-          throw ast_printer_error{};
+        // TODO: this check does not consider if the neighbor is part of the
+        //       correct groups selector, this __will__ cause compiler errors or
+        //       crashes
+        if ((cg_with and cg_with.value() == node.field) or
+            (cg_into and cg_into.value() == node.field))
+          out() << "l_" << node.field << "[j]";
+        else {
+          out() << "n." << node.field;
+          auto &g = groups.groups_for_name(cur_neighbor->selector_name);
+          if (g.uniform_fields.has_alias(node.field))
+            out() << "[0]";
+          else if (g.varying_fields.has_alias(node.field))
+            out() << "[j]";
+          else
+            throw ast_printer_error{};
+        }
       } else {
         throw ast_printer_error{};
       }
@@ -368,24 +397,33 @@ public:
 
   void operator()(ast::n_scheme::foreach_neighbor const &loop) {
     // {{{ implementation
+
     if (cur_neighbor)
       throw "internal error: neighbor loop inside of neighbor loop";
-    else
-      cur_neighbor = loop_type{loop.group, loop.index};
+    else {
+      auto loop_groups = loop.group.value_or(cur_particle->selector_name);
+      cur_neighbor = loop_type{loop_groups, loop.index};
+    }
 
-    outi() << "{ // foreach " << loop.group << " neighbor " << loop.index << nl;
+    outi() << "{ // foreach " << loop.group.value_or("particle") << " neighbor "
+           << loop.index << nl;
     {
       increase_indent();
 
 #if defined(PRTCL_GT_CXX_OPENMP_TRACE_FOREACH_NEIGHBOR)
       outi() << "PRTCL_RT_LOG_TRACE_SCOPED(\"foreach_neighbor\", \"n="
-             << loop.group << "\");" << nl;
+             << loop.group.value_or("particle") << "\");" << nl;
       out() << nl;
 #endif // defined(PRTCL_GT_CXX_OPENMP_TRACE_FOREACH_NEIGHBOR)
 
-      outi() << "for (auto &n : _data.groups." << loop.group << ") {" << nl;
-      {
+      if (loop.group.has_value()) {
+        outi() << "for (auto &n : _data.groups." << loop.group.value() << ") {"
+               << nl;
         increase_indent();
+      } else {
+        outi() << "auto &n = p;" << nl;
+      }
+      {
 
 #if defined(PRTCL_GT_CXX_OPENMP_TRACE_NEIGHBOR_COUNT)
         outi() << "PRTCL_RT_LOG_TRACE_PLOT_NUMBER(\"neighbor count\", "
@@ -411,14 +449,16 @@ public:
           decrease_indent();
         }
         outi() << "}" << nl;
-
-        decrease_indent();
       }
-      outi() << "}" << nl;
+      if (loop.group.has_value()) {
+        decrease_indent();
+        outi() << "}" << nl;
+      }
 
       decrease_indent();
     }
-    outi() << "} // foreach " << loop.group << " neighbor " << loop.index << nl;
+    outi() << "} // foreach " << loop.group.value_or("particle") << " neighbor "
+           << loop.index << nl;
 
     if (not cur_neighbor)
       throw "internal error: neighbor loop was already unset";
@@ -503,7 +543,14 @@ public:
     {
       increase_indent();
 
-      out() << "#pragma omp for" << nl;
+      // share this loop across the threads
+      out() << "#pragma omp for";
+      // use the default schedule for loops that contain foreach neighbor loops
+      // and the static schedule for those that don't
+      if (not has_foreach_neighbor_offspring)
+        out() << " schedule(static)";
+      out() << nl;
+
       outi() << "for (size_t i = 0; i < p._count; ++i) {" << nl;
       {
         increase_indent();
@@ -635,31 +682,204 @@ public:
     // }}}
   }
 
+  template <typename Node> void _solve_pcg_neighbors(Node const &node) {
+    // {{{ implementation
+    bool const has_foreach_neighbor_offspring =
+        core::ranges::count_if(node.statements, [](auto const &statement_) {
+          return std::holds_alternative<ast::n_scheme::foreach_neighbor>(
+              statement_);
+        });
+
+    if (has_foreach_neighbor_offspring) {
+      outi() << "auto &neighbors = "
+                "this->_per_thread[omp_get_thread_num()].neighbors;"
+             << nl;
+      outi() << "for (auto &pgn : neighbors)" << nl;
+      {
+        increase_indent();
+        outi() << "pgn.clear();" << nl;
+        decrease_indent();
+      }
+      outi() << "nhood_.neighbors(p._index, i, [&neighbors](auto n_index, auto "
+                "j) {"
+             << nl;
+      {
+        increase_indent();
+        outi() << "neighbors[n_index].push_back(j);" << nl;
+        decrease_indent();
+      }
+      outi() << "});" << nl;
+    }
+    // }}}
+  }
+
   void operator()(ast::n_scheme::n_solve::setup const &node) {
+    // {{{ implementation
+    outi() << "auto setup_" << node.name
+           << " = [this, &g, &nhood_](auto &p, size_t i, auto &l_" << node.into
+           << ") {" << nl;
+    increase_indent();
+    cg_into = node.into;
+
     outi() << "// setup " << node.name << " into " << node.into << nl;
+
+    _solve_pcg_neighbors(node);
+
+    // iterate over all child nodes
+    for (auto const &statement : node.statements) {
+      out() << nl;
+      (*this)(statement);
+    }
+
+    cg_into.reset();
+    decrease_indent();
+    outi() << "};" << nl;
+    // }}}
   };
 
   void operator()(ast::n_scheme::n_solve::product const &node) {
+    // {{{ implementation
+    outi() << "auto product_" << node.name
+           << " = [this, &g, &nhood_](auto &p, size_t i, auto &l_" << node.into
+           << ", auto &l_" << node.with << ") {" << nl;
+    increase_indent();
+    cg_with = node.with;
+    cg_into = node.into;
+
     outi() << "// product " << node.name << " with " << node.with << " into "
            << node.into << nl;
+
+    _solve_pcg_neighbors(node);
+
+    // iterate over all child nodes
+    for (auto const &statement : node.statements) {
+      out() << nl;
+      (*this)(statement);
+    }
+
+    cg_into.reset();
+    cg_with.reset();
+    decrease_indent();
+    outi() << "};" << nl;
+    // }}}
   };
 
   void operator()(ast::n_scheme::n_solve::apply const &node) {
+    // {{{ implementation
+    outi() << "auto apply = [this, &g, &nhood_](auto &p, size_t i, auto &l_"
+           << node.with << ") {" << nl;
+    increase_indent();
+    cg_with = node.with;
+
     outi() << "// apply " << node.with << nl;
+
+    _solve_pcg_neighbors(node);
+
+    // iterate over all child nodes
+    for (auto const &statement : node.statements) {
+      out() << nl;
+      (*this)(statement);
+    }
+
+    cg_with.reset();
+    decrease_indent();
+    outi() << "};" << nl;
+    // }}}
   };
 
-  void operator()(ast::n_scheme::solve const &node) {
-    outi() << "/* { solve not supported yet */" << nl;
-    outi() << "// solver: " << node.solver << nl;
+  void operator()(ast::n_scheme::n_solve::solve_pcg const &node) {
+    // {{{ implementation (TODO)
+    if (cur_particle)
+      throw "internal error: particle loop inside of particle loop";
+    else
+      cur_particle = loop_type{node.groups, node.index};
+
+    outi() << "{ // solve pcg over " << node.groups << " particle "
+           << node.index << nl;
+    increase_indent();
     outi() << "// type:   " << ndtype_template_args(node.type) << nl;
-    outi() << "// groups: " << node.groups << nl;
-    outi() << "// index:  " << node.index << nl;
+
+    outi() << "// the solver object" << nl;
+    outi() << "static prtcl::rt::openmp::cg<model_policy";
+    if (not node.type.shape.empty())
+      out() << ", " << ndtype_shape_template_args(node.type.shape);
+    out() << "> solver;" << nl;
+    out() << nl;
+
+    outi() << "// iterate over the per-thread storage" << nl;
+    outi() << "for (auto &t : _per_thread) {" << nl;
+    {
+      increase_indent();
+      outi() << "// select and resize the neighbor storage for the current "
+                "thread"
+             << nl;
+      outi() << "auto &neighbors = t.neighbors;" << nl;
+      outi() << "neighbors.resize(_group_count);" << nl;
+      out() << nl;
+      outi() << "for (auto &pgn : neighbors)" << nl;
+      {
+        increase_indent();
+        outi() << "pgn.reserve(100);" << nl;
+        decrease_indent();
+      }
+      out() << nl;
+      decrease_indent();
+    }
+    outi() << "}" << nl;
+    out() << nl;
+
+    outi() << "for (auto &p : _data.groups." << node.groups << ") {" << nl;
+    increase_indent();
+
     (*this)(node.right_hand_side);
+    out() << nl;
+
     (*this)(node.guess);
+    out() << nl;
+
     (*this)(node.preconditioner);
+    out() << nl;
+
     (*this)(node.system);
+    out() << nl;
+
     (*this)(node.apply);
-    outi() << "/* } solve not supported yet */" << nl;
+    out() << nl;
+
+    outi() << "dtype_t<dtype::real> const max_error = 1;" << nl;
+    outi() << "size_t const max_iters = static_cast<size_t>(1);" << nl;
+    out() << nl;
+
+    // TODO: softcode the aliases
+    //       - pcg_max_error
+    //       - pcg_max_iters
+    //       - pcg_iterations
+    //       this requires extending the language
+    outi() << "auto const iterations = solver.solve(p," << nl;
+    increase_indent();
+    outi() << "setup_right_hand_side, setup_guess," << nl;
+    outi() << "product_system, product_preconditioner," << nl;
+    outi() << "apply, p.pcg_max_error[0], p.pcg_max_iters[0]);" << nl;
+    decrease_indent();
+
+    out() << nl;
+    outi() << "p.pcg_iterations[0] = "
+              "static_cast<dtype_t<dtype::integer>>(iterations);"
+           << nl;
+    outi() << "prtcl::core::log::debug(\"scheme\", \"" << _name
+           << "\", \"pcg solver iterations \", iterations);" << nl;
+
+    decrease_indent();
+    outi() << "}" << nl;
+
+    decrease_indent();
+    outi() << "} // solve pcg" << nl;
+
+    if (not cur_particle)
+      throw "internal error: particle loop was already unset";
+    else
+      cur_particle.reset();
+    // }}}
   }
 
   void operator()(ast::n_scheme::procedure const &proc) {
@@ -1256,6 +1476,8 @@ private:
     std::string index_name;
   };
   std::optional<loop_type> cur_particle, cur_neighbor;
+
+  std::optional<std::string> cg_with, cg_into;
 };
 
 } // namespace prtcl::gt::printer

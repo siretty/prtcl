@@ -25,14 +25,16 @@ struct aat13_math_policy_mixin {
         // in [AAT13] h is the support radius and assumed to be double the rest
         // spacing (which is our h)
         auto const h = 2 * h_diam;
+        auto const h6 = std::pow(h, static_cast<real>(6));
+        auto const h9 = std::pow(h, static_cast<real>(9));
         // the pre-factor of the spline
-        auto const factor = 32 / (pi * std::pow(h, 9));
+        auto const factor = 32 / (pi * h9);
         // return a value according to the different cases
         if (h < 2 * r and r <= h)
           return factor * (core::constpow(h - r, 3) * core::constpow(r, 3));
         if (0 <= r and 2 * r <= h)
           return factor * (2 * core::constpow(h - r, 3) * core::constpow(r, 3) -
-                           std::pow(h, 6) / 64);
+                           h6 / 64);
         return 0;
       }
 
@@ -45,9 +47,14 @@ struct aat13_math_policy_mixin {
         auto const factor =
             static_cast<real>(0.007) / std::pow(h, static_cast<real>(3.25));
         // return a value according to the different cases
-        if (h < 2 * r and r <= h)
-          return factor *
-                 std::pow(-4 * core::constpow(r, 2) / h + 6 * r - 2 * h, 0.25);
+        if (h < 2 * r and r <= h) {
+          real const b = -4 * core::constpow(r, 2) / h + 6 * r - 2 * h;
+          real const e = static_cast<real>(0.25);
+          // max(0, b) is neccessary since b can be slightly negative due to
+          // numerical inaccuracies (and even roots of negative numbers are
+          // complex)
+          return factor * std::pow(std::max(real{0}, b), e);
+        }
         return 0;
       }
     };

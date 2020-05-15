@@ -341,6 +341,13 @@ class setup_class : x3::annotate_on_success {};
 class product_class : x3::annotate_on_success {};
 class apply_class : x3::annotate_on_success {};
 
+class solve_pcg_class;
+
+x3::rule<solve_pcg_class, ast::n_scheme::n_solve::solve_pcg> solve_pcg =
+    "solve_pcg";
+
+class solve_pcg_class : x3::annotate_on_success {};
+
 } // namespace n_solve
 
 // }}}

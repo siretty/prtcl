@@ -132,10 +132,16 @@ BOOST_FUSION_ADAPT_STRUCT(                    //
 );
 
 BOOST_FUSION_ADAPT_STRUCT(                                //
-    prtcl::gt::ast::n_scheme::solve,                      //
-    solver, type, groups, index,                          //
+    prtcl::gt::ast::n_scheme::n_solve::solve_pcg,         //
+    type, groups, index,                                  //
     right_hand_side, guess, preconditioner, system, apply //
 );
+
+//BOOST_FUSION_ADAPT_STRUCT(                                //
+//    prtcl::gt::ast::n_scheme::solve,                      //
+//    solver, type, groups, index,                          //
+//    right_hand_side, guess, preconditioner, system, apply //
+//);
 
 BOOST_FUSION_ADAPT_STRUCT(               //
     prtcl::gt::ast::n_scheme::procedure, //

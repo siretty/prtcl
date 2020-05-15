@@ -20,6 +20,12 @@ enum class log_level {
   error = (1 << 4),
 };
 
+using log_level_mask = std::underlying_type_t<log_level>;
+
+inline log_level_mask to_mask(log_level level) {
+  return static_cast<log_level_mask>(level);
+}
+
 inline logger &get_logger();
 
 // {{{ implementation details
@@ -151,9 +157,10 @@ public:
       level_mask |= static_cast<std::underlying_type_t<log_level>>(level);
     else
       level_mask &= ~static_cast<std::underlying_type_t<log_level>>(level);
+    return state;
   }
 
-  bool toggle(log_level level) { change(level, not enabled(level)); }
+  bool toggle(log_level level) { return change(level, not enabled(level)); }
 
   bool enabled(log_level level) const {
     return 0 !=
@@ -161,7 +168,9 @@ public:
   }
 
 private:
-  std::underlying_type_t<log_level> level_mask;
+  log_level_mask level_mask =
+      to_mask(log_level::debug) | to_mask(log_level::info) |
+      to_mask(log_level::warning) | to_mask(log_level::error);
 };
 
 using logger = basic_logger<char>;

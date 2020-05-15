@@ -4,6 +4,7 @@
 
 #include "nd_data_base.hpp"
 
+#include <ctime>
 #include <memory>
 #include <stdexcept>
 #include <string>

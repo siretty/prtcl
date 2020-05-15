@@ -56,11 +56,11 @@ void load_model_groups_from_cli(
   std::uniform_real_distribution<real> dis;
   using dis_param = typename decltype(dis)::param_type;
 
-  auto get_vector = [](auto tree, auto name, auto init, auto h) {
+  auto get_vector = [](auto tree, auto name, auto init, real h) {
     // {{{ implementation
     rvec result = init;
     if (auto node = tree.get_child_optional(name)) {
-      for (size_t n = 0; n < N; ++n)
+      for (int n = 0; n < static_cast<int>(N); ++n)
         result[n] = node->template get<real>(std::to_string(n), 1);
       if (node->get("adaptive", true))
         result *= h;
@@ -79,6 +79,8 @@ void load_model_groups_from_cli(
     model_.template add_global<dtype::real>("maximum_time_step")[0] = tree.get(
         "maximum_time_step",
         30 * model_.template add_global<dtype::real>("time_step")[0]);
+    model_.template add_global<dtype::real>("minimum_time_step")[0] =
+        tree.get("minimum_time_step", static_cast<real>(0));
 
     model_.template add_global<dtype::real>("maximum_cfl")[0] =
         tree.get("maximum_cfl", static_cast<real>(0.7));
@@ -94,6 +96,9 @@ void load_model_groups_from_cli(
 
     model_.template add_global<dtype::real, N>("gravity")[0] =
         get_vector(tree, "gravity", default_gravity, h);
+
+    model_.template add_global<dtype::real>("maximum_simulation_seconds")[0] =
+        tree.get("maximum_simulation_seconds", static_cast<real>(1));
     // }}}
   };
 
@@ -105,14 +110,14 @@ void load_model_groups_from_cli(
     group.template add_uniform<dtype::real>("compressibility")[0] =
         tree.get("compressibility", static_cast<real>(10'000'000));
 
-    group.template add_uniform<dtype::real>("viscosity")[0] =
-        tree.get("viscosity", static_cast<real>(0.01));
+    group.template add_uniform<dtype::real>("dynamic_viscosity")[0] =
+        tree.get("dynamic_viscosity", static_cast<real>(0.001));
 
     group.template add_uniform<dtype::real>("surface_tension")[0] =
         tree.get("surface_tension", static_cast<real>(1));
 
-    if (auto opt = tree.template get_optional<real>("pt16_viscosity"))
-      group.template add_uniform<dtype::real>("pt16_viscosity")[0] =
+    if (auto opt = tree.template get_optional<real>("strain_rate_viscosity"))
+      group.template add_uniform<dtype::real>("strain_rate_viscosity")[0] =
           opt.value();
 
     if (auto opt = tree.template get_optional<real>("pt16_vorticity_error"))
@@ -145,8 +150,8 @@ void load_model_groups_from_cli(
     // {{{ implementation
     group.template add_uniform<dtype::real>("adhesion")[0] =
         tree.get("adhesion", static_cast<real>(0));
-    group.template add_uniform<dtype::real>("viscosity")[0] =
-        tree.get("viscosity", static_cast<real>(0.1));
+    group.template add_uniform<dtype::real>("dynamic_viscosity")[0] =
+        tree.get("dynamic_viscosity", static_cast<real>(0.01));
     // }}}
   };
 
@@ -260,7 +265,7 @@ void load_model_groups_from_cli(
     for (size_t i = 0; i < samples.size(); ++i) {
       x[old_size + i] = samples[i];
       // perturb the sampled point slightly
-      for (size_t d = 0; d < N; ++d)
+      for (int d = 0; d < static_cast<int>(N); ++d)
         x[old_size + i][d] += dis(gen, dis_param{-h / 20, h / 20});
     }
     // }}}
@@ -330,8 +335,8 @@ void load_model_groups_from_cli(
       handle_model_parameters(params);
     }
 
-    for (auto [it, last] = model.equal_range("group"); it != last; ++it) {
-      auto &groups = it->second;
+    for (auto [git, glast] = model.equal_range("group"); git != glast; ++git) {
+      auto &groups = git->second;
       for (auto &[group_name, group_tree] : groups) {
         handle_model_group(group_name, group_tree);
       }
