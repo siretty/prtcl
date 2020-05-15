@@ -13,13 +13,13 @@ scheme aiast12 {
 
   procedure compute_volume {
     foreach boundary particle b {
-      compute V[b] = 0;
+      compute V.b = 0;
 
       foreach boundary neighbor b_b {
-        compute V[b] += kernel_h(x[b] - x[b_b], h);
+        compute V.b += kernel_h(x.b - x.b_b, h);
       }
 
-      compute V[b] = 1 / V[b];
+      compute V.b = 1 / V.b;
     }
   }
 }

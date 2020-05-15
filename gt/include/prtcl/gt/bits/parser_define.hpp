@@ -51,7 +51,7 @@ auto const literal_def = (                                                    //
 auto const operation_def = identifier >> -('<' >> ndtype >> '>') >> '(' >>
                            -(expression % ',') >> ')';
 
-auto const field_access_def = identifier >> -('[' >> identifier >> ']');
+auto const field_access_def = identifier >> -('.' >> identifier);
 
 auto const unary_neg_def = '-' >> attr(ast::op_neg) >> primary;
 

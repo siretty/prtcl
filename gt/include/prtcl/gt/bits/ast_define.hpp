@@ -354,7 +354,7 @@ struct solve_pcg : position_tagged {
   setup guess;
   product preconditioner;
   product system;
-  apply apply;
+  struct apply apply;
 };
 
 } // namespace n_solve

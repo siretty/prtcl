@@ -12,13 +12,13 @@ scheme gravity {
 
   procedure initialize_acceleration {
     foreach fluid particle f {
-      compute a[f] = g;
+      compute a.f = g;
     }
   }
 
   procedure accumulate_acceleration {
     foreach fluid particle f {
-      compute a[f] += g;
+      compute a.f += g;
     }
   }
 }

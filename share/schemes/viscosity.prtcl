@@ -32,61 +32,61 @@ scheme viscosity {
     foreach fluid particle f {
       foreach fluid neighbor f_f {
         // accumulate viscosity acceleration
-        compute a[f] +=
+        compute a.f +=
             (
                 10 // HACK: this is actually a dimensionality correction factor (10 in 3D, 8 in 2D)
               *
-                (mu[f] / rho[f])
+                (mu.f / rho.f)
               *
-                (m[f_f] / rho[f_f])
+                (m.f_f / rho.f_f)
               *
-                dot(v[f] - v[f_f], x[f] - x[f_f])
+                dot(v.f - v.f_f, x.f - x.f_f)
               /
-                (norm_squared(x[f] - x[f_f]) + 0.01 * h * h)
+                (norm_squared(x.f - x.f_f) + 0.01 * h * h)
             )
           *
-            kernel_gradient_h(x[f] - x[f_f], h);
+            kernel_gradient_h(x.f - x.f_f, h);
       }
 
       foreach boundary neighbor f_b {
         // accumulate viscosity acceleration
-        compute a[f] +=
+        compute a.f +=
             (
                 10 // HACK: this is actually a dimensionality correction factor (10 in 3D, 8 in 2D)
               *
-                (mu[f_b] / rho[f])
+                (mu.f_b / rho.f)
               *
-                (rho0[f] * V[f_b] / rho[f])
+                (rho0.f * V.f_b / rho.f)
               *
                 // TODO: fix velocity for boundaries
-                dot(v[f] - zeros<real[]>(), x[f] - x[f_b])
+                dot(v.f - zeros<real[]>(), x.f - x.f_b)
               /
-                (norm_squared(x[f] - x[f_b]) + 0.01 * h * h)
+                (norm_squared(x.f - x.f_b) + 0.01 * h * h)
             )
           *
-            kernel_gradient_h(x[f] - x[f_b], h);
+            kernel_gradient_h(x.f - x.f_b, h);
       }
     }
   }
 }
 
 // XSPH Viscosity (Fluid)
-// compute a[f] -=
+// compute a.f -=
 //    (
-//        (nu[f] / h) * (m[f_f] / rho[f_f])
+//        (nu.f / h) * (m.f_f / rho.f_f)
 //      *
-//        (v[f] - v[f_f])
+//        (v.f - v.f_f)
 //    )
 //  *
-//    kernel_h(x[f] - x[f_f], h);
+//    kernel_h(x.f - x.f_f, h);
 
 // XSPH Viscosity (Boundary)
-// compute a[f] -=
+// compute a.f -=
 //    (
-//        (nu[f_b] / h) * (rho0[f] * V[f_b] / rho[f_f])
+//        (nu.f_b / h) * (rho0.f * V.f_b / rho.f_f)
 //      *
-//        (v[f])
+//        (v.f)
 //    )
 //  *
-//    kernel_h(x[f] - x[f_f], h);
+//    kernel_h(x.f - x.f_f, h);
 

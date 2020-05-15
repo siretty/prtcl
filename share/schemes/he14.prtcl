@@ -33,59 +33,59 @@ scheme he14 {
   procedure compute_color_field {
     foreach fluid particle f {
       // TODO: this is most likely wrong
-      compute c[f] =
-          (m[f] / rho[f])
+      compute c.f =
+          (m.f / rho.f)
         *
           kernel_h(zeros<real[]>(), h);
 
       foreach fluid neighbor f_f {
-        compute c[f] +=
-            (m[f_f] / rho[f_f])
+        compute c.f +=
+            (m.f_f / rho.f_f)
           *
-            kernel_h(x[f] - x[f_f], h);
+            kernel_h(x.f - x.f_f, h);
       }
     }
   }
 
   procedure compute_color_field_gradient {
     foreach fluid particle f {
-      compute d[f] = zeros<real[]>();
+      compute d.f = zeros<real[]>();
 
       foreach fluid neighbor f_f {
-        compute d[f] +=
-            (m[f_f] / rho[f_f])
+        compute d.f +=
+            (m.f_f / rho.f_f)
           *
-            c[f_f]
+            c.f_f
           *
-            kernel_gradient_h(x[f] - x[f_f], h);
+            kernel_gradient_h(x.f - x.f_f, h);
       }
 
-      compute d[f] /= c[f];
+      compute d.f /= c.f;
     }
   }
 
   procedure accumulate_acceleration {
     foreach fluid particle f {
       foreach fluid neighbor f_f {
-        compute a[f] +=
-            (0.25 * k[f] / rho[f])
+        compute a.f +=
+            (0.25 * k.f / rho.f)
           *
-            (m[f_f] / rho[f_f])
+            (m.f_f / rho.f_f)
           *
-            (norm_squared(d[f]) + norm_squared(d[f_f]))
+            (norm_squared(d.f) + norm_squared(d.f_f))
           *
-            kernel_gradient_h(x[f] - x[f_f], h);
+            kernel_gradient_h(x.f - x.f_f, h);
       }
 
       foreach boundary neighbor f_b {
-        compute a[f] +=
-            (0.25 * k[f_b] / rho[f])
+        compute a.f +=
+            (0.25 * k.f_b / rho.f)
           *
-            V[f_b]
+            V.f_b
           *
-            norm_squared(d[f])
+            norm_squared(d.f)
           *
-            kernel_gradient_h(x[f] - x[f_b], h);
+            kernel_gradient_h(x.f - x.f_b, h);
       }
     }
   }

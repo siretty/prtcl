@@ -23,8 +23,12 @@ set( _TRACY_CPP ${CMAKE_SOURCE_DIR}/rt/sources/prtcl/rt/log/trace.cpp )
 
 find_package( Catch2 REQUIRED )
 
+find_package( Boost REQUIRED )
+set( _TARGET_BOOST_HEADERS   Boost::headers )
+set( _TARGET_BOOST_CONTAINER Boost::container )
 
-include( prtcl_build_boost )
+
+#include( prtcl_build_boost )
 
 include( prtcl_add_library )
 include( prtcl_add_executable )
@@ -36,7 +40,7 @@ include( DECXX17 )
 include( DEAddOurIncludeDirectories )
 
 
-prtcl_build_boost()
+#prtcl_build_boost()
 
 
 DE_Add_Catch2_Main( test_main )

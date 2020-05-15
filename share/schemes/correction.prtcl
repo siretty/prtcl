@@ -22,15 +22,15 @@ scheme correction {
 
       foreach fluid neighbor f_f {
         compute L_f +=
-            (m[f_f] / rho[f])
+            (m.f_f / rho.f)
           *
             outer_product(
-              kernel_gradient_h(x[f] - x[f_f], h),
-              x[f_f] - x[f]
+              kernel_gradient_h(x.f - x.f_f, h),
+              x.f_f - x.f
             );
       }
 
-      compute L[f] = invert_pm(L_f);
+      compute L.f = invert_pm(L_f);
     }
   }
 }

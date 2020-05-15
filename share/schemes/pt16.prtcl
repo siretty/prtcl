@@ -54,26 +54,26 @@ scheme pt16 {
   procedure setup {
     foreach fluid particle f {
       // initialize the normalizer 
-      compute pt16_one[f] = 0;
+      compute pt16_one.f = 0;
 
       foreach fluid neighbor f_f {
         // accumulate the normalizer from fluid neighbors
-        compute pt16_one[f] +=
-            (m[f_f] / rho[f_f])
+        compute pt16_one.f +=
+            (m.f_f / rho.f_f)
           *
-            kernel_h(x[f] - x[f_f], h);
+            kernel_h(x.f - x.f_f, h);
       }
 
       foreach boundary neighbor f_b {
         // accumulate the normalizer from boudary neighbors
-        compute pt16_one[f] +=
-            V[f_b]
+        compute pt16_one.f +=
+            V.f_b
           *
-            kernel_h(x[f] - x[f_b], h);
+            kernel_h(x.f - x.f_b, h);
       }
 
       // compute the density using the normalizer
-      compute pt16_rho[f] = rho0[f] * pt16_one[f];
+      compute pt16_rho.f = rho0.f * pt16_one.f;
     }
   }
 
@@ -85,26 +85,26 @@ scheme pt16 {
       //foreach particle neighbor f_f {
       //  // accumulate the velocity gradient
       //  compute vg_f +=
-      //      (m[f_f] / rho[f_f])
+      //      (m.f_f / rho.f_f)
       //    *
       //      outer_product(
-      //        v[f_f] - v[f],
-      //        L[f] * kernel_gradient_h(x[f] - x[f_f], h)
+      //        v.f_f - v.f,
+      //        L.f * kernel_gradient_h(x.f - x.f_f, h)
       //      );
       //}
-      //compute vg_f *= 1 / pt16_one[f];
+      //compute vg_f *= 1 / pt16_one.f;
 
       local rho_f : real = 0;
       foreach particle neighbor f_f {
         // accumulate the velocity gradient
         compute vg_f +=
-            m[f_f]
+            m.f_f
           *
             outer_product(
-              v[f_f] - v[f],
-              L[f] * kernel_gradient_h(x[f] - x[f_f], h)
+              v.f_f - v.f,
+              L.f * kernel_gradient_h(x.f - x.f_f, h)
             );
-        compute rho_f += m[f_f] * kernel_h(x[f] - x[f_f], h);
+        compute rho_f += m.f_f * kernel_h(x.f - x.f_f, h);
       }
       compute vg_f *= 1 / rho_f;
 
@@ -115,45 +115,45 @@ scheme pt16 {
       local S_f : real[][] = (vg_f + transpose(vg_f)) / 2 - V_f;
 
       // extract the vorticity from the spin rate
-      compute omega[f] = 2 * vector_from_cross_product_matrix(R_f);
+      compute omega.f = 2 * vector_from_cross_product_matrix(R_f);
 
       // partially compose the target velocity gradient (without spin rate)
-      compute tvg[f] =
-          unit_step_r(0, rho[f] - rho0[f], -divergence_f)
+      compute tvg.f =
+          unit_step_r(0, rho.f - rho0.f, -divergence_f)
         *
           V_f
         +
-          xi[f] * S_f;
+          xi.f * S_f;
 
-      //compute tvg[f] += R_f;
+      //compute tvg.f += R_f;
 
       // // compute fluid-only density for the vorticity diffusion system
       // local fluid_rho_f : real = zeros<real>();
       // foreach particle neighbor f_f {
-      //   compute fluid_rho_f += m[f_f] * kernel_h(x[f] - x[f_f], h);
+      //   compute fluid_rho_f += m.f_f * kernel_h(x.f - x.f_f, h);
       // }
 
       // // compute the diagonal element of the vorticity diffusion system
-      // compute omega_diagonal[f] = fluid_rho_f - m[f] * kernel_h(zeros<real[]>(), h);
+      // compute omega_diagonal.f = fluid_rho_f - m.f * kernel_h(zeros<real[]>(), h);
 
       // // compute the diagonal element of the velocity reconstruction system
-      // compute v_rec_diagonal[f] = rho[f] - m[f] * kernel_h(zeros<real[]>(), h);
+      // compute v_rec_diagonal.f = rho.f - m.f * kernel_h(zeros<real[]>(), h);
     }
   }
 
   // procedure compute_vorticity_rhs {
   //   // compute the right-hand-side of the vorticity diffusion system
   //   foreach fluid particle f {
-  //     compute omega_rhs[f] = zeros<real[]>();
+  //     compute omega_rhs.f = zeros<real[]>();
   //     foreach fluid neighbor f_f {
-  //       compute omega_rhs[f] +=
-  //           xi[f]
+  //       compute omega_rhs.f +=
+  //           xi.f
   //         *
-  //           m[f_f]
+  //           m.f_f
   //         *
-  //           (omega[f] - omega[f_f])
+  //           (omega.f - omega.f_f)
   //         *
-  //           kernel_h(x[f] - x[f_f], h);
+  //           kernel_h(x.f - x.f_f, h);
   //     }
   //   }
   // }
@@ -165,25 +165,25 @@ scheme pt16 {
 
         foreach fluid neighbor f_f {
           compute rhs +=
-              xi[f]
+              xi.f
             *
-              m[f_f]
+              m.f_f
             *
-              (omega[f] - omega[f_f])
+              (omega.f - omega.f_f)
             *
-              kernel_h(x[f] - x[f_f], h);
+              kernel_h(x.f - x.f_f, h);
         }
 
-        compute result[f] = rhs;
+        compute result.f = rhs;
       }
 
       setup guess into result {
-        compute result[f] = omega[f];
+        compute result.f = omega.f;
       }
 
       product preconditioner with iterate into result {
         // TODO: implement preconditioner
-        compute result[f] = iterate[f];
+        compute result.f = iterate.f;
       }
 
       product system with iterate into result {
@@ -192,23 +192,23 @@ scheme pt16 {
 
         foreach particle neighbor f_f {
           compute tmp -=
-              m[f_f]
+              m.f_f
             *
-              kernel_h(x[f] - x[f_f], h)
+              kernel_h(x.f - x.f_f, h)
             *
-              iterate[f_f];
+              iterate.f_f;
 
-          compute rho_f += m[f_f] * kernel_h(x[f] - x[f_f], h);
+          compute rho_f += m.f_f * kernel_h(x.f - x.f_f, h);
         }
 
-        compute result[f] = rho_f * iterate[f] + tmp;
+        compute result.f = rho_f * iterate.f + tmp;
       }
 
       apply iterate {
         // finalize the target vorticity
-        compute omega[f] = iterate[f] * unit_step_l(0, (t - t_birth[f]) - dt_fade);
+        compute omega.f = iterate.f * unit_step_l(0, (t - t_birth.f) - dt_fade);
         // add the target spin rate (from the target vorticity) to the velocity gradient
-        compute tvg[f] += cross_product_matrix_from_vector(0.5 * omega[f]);
+        compute tvg.f += cross_product_matrix_from_vector(0.5 * omega.f);
       }
     }
   }
@@ -216,21 +216,21 @@ scheme pt16 {
   // procedure compute_target_velocity_gradient {
   //   foreach fluid particle f {
   //     // add the target spin rate (from the diffused vorticity) to the velocity gradient
-  //     compute tvg[f] += cross_product_matrix_from_vector(omega[f] / 2);
+  //     compute tvg.f += cross_product_matrix_from_vector(omega.f / 2);
   //   }
   // }
   //   
   // procedure compute_velocity_reconstruction_rhs {
   //   // compute the right-hand-side of the velocity reconstruction system
   //   foreach fluid particle f {
-  //     compute v_rec_rhs[f] = zeros<real[]>();
+  //     compute v_rec_rhs.f = zeros<real[]>();
   //     foreach fluid neighbor f_f {
-  //       compute v_rec_rhs[f] +=
-  //           m[f_f]
+  //       compute v_rec_rhs.f +=
+  //           m.f_f
   //         *
-  //           ((0.5 * tvg[f] + 0.5 * tvg[f_f]) * (x[f] - x[f_f]))
+  //           ((0.5 * tvg.f + 0.5 * tvg.f_f) * (x.f - x.f_f))
   //         *
-  //           kernel_h(x[f] - x[f_f], h);
+  //           kernel_h(x.f - x.f_f, h);
   //     }
   //   }
   // }
@@ -242,23 +242,23 @@ scheme pt16 {
 
         foreach fluid neighbor f_f {
           compute rhs +=
-              (m[f_f] / rho[f_f])
+              (m.f_f / rho.f_f)
             *
-              0.5 * ((tvg[f] + tvg[f_f]) * (x[f] - x[f_f]))
+              0.5 * ((tvg.f + tvg.f_f) * (x.f - x.f_f))
             *
-              kernel_h(x[f] - x[f_f], h);
+              kernel_h(x.f - x.f_f, h);
         }
 
-        compute result[f] = (1 / pt16_one[f]) * rhs;
+        compute result.f = (1 / pt16_one.f) * rhs;
       }
 
       setup guess into iterate {
-        compute iterate[f] = v[f];
+        compute iterate.f = v.f;
       }
 
       product preconditioner with iterate into result {
         // TODO: implement preconditioner
-        compute result[f] = iterate[f];
+        compute result.f = iterate.f;
       }
 
       product system with iterate into result {
@@ -266,29 +266,29 @@ scheme pt16 {
 
         foreach fluid neighbor f_f {
           compute tmp -=
-              (m[f_f] / rho[f_f])
+              (m.f_f / rho.f_f)
             *
-              kernel_h(x[f] - x[f_f], h)
+              kernel_h(x.f - x.f_f, h)
             *
-              iterate[f_f];
+              iterate.f_f;
         }
 
-        compute result[f] = iterate[f] + (1 / pt16_one[f]) * tmp;
+        compute result.f = iterate.f + (1 / pt16_one.f) * tmp;
       }
 
       apply iterate {
         // implement fade-in of particles by applying the resulting iterate
         // after the fade was completed and the previous velocity if the
         // particle is still fading in
-        //compute v[f] =
-        //    iterate[f] * unit_step_l(0, (t - t_birth[f]) - dt_fade)
+        //compute v.f =
+        //    iterate.f * unit_step_l(0, (t - t_birth.f) - dt_fade)
         //  +
-        //    v[f] * unit_step_r(0, dt_fade - (t - t_birth[f]));
+        //    v.f * unit_step_r(0, dt_fade - (t - t_birth.f));
 
-        //compute v[f] = iterate[f] * unit_step_l(0, (t - t_birth[f]) - dt_fade);
+        //compute v.f = iterate.f * unit_step_l(0, (t - t_birth.f) - dt_fade);
 
         // compute the viscosity acceleration
-        compute a[f] = (iterate[f] - v[f]) / dt;
+        compute a.f = (iterate.f - v.f) / dt;
       }
     }
   }

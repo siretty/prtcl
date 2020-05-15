@@ -21,35 +21,35 @@ scheme symplectic_euler {
 
   procedure integrate_velocity {
     foreach dynamic particle i {
-      compute v[i] += dt * a[i];
+      compute v.i += dt * a.i;
     }
   }
 
   procedure integrate_velocity_with_hard_fade {
     foreach dynamic particle i {
-      compute v[i] +=
-          dt * a[i]
+      compute v.i +=
+          dt * a.i
         *
           // accelerations "turn on" after a particle is older than dt_fade
-          unit_step_l(0, (t - t_birth[i]) - dt_fade);
+          unit_step_l(0, (t - t_birth.i) - dt_fade);
     }
   }
 
   procedure integrate_velocity_with_smooth_fade {
     foreach dynamic particle i {
-      compute v[i] +=
-          dt * a[i]
+      compute v.i +=
+          dt * a.i
         *
           // accelerations "fade in" until a particle is older than dt_fade
-          smoothstep((t - t_birth[i] - dt_fade) / dt_fade);
+          smoothstep((t - t_birth.i - dt_fade) / dt_fade);
     }
   }
 
   procedure integrate_position {
     foreach dynamic particle i {
-      compute x[i] += dt * v[i];
+      compute x.i += dt * v.i;
 
-      reduce max_speed max= norm(v[i]);
+      reduce max_speed max= norm(v.i);
     }
   }
 }

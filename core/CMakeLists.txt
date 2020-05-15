@@ -35,7 +35,7 @@ target_include_directories(
 target_link_libraries(
   prtcl-core
   INTERFACE
-    prtcl-dep-boost-container
+    ${_TARGET_BOOST_HEADERS}
 )
 
 

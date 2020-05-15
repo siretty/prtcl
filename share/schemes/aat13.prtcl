@@ -32,15 +32,15 @@ scheme aat13 {
 
   procedure compute_particle_normal {
     foreach fluid particle f {
-      compute n[f] = zeros<real[]>();
+      compute n.f = zeros<real[]>();
 
       foreach fluid neighbor f_f {
-        compute n[f] +=
+        compute n.f +=
             kernel_support_radius(h)
           *
-            m[f_f] / rho[f_f]
+            m.f_f / rho.f_f
           *
-            kernel_gradient_h(x[f] - x[f_f], h);
+            kernel_gradient_h(x.f - x.f_f, h);
       }
     }
   }
@@ -49,45 +49,45 @@ scheme aat13 {
     foreach fluid particle f {
       foreach fluid neighbor f_f {
         // cohesion
-        compute a[f] -=
+        compute a.f -=
             (
-                (2 * rho0[f] / (rho[f] + rho[f_f]))
+                (2 * rho0.f / (rho.f + rho.f_f))
               *
-                gamma[f]
+                gamma.f
               *
-                m[f_f]
+                m.f_f
               *
-                (x[f] - x[f_f])
+                (x.f - x.f_f)
               *
-                reciprocal_or_zero(norm(x[f] - x[f_f]), 1e-9)
+                reciprocal_or_zero(norm(x.f - x.f_f), 1e-9)
             )
           *
-            aat13_cohesion_h(norm(x[f] - x[f_f]), h);
+            aat13_cohesion_h(norm(x.f - x.f_f), h);
 
         // curvature
-        compute a[f] -=
+        compute a.f -=
             (
-                (2 * rho0[f] / (rho[f] + rho[f_f]))
+                (2 * rho0.f / (rho.f + rho.f_f))
               *
-                gamma[f]
+                gamma.f
             )
           *
-            (n[f] - n[f_f]);
+            (n.f - n.f_f);
       }
 
       foreach boundary neighbor f_b {
-        compute a[f] -=
+        compute a.f -=
             (
-                beta[f_b]
+                beta.f_b
               *
-                rho0[f] * V[f_b]
+                rho0.f * V.f_b
               *
-                (x[f] - x[f_b])
+                (x.f - x.f_b)
               *
-                reciprocal_or_zero(norm(x[f] - x[f_b]), 1e-9)
+                reciprocal_or_zero(norm(x.f - x.f_b), 1e-9)
             )
           *
-            aat13_adhesion_h(norm(x[f] - x[f_b]), h);
+            aat13_adhesion_h(norm(x.f - x.f_b), h);
       }
     }
   }

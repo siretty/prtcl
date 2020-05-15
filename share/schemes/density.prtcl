@@ -25,14 +25,14 @@ scheme density {
 
   procedure compute_density {
     foreach fluid particle f {
-      compute rho[f] = 0;
+      compute rho.f = 0;
 
       foreach fluid neighbor f_f {
-        compute rho[f] += m[f_f] * kernel_h(x[f] - x[f_f], h);
+        compute rho.f += m.f_f * kernel_h(x.f - x.f_f, h);
       }
 
       foreach boundary neighbor f_b {
-        compute rho[f] += V[f_b] * rho0[f] * kernel_h(x[f] - x[f_b], h);
+        compute rho.f += V.f_b * rho0.f * kernel_h(x.f - x.f_b, h);
       }
     }
   }
