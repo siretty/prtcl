@@ -71,6 +71,11 @@ BOOST_FUSION_ADAPT_STRUCT(                //
     field, index                          //
 );
 
+BOOST_FUSION_ADAPT_STRUCT(                    //
+    prtcl::gt::ast::n_math::component_access, //
+    operand, indices                          //
+);
+
 BOOST_FUSION_ADAPT_STRUCT(             //
     prtcl::gt::ast::n_math::operation, //
     name, type, arguments              //
@@ -137,7 +142,7 @@ BOOST_FUSION_ADAPT_STRUCT(                                //
     right_hand_side, guess, preconditioner, system, apply //
 );
 
-//BOOST_FUSION_ADAPT_STRUCT(                                //
+// BOOST_FUSION_ADAPT_STRUCT(                                //
 //    prtcl::gt::ast::n_scheme::solve,                      //
 //    solver, type, groups, index,                          //
 //    right_hand_side, guess, preconditioner, system, apply //

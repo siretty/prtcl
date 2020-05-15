@@ -65,6 +65,7 @@ namespace n_math {
 struct literal;
 struct operation;
 struct field_access;
+struct component_access;
 
 // unary arithmetic expression
 struct unary_arithmetic;
@@ -74,7 +75,8 @@ struct multi_arithmetic_rhs;
 struct multi_arithmetic;
 
 using expression = variant<
-    nil, literal, operation, field_access, unary_arithmetic, multi_arithmetic>;
+    nil, literal, operation, field_access, component_access, unary_arithmetic,
+    multi_arithmetic>;
 
 // }}}
 } // namespace n_math
@@ -169,6 +171,11 @@ struct operation : position_tagged {
 struct field_access : position_tagged {
   string field;
   optional<string> index;
+};
+
+struct component_access : position_tagged {
+  value_ptr<expression> operand;
+  vector<unsigned> indices;
 };
 
 // }}}

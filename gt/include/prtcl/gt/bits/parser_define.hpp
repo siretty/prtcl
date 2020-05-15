@@ -39,8 +39,13 @@ namespace n_math {
 
 auto const expression_def = add_term;
 
-auto const primary_def =
-    '(' >> expression >> ')' | unary_neg | literal | operation | field_access;
+auto const indexable_def =
+    '(' >> expression >> ')' | literal | operation | field_access;
+
+auto const primary_def = component_access | indexable_def | unary_neg;
+// auto const primary_def =
+//    '(' >> expression >> ')' | unary_neg | literal | operation | field_access
+//    | component_access;
 
 auto const literal_def = (                                                    //
     (attr(ast::ndtype_boolean) >> x3::raw[x3::bool_]) |                       //
@@ -52,6 +57,8 @@ auto const operation_def = identifier >> -('<' >> ndtype >> '>') >> '(' >>
                            -(expression % ',') >> ')';
 
 auto const field_access_def = identifier >> -('.' >> identifier);
+
+auto const component_access_def = indexable_def >> '[' >> (uint_ % ',') >> ']';
 
 auto const unary_neg_def = '-' >> attr(ast::op_neg) >> primary;
 

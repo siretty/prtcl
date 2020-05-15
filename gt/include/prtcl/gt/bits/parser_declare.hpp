@@ -23,7 +23,7 @@ namespace prtcl::gt::parser {
 namespace x3 = boost::spirit::x3;
 
 using x3::alpha, x3::alnum;
-using x3::char_;
+using x3::char_, x3::uint_;
 using x3::lit, x3::attr;
 
 } // namespace prtcl::gt::parser
@@ -79,6 +79,7 @@ namespace n_math {
 struct literal_class;
 struct operation_class;
 struct field_access_class;
+struct component_access_class;
 
 struct unary_neg_class;
 
@@ -111,6 +112,10 @@ x3::rule<operation_class, ast::n_math::operation> const operation =
 /// Parse particle field access.
 x3::rule<field_access_class, ast::n_math::field_access> const field_access =
     "field access";
+
+/// Parse component access.
+x3::rule<component_access_class, ast::n_math::component_access> const
+    component_access = "component access";
 
 /// Parse a unary negation operation.
 x3::rule<unary_neg_class, ast::n_math::unary_arithmetic> const unary_neg =
