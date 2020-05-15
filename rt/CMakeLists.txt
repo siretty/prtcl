@@ -13,7 +13,6 @@ set( _INC ${CMAKE_CURRENT_SOURCE_DIR}/include )
 set( _SRC ${CMAKE_CURRENT_SOURCE_DIR}/sources )
 
 
-find_package( Eigen3 REQUIRED )
 find_package( Threads REQUIRED )
 
 
