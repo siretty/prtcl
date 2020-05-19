@@ -1,7 +1,7 @@
 
-scheme wkbb18 {
+scheme test_scheme {
   groups fluid {
-    select type fluid or tag dynamic or tag static;
+    select type fluid or tag dynamic or not tag static and not type boundary;
 
     varying field x = real[] position;
     varying field v = real[] velocity;
@@ -49,11 +49,13 @@ scheme wkbb18 {
   }
 
   procedure compute_diagonal {
+    local abc : real[] = 0;
+
     foreach fluid particle f {
       // reset the diagonal element vector
       compute sp.f = zeros<real[][]>();
 
-      local abc = zeros<real[][][]>() * ones<real[][]>();
+      local abc : real = zeros<real[][][]>() * ones<real[][]>();
       
       compute dummy.f = (sp.f * zeros<real[]>())[0, 0] * ones<real[]>();
 
@@ -75,7 +77,7 @@ scheme wkbb18 {
           ;
       }
 
-      reduce dummy.f += (sp.f * zeros<real[]>()) * ones<real[]>() + abc;
+      reduce dummy.f[0, d] += (sp.f * zeros<real[]>()) * ones<real[]>() + abc;
 
       // accumulate over boundary neighbors
       foreach boundary neighbor f_b {
@@ -177,6 +179,10 @@ scheme wkbb18 {
         compute a.f = vd.f / dt;
       }
     }
+
+    compute abc = 
+          unit_step_r(0, rho.f - rho0.f, -divergence_f)
+          ;
   }
 }
 

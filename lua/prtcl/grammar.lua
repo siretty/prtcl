@@ -15,24 +15,8 @@ local pg_math = require "prtcl.grammar.math"
 
 
 local block, statement, collect = pgc.block, pgc.statement, pgc.collect
-
 local Identifier = pgc.Identifier
-
 local WS0, WS1 = pgc.WS0, pgc.WS1
-
-local BOOL = P("true") + P("false")
-local UINT = R("09")^1
-local SINT = P("-")^-1 * UINT
-local REAL = P("-")^-1 * (UINT^-1 * P(".") * UINT + UINT * (P(".") * UINT)^-1)
-
-local DTYPE = P("real") + P("integer") + P("boolean")
-
-local IDENT = R("az", "AZ") * R("az", "AZ", "09", "__")^0
-
-
-function Identifier(name) 
-  return Cg(C(IDENT), name)
-end
 
 
 module.grammar = P{
@@ -145,11 +129,28 @@ module.grammar = P{
   ),
 
   local_ = statement("local_",
-    P("local") * WS1 * (P(1) - P(";"))^0
+    P("local") * WS0
+    *
+      Identifier("name")
+    * WS0 *
+      P(":")
+    * WS0 *
+      Cg(V("ndtype"), "type")
+    * WS0 *
+      pg_math.EQ
+    * WS0 *
+      Cg(pg_math.grammar, "math")
+
   ),
 
   compute = statement("compute",
-    P("compute") * WS1 * (P(1) - P(";"))^0
+      P("compute") * WS0
+    *
+      Cg(pg_math.grammar, "into")
+    * WS0 *
+      Cg(C(pg_math.EQ + pg_math.OPEQ), "operator")
+    * WS0 *
+      Cg(pg_math.grammar, "math")
   ),
 
   reduce = statement("reduce",
@@ -179,7 +180,7 @@ module.grammar = P{
     WS0 * P("}")
   ),
 
-  setup = block("setup",
+  setup = block("solve_setup",
     P("setup") * WS1
         * Identifier("name") * WS1
         * P("into") * WS1
@@ -193,7 +194,7 @@ module.grammar = P{
     P("}")
   ),
 
-  product = block("product",
+  product = block("solve_product",
     P("product") * WS1
         * Identifier("name") * WS1
         * P("with") * WS1
@@ -209,7 +210,7 @@ module.grammar = P{
     P("}")
   ),
 
-  apply = block("apply",
+  apply = block("solve_apply",
     P("apply") * WS1
         * Identifier("with") * WS0
         * P("{")
@@ -232,8 +233,24 @@ function module.parse(subject)
   local result = {module.grammar:match(subject, 1, state)}
 
   if state.last_position ~= nil and state.last_position < #subject then
+    -- find the position (offset) of each newline in the subject
+    local line_offsets = Ct(
+      Cc(1) * (P("\n") * lpeg.Cp() + (P(1) - P("\n")))^0 * P(-1)
+    ):match(subject)
+
+    -- find the line-number corresponding to the last position
+    local line_number, line_offset = 1, 1
+    for number, offset in ipairs(line_offsets) do
+      if offset <= state.last_position then
+        line_number, line_offset = number, offset
+      else
+        break
+      end
+    end
+
     print("subject was not fully matched")
     print("expected '" .. state.last_expected .. "' at position " .. state.last_position)
+    print("line " .. line_number .. " column " .. (state.last_position - line_offset))
   end
 
   return result

@@ -58,7 +58,51 @@ if path == nil then
 end
 
 f = io.open(path, "rb")
+source = f:read("*a")
 
-result = g.parse(f:read("*a"))
+result = g.parse(source)
 if result ~= nil then g.pretty_print(result) end
+
+
+function make_printer()
+  local printer = {
+    buffer = "",
+    indent = 0,
+    indentation = "  "
+  }
+
+  function printer:put(str)
+    assert(type(str) == "string")
+    self.buffer = self.buffer .. str
+    return self
+  end
+
+  function printer:iput(str)
+    self.buffer = self.buffer .. string.rep(self.indentation, self.indent)
+    return self:put(str)
+  end
+
+  function printer:nl()
+    self.buffer = self.buffer .. "\n"
+    return self
+  end
+
+  function printer:increase_indent()
+    self.indent = self.indent + 1
+    return self
+  end
+
+  function printer:decrease_indent()
+    self.indent = self.indent - 1
+    assert(self.indent >= 0)
+    return self
+  end
+
+  return printer
+end
+
+local printer = make_printer()
+local cxxomp = require "prtcl.format.cxx_openmp"
+cxxomp.format(result[1], printer)
+print(printer.buffer)
 

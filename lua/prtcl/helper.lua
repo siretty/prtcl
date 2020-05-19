@@ -38,7 +38,12 @@ local function pprint(obj, indent)
       for _, k in ipairs(keys) do
         local v = obj[k]
         if type(v) ~= "table" then
-          iprint(indent + 1, tostring(k) .. ": " .. tostring(v))
+          if v == nil then
+            v = "nil"
+          else
+            v = type(v) .."[" .. tostring(v) .. "]"
+          end
+          iprint(indent + 1, tostring(k) .. ": " .. v)
         else
           iprint(indent + 1, tostring(k) .. ":")
           pprint(v, indent + 2)

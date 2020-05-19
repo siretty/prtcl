@@ -20,7 +20,7 @@ module.grammar = P{"start",
   start = P("select") * WS1 * expression * WS0 * P(";"),
 
   atom =
-      pgc.block("atom",
+      pgc.block("select_atom",
         Cg(P("type") + P("tag"), "kind")
         * WS1 *
         pgc.Identifier("name")
@@ -31,14 +31,14 @@ module.grammar = P{"start",
       WS0 * P(")") * WS0,
 
   not_term =
-      atom
-    +
-      pgc.unary("not",
+      pgc.unary("select_not",
         NOT * atom
-      ),
+      )
+    +
+      atom,
 
-  con_term = pgc.multary("con", not_term * (CON * not_term)^0),
-  dis_term = pgc.multary("dis", con_term * (DIS * con_term)^0),
+  con_term = pgc.multary("select_con", not_term * (CON * not_term)^0),
+  dis_term = pgc.multary("select_dis", con_term * (DIS * con_term)^0),
   expression = dis_term
 }
 

@@ -18,12 +18,25 @@ local UINT = R("09")^1
 local SINT = P("-")^-1 * UINT
 local REAL = P("-")^-1 * (UINT^-1 * P(".") * UINT + UINT * (P(".") * UINT)^-1)
 
+local DIGIT10, DIGIT16 = R("09"), R("09", "af", "AF")
+
+local EXPONENT = S("eE") * S("+-")^-1 * DIGIT10^1
+
+local NUMBER =
+    DIGIT10^1 * P(".") * DIGIT10^0 * EXPONENT^-1
+  +
+    DIGIT10^0 * P(".") * DIGIT10^1 * EXPONENT^-1
+  +
+    DIGIT10^1 * EXPONENT^-1
+
 local DTYPE = P("real") + P("integer") + P("boolean")
 
 local IDENT = R("az", "AZ") * R("az", "AZ", "09", "__")^0
 
 module.WS0, module.WS1 = WS0, WS1
 module.BOOL, module.UINT, module.SINT, module.REAL = BOOL, UINT, SINT, REAL
+
+module.NUMBER = NUMBER
 module.DTYPE, module.IDENT = DTYPE, IDENT
 
 
@@ -73,7 +86,7 @@ function module.unary(_type, pattern)
   return lpeg.Ct(
     lpeg.Cg(expect(_type), "_type")
   *
-    lpeg.Cg(pattern, "operand")
+    lpeg.Cg(WS0 * pattern * WS0, "operand")
   ) / function(obj)
     assert(type(obj.operand) == "table")
     assert(obj.operand._type ~= nil)
@@ -85,7 +98,7 @@ function module.multary(_type, pattern)
   return lpeg.Ct(
     lpeg.Cg(expect(_type), "_type")
   *
-    Cg(Ct(pattern), "operands")
+    Cg(Ct(WS0 * pattern * WS0), "operands")
   ) / function(obj)
     assert(type(obj.operands) == "table")
     assert(obj.operands._type == nil)
@@ -97,11 +110,15 @@ function module.multary(_type, pattern)
   end
 end
 
+function module._infix(operator, argument)
+  return argument * (operator * argument)^0
+end
+
 function module.infix(_type, operator, argument)
   return lpeg.Ct(
     lpeg.Cg(expect(_type), "_type")
   *
-    Cg(Ct(argument * (operator * argument)^0), "operands")
+    Cg(Ct(module._infix(operator, argument)), "operands")
   ) / function(obj)
     assert(type(obj.operands) == "table")
     assert(obj.operands._type == nil)

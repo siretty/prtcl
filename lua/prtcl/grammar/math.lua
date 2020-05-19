@@ -15,9 +15,9 @@ local ADD, SUB, MUL, DIV = P("+"), P("-"), P("*"), P("/")
 
 local EQ, ADDEQ, SUBEQ, MULEQ, DIVEQ, MAXEQ, MINEQ =
   P("="), P("+="), P("-="), P("*="), P("/="), P("max="), P("min=")
+local OPEQ = ADDEQ + SUBEQ + MULEQ + DIVEQ + MAXEQ + MINEQ
 
-local OPEQ = ADDEQ + SUBEQ + MULEQ + MAXEQ + MINEQ
-module.OPEQ = OPEQ
+module.EQ, module.OPEQ = EQ, OPEQ
 
 
 local expression = V("expression")
@@ -29,7 +29,7 @@ module.grammar = P{"start",
   start = expression,
 
   atom =
-      pgc.block("field",
+      pgc.block("field_access",
         pgc.Identifier("name")
         * WS0 * P(".") * WS0 *
         pgc.Identifier("from")
@@ -47,7 +47,7 @@ module.grammar = P{"start",
           *
           Cg(
             Ct(
-              (expression * (P(",") * expression)^0)^-1
+              (expression * (P(",") * WS0 * expression)^0)^-1
             ),
             "arguments"
           )
@@ -59,34 +59,33 @@ module.grammar = P{"start",
         pgc.Identifier("name")
       )
     +
+      pgc.block("number",
+        Cg(C(pgc.NUMBER), "value")
+      )
+    +
       WS0 * P("(") * WS0 
       * expression *
       WS0 * P(")") * WS0,
 
   slice =
       pgc.block("slice",
-        atom * WS0
+        Cg(atom, "subject") * WS0
         *
-          Cg(Ct(
-            P("[") * WS0
-              * C(pgc.UINT)
-            * WS0 * P("]")
-          ), "indices")
+          P("[") * WS0
+          * Cg(Ct(
+              pgc._infix(WS0 * P(",") * WS0, C(pgc.UINT) + C(pgc.IDENT))
+            ), "indices") *
+          WS0 * P("]")
       )
     +
       atom,
 
   neg_term =
-      pgc.unary("neg",
-        NEG * slice
-      )
+      pgc.unary("neg", NEG * slice)
     +
       slice,
 
-  mul_term = pgc.multary("mul",
-    neg_term * (C(MUL + DIV) * neg_term)^0
-  ),
-
+  mul_term = pgc.infix("infix", C(MUL + DIV), neg_term),
   add_term = pgc.infix("infix", C(ADD + SUB), mul_term),
 
   expression = add_term
