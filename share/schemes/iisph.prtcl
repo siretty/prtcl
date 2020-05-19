@@ -69,7 +69,7 @@ scheme iisph {
       }
     }
 
-    compute nprde = integer{0};
+    compute nprde = zeros<integer>();
 
     foreach fluid particle f {
       // reset the pressure
@@ -134,7 +134,7 @@ scheme iisph {
       compute AA.f *= dt * dt * (rho0.f / rho.f);
 
       // accumulate the number of particles
-      reduce nprde += integer{1};
+      reduce nprde += ones<integer>();
     }
   }
 
