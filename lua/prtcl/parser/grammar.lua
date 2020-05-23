@@ -5,12 +5,14 @@ local P, R, S, V = lpeg.P, lpeg.R, lpeg.S, lpeg.V
 local C, Ct = lpeg.C, lpeg.Ct
 
 local node = require "prtcl.parser.node"
-local ws = require "prtcl.parser.whitespace"
 local id = require "prtcl.parser.identifier"
+
+local WS_SP = lpeg.S" \t"
+local WS_NL = lpeg.S"\r\n"
 
 local WS = (
     -- one or more whitespace characters
-    ws.SOME()
+    (WS_SP + WS_NL)
   +
     -- single line comment
     P("//") * (lpeg.P(1) - lpeg.P("\n"))^0
@@ -24,7 +26,7 @@ local EOS = P(-1)
 local DIGIT10, DIGIT16 = R("09"), R("09", "af", "AF")
 local EXPONENT = S("eE") * S("+-")^-1 * DIGIT10^1
 
-local NUMBER = C(
+local number = C(
       DIGIT10^1 * P(".") * DIGIT10^0 * EXPONENT^-1
     +
       DIGIT10^0 * P(".") * DIGIT10^1 * EXPONENT^-1
@@ -320,7 +322,7 @@ grammar.grammar = lpeg.P{
           node.store_one("subject", V"atom"),
           P"[",
           node.store_all("indices",
-            INFIX_WS(P",", C(NUMBER) + id.name())
+            INFIX_WS(P",", C(number) + id.name())
           ),
           P"]"
         ))
@@ -347,7 +349,7 @@ grammar.grammar = lpeg.P{
         Node("name_ref", id.store_name("name"))
       +
         -- TODO: extented (typed) literals
-        Node("literal", node.store_one("value", NUMBER))
+        Node("literal", node.store_one("value", number))
       +
         SURROUNDED_WS(Parenthesized(V"expression")),
 
