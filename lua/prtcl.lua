@@ -1,7 +1,5 @@
 #!/usr/bin/env lua
 
-local g = require "prtcl.grammar"
-
 --[[
 local parse_state = {
   last_position = nil,
@@ -52,6 +50,29 @@ end
 
 --]]
 
+local g = require "prtcl.grammar"
+
+configuration = {
+  printer_module = "prtcl.printer.string",
+  --printer_module = "prtcl.printer.file",
+
+  printer_args = {{
+    indent_prefix = "//  ",
+
+    indent = {
+      initial_indent = 0,
+      indentation = string.rep(" ", 2),
+    },
+  }},
+}
+
+
+local function make_printer()
+  local printer_class = require(configuration.printer_module)
+  return printer_class:new(unpack(configuration.printer_args or {}))
+end
+
+
 path = arg[1]
 if path == nil then
   path = "/home/daned/doc/code/prtcl/lua/test.prtcl"
@@ -63,46 +84,12 @@ source = f:read("*a")
 result = g.parse(source)
 if result ~= nil then g.pretty_print(result) end
 
-
-function make_printer()
-  local printer = {
-    buffer = "",
-    indent = 0,
-    indentation = "  "
-  }
-
-  function printer:put(str)
-    assert(type(str) == "string")
-    self.buffer = self.buffer .. str
-    return self
-  end
-
-  function printer:iput(str)
-    self.buffer = self.buffer .. string.rep(self.indentation, self.indent)
-    return self:put(str)
-  end
-
-  function printer:nl()
-    self.buffer = self.buffer .. "\n"
-    return self
-  end
-
-  function printer:increase_indent()
-    self.indent = self.indent + 1
-    return self
-  end
-
-  function printer:decrease_indent()
-    self.indent = self.indent - 1
-    assert(self.indent >= 0)
-    return self
-  end
-
-  return printer
-end
-
 local printer = make_printer()
+
 local cxxomp = require "prtcl.format.cxx_openmp"
 cxxomp.format(result[1], printer)
-print(printer.buffer)
+
+if printer.str ~= nil then
+  print(printer:str())
+end
 
