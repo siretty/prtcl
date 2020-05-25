@@ -1,5 +1,4 @@
 local object = require "prtcl.object"
-local node = require "prtcl.ast.node"
 
 local class = object:make_class(nil, "collection")
 

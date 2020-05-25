@@ -293,14 +293,14 @@ grammar.grammar = lpeg.P{
     id.WORD("compute"),
     node.store_one("target", V"math"),
     node.store_one("operator", P"=" + V"OPEQ"),
-    node.store_one("source", V"math")
+    node.store_one("argument", V"math")
   ))),
 
   reduce = Statement(Node("reduce", JOINED_WS(
     id.WORD("reduce"),
     node.store_one("target", V"math"),
     node.store_one("operator", V"OPEQ"),
-    node.store_one("source", V"math")
+    node.store_one("argument", V"math")
   ))),
 
   OPEQ = (S"+-*/" + P"min" + P"max") * P"=",
@@ -348,8 +348,17 @@ grammar.grammar = lpeg.P{
       +
         Node("name_ref", id.store_name("name"))
       +
-        -- TODO: extented (typed) literals
-        Node("literal", node.store_one("value", number))
+        -- TODO: support extented (typed) literals
+        Node("literal",
+          -- HACK: fixed type 'real' (no extents)
+          node.store_one("type", Node("ndtype",
+            node.store_one("type", node.value("real"))
+            *
+            node.store_all("extents", P"")
+          ))
+          *
+          node.store_one("value", number)
+        )
       +
         SURROUNDED_WS(Parenthesized(V"expression")),
 

@@ -1,28 +1,18 @@
 local object = require "prtcl.object"
 local node = require "prtcl.ast.node"
+local collection = require "prtcl.ast.collection"
 
-local load_value = object:make_class(node)
+local class = object:make_class(node, "ld")
 
-function load_value:_init(kwargs)
+function class:_init(kwargs)
   if kwargs == nil then kwargs = {} end
-  object:init(load_value, self, kwargs)
+  object:init(class, self, kwargs)
 
-  self.source = kwargs.source
-  if self.source ~= nil then
-    self.source:replace_parent(self)
-  end
+  self.source = collection:new{owner=self}
 end
 
-function load_value:replace(child, with)
-  assert(child:is_child_of(self))
-  local base = object:class_base(block)
-
-  if self.source == child then
-    self.source = with
-    return base.replace(self, child, with)
-  end
-
-  return self
+function class:replace(child, with)
+  self.source:replace(child, with)
 end
 
-return load_value
+return class

@@ -113,18 +113,20 @@ scheme scheme_a {
 function test_example_a()
   local g = require "prtcl.parser.grammar"
   local h = require "prtcl.helper"
+
+  local printer = require("prtcl.printer.file"):new()
+  
   --local result = g.grammar:match(example_a)
-  local result = g.parse(example_a)
-
-  if result ~= nil then
-    --print(result)
-    --h.pprint(result)
-
-    local p = require("prtcl.printer.file"):new()
-    g.format_gv(p, result)
+  --
+  local pst = g.parse(example_a)
+  if pst ~= nil then
+    --g.format_gv(printer, pst)
   end
 
-  require("prtcl.pst_to_ast")(result)
+  local ast = require("prtcl.pst_to_ast")(pst)
+  if ast ~= nil then
+    require("prtcl.ast.to_gv")(printer, ast)
+  end
 end
 
 test_example_a()

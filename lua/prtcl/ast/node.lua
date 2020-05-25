@@ -5,7 +5,6 @@ local node = object:make_class(nil)
 function node:_init(kwargs)
   if kwargs == nil then kwargs = {} end
   self._parent = kwargs.parent or nil
-  self._children = {}
   return self
 end
 

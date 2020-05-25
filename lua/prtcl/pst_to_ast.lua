@@ -10,7 +10,7 @@ end
 local handlers = {}
 
 function handlers:dispatch(pst, ...)
-  printf('dispatching %s', pst.node_type)
+  --printf('dispatching %s', pst.node_type)
 
   local result = nil
 
@@ -28,11 +28,17 @@ end
 
 
 function handlers:prtcl(pst)
-  local result = {}
-  for _, stmt in ipairs(pst.statements) do
-    table.insert(result, self:dispatch(stmt))
+  local res = ast.prtcl:new{}
+
+  for _, pst_node in ipairs(pst.statements) do
+    if pst_node.node_type == "scheme" then
+      res.schemes:append(self:dispatch(pst_node))
+    else
+      printf('prtcl: unhandled node_type=%s', pst_node.node_type)
+    end
   end
-  return result
+
+  return res
 end
 
 
@@ -120,6 +126,34 @@ function handlers:_handle_multary(pst, operator)
   return operands[1]
 end
 
+function handlers:_handle_infix(pst)
+  assert(#pst.operands >= 3)
+  assert(#pst.operands % 2 == 1)
+
+  -- dispatch all operands
+  local operands = {}
+  for index, pst_operand in ipairs(pst.operands) do
+    if index % 2 == 1 then
+      -- dispatch operands (indices 1, 3, 5, ...)
+      table.insert(operands, self:dispatch(pst_operand))
+    else
+      -- do not dispatch operators (indices 2, 4, ...)
+      table.insert(operands, pst_operand)
+    end
+  end
+
+  -- combine the operands from left-to-right
+  while #operands >= 3 do
+    local bop = ast.bop:new{}
+    bop.operands:append(table.remove(operands, 1))
+    bop.operator = table.remove(operands, 1)
+    bop.operands:append(table.remove(operands, 1))
+    table.insert(operands, 1, bop)
+  end
+
+  return operands[1]
+end
+
 
 function handlers:logic_dis(pst)
   return self:_handle_multary(pst, "logic_dis")
@@ -167,7 +201,9 @@ end
 
 function handlers:solve(pst)
   if pst.solver == "pcg" then
-    local pcg = ast.solve_pcg:new{type=pst.type}
+    local pcg = ast.solve_pcg:new{
+      type=ast.ndtype:new(pst.type)
+    }
 
     for _, pst_node in ipairs(pst.statements) do
       if     pst_node.node_type == "solve_setup" then
@@ -216,6 +252,104 @@ function handlers:solve_apply(pst)
   local block = self:_handle_named_block(pst, ast.solve_apply)
   block.with_name = pst.with
   return block
+end
+
+
+function handlers:local_def(pst)
+  local stmt = ast.local_def:new{name=pst.name, type=pst.type}
+  stmt.init_expr:append(self:dispatch(pst.math))
+  return stmt
+end
+
+function handlers:compute(pst)
+  local stmt = ast.compute:new{operator=pst.operator}
+  stmt.target:append(self:dispatch(pst.target))
+  stmt.argument:append(self:dispatch(pst.argument))
+  return stmt
+
+  --[[
+  local stmt = ast.store_value:new{}
+
+  stmt.target:append(self:dispatch(pst.target))
+
+  if pst.operator == "=" then
+    stmt.source:append(self:dispatch(pst.argument))
+  else
+    assert(#pst.operator >= 2)
+    assert(pst.operator:sub(-1) == "=")
+
+    local oper = ast.bop:new{operator=pst.operator:sub(1, -2)}
+
+    local load = ast.load_value:new{}
+    load.source:append(self:dispatch(pst.target))
+
+    oper.operands:append(load)
+    oper.operands:append(self:dispatch(pst.argument))
+
+    stmt.source:append(oper)
+  end
+
+  return stmt
+  --]]
+end
+
+function handlers:reduce(pst)
+  local stmt = ast.reduce:new{operator=pst.operator}
+  stmt.target:append(self:dispatch(pst.target))
+  stmt.argument:append(self:dispatch(pst.argument))
+  return stmt
+  --[[
+  local stmt = ast.load_modify_store:new{operator=pst.operator}
+  stmt.target:append(self:dispatch(pst.target))
+  stmt.argument:append(self:dispatch(pst.argument))
+  return stmt
+  --]]
+end
+
+
+function handlers:addsub(pst)
+  return self:_handle_infix(pst)
+end
+
+function handlers:muldiv(pst)
+  return self:_handle_infix(pst)
+end
+
+function handlers:neg(pst)
+  local uop = ast.uop:new{operator="-"}
+  uop.operand:append(self:dispatch(pst.operand))
+  return uop
+end
+
+
+function handlers:slice(pst)
+  local expr = ast.slice:new{}
+  expr.subject:append(self:dispatch(pst.subject))
+  for _, pst_node in ipairs(pst.indices) do
+    expr.indices:append(self:dispatch(pst_node))
+  end
+  return expr
+end
+
+function handlers:field_access(pst)
+  return ast.name_ref:new{name=pst.name, from=pst.from}
+end
+
+function handlers:name_ref(pst)
+  return ast.name_ref:new{name=pst.name, from=nil}
+end
+
+function handlers:literal(pst)
+  -- TODO: set type of literal
+  return ast.literal:new{type=pst.type, value=pst.value}
+end
+
+function handlers:call(pst)
+  local expr = ast.call:new{name=pst.name, type=pst.type}
+  for _, pst_node in ipairs(pst.arguments) do
+    expr.arguments:append(self:dispatch(pst_node))
+  end
+  return expr
 end
 
 

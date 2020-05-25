@@ -5,8 +5,10 @@ function object:make(metatable, instance)
   return instance
 end
 
-function object:make_class(base_class)
-  local class = {}
+function object:make_class(base_class, class_name)
+  local class = {
+    __object_class_name = class_name,
+  }
 
   local metatable = {
     __index = class,
@@ -25,6 +27,10 @@ function object:make_class(base_class)
     return instance
   end
 
+  function class:tostring()
+    return tostring(self)
+  end
+
   return class
 end
 
@@ -41,6 +47,14 @@ end
 -- Returns the base class of a class.
 function object:class_base(class)
   return object:classof(class)
+end
+
+function object:class_name(class)
+  return class.__object_class_name
+end
+
+function object:classnameof(obj)
+  return self:class_name(self:classof(obj))
 end
 
 -- Returns true if \p class is a base class of \p obj (this includes
