@@ -1,12 +1,25 @@
 local object = require "prtcl.object"
-local block = require "prtcl.ast.block"
+local node = require "prtcl.ast.node"
+local collection = require "prtcl.ast.collection"
 
-local scheme = object:make_class(block)
+local class = object:make_class(node, "scheme")
 
-function scheme:_init(kwargs)
+function class:_init(kwargs)
   if kwargs == nil then kwargs = {} end
-  object:init(scheme, self, kwargs)
+  object:init(class, self, kwargs)
+
   self.name = kwargs.name
+  self.groups = collection:new{owner=self}
+  self.global = collection:new{owner=self}
+  self.procedures = collection:new{owner=self}
 end
 
-return scheme
+function class:replace(child, with)
+  local base = object:class_base(class)
+
+  self.groups:replace(child, with)
+  self.global:replace(child, with)
+  self.procedures:replace(child, with)
+end
+
+return class

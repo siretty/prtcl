@@ -29,7 +29,7 @@ function object:make_class(base_class)
 end
 
 -- Returns the class of an object.
-function object:class(obj)
+function object:classof(obj)
   local metatable = getmetatable(obj)
   if metatable ~= nil then
     return metatable.__index
@@ -40,7 +40,7 @@ end
 
 -- Returns the base class of a class.
 function object:class_base(class)
-  return object:class(class)
+  return object:classof(class)
 end
 
 -- Returns true if \p class is a base class of \p obj (this includes
@@ -48,7 +48,7 @@ end
 function object:isinstance(obj, class)
   assert(obj ~= nil)
   assert(class ~= nil)
-  local obj_class = object:class(obj)
+  local obj_class = object:classof(obj)
   while obj_class ~= nil do
     if obj_class == class then
       return true

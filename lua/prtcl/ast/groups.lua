@@ -1,21 +1,25 @@
 local object = require "prtcl.object"
-local block = require "prtcl.ast.block"
+local node = require "prtcl.ast.node"
+local collection = require "prtcl.ast.collection"
 
-local groups = object:make_class(block)
+local class = object:make_class(node, "groups")
 
-function groups:_init(kwargs)
+function class:_init(kwargs)
   if kwargs == nil then kwargs = {} end
-  object:init(groups, self, kwargs)
+  object:init(class, self, kwargs)
+
   self.name = kwargs.name
-  self.select_expr = kwargs.select_expr
+  self.select_expr = collection:new{owner=self}
+  self.varying_fields = collection:new{owner=self}
+  self.uniform_fields = collection:new{owner=self}
 end
 
-function groups:replace(child, with)
-  local base = object:class_base(groups)
-  base.replace(self, child, with)
-  if self.select_expr == child then
-    self.select_expr = with
-  end
+function class:replace(child, with)
+  local base = object:class_base(class)
+
+  self.select_expr:replace(child, with)
+  self.varying_fields:replace(child, with)
+  self.uniform_fields:replace(child, with)
 end
 
-return groups
+return class

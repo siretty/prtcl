@@ -180,9 +180,9 @@ grammar.grammar = lpeg.P{
 
     expression = V"dis_term",
 
-    dis_term = Infix("dis", P"or",  V"con_term"),
-    con_term = Infix("con", P"and", V"not_term"),
-    not_term = Unary("not", P"not", V"atom") + V"atom",
+    dis_term = Infix("logic_dis", P"or",  V"con_term"),
+    con_term = Infix("logic_con", P"and", V"not_term"),
+    not_term = Unary("logic_not", P"not", V"atom") + V"atom",
 
     atom =
         Node("group_selector", JOINED_WS(
