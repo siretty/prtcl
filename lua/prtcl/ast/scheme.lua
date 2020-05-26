@@ -15,11 +15,17 @@ function class:_init(kwargs)
 end
 
 function class:replace(child, with)
-  local base = object:class_base(class)
-
+  object:class_base(class).replace(self, child, with)
   self.groups:replace(child, with)
   self.global:replace(child, with)
   self.procedures:replace(child, with)
+end
+
+function class:_yield_children()
+  object:class_base(class)._yield_children(self)
+  self.groups:_yield_items()
+  self.global:_yield_items()
+  self.procedures:_yield_items()
 end
 
 return class

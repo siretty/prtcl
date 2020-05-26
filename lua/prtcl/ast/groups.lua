@@ -15,11 +15,17 @@ function class:_init(kwargs)
 end
 
 function class:replace(child, with)
-  local base = object:class_base(class)
-
+  object:class_base(class).replace(self, child, with)
   self.select_expr:replace(child, with)
   self.varying_fields:replace(child, with)
   self.uniform_fields:replace(child, with)
+end
+
+function class:_yield_children()
+  object:class_base(class)._yield_children(self)
+  self.select_expr:_yield_items()
+  self.varying_fields:_yield_items()
+  self.uniform_fields:_yield_items()
 end
 
 return class

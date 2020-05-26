@@ -27,14 +27,21 @@ ast.store_value = require "prtcl.ast.store_value"
 ast.load_modify_store = require "prtcl.ast.load_modify_store"
 
 ast.slice = require "prtcl.ast.slice"
-ast.name_ref = require "prtcl.ast.name_ref"
 ast.literal = require "prtcl.ast.literal"
 ast.call = require "prtcl.ast.call"
+
+ast.name_ref = require "prtcl.ast.name_ref"
+ast.local_ref = require "prtcl.ast.local_ref"
+ast.global_ref = require "prtcl.ast.global_ref"
+ast.uniform_ref = require "prtcl.ast.uniform_ref"
+ast.varying_ref = require "prtcl.ast.varying_ref"
+ast.solving_with_ref = require "prtcl.ast.solving_with_ref"
+ast.solving_into_ref = require "prtcl.ast.solving_into_ref"
 
 ast.uop = require "prtcl.ast.uop"
 ast.bop = require "prtcl.ast.bop"
 
+ast.block = require "prtcl.ast.block"
 ast.unprocessed = require "prtcl.ast.unprocessed"
-ast.ndtype = require "prtcl.ast.ndtype"
 
 return ast

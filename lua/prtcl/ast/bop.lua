@@ -13,8 +13,13 @@ function class:_init(kwargs)
 end
 
 function class:replace(child, with)
-  assert(child:is_child_of(self))
+  object:class_base(class).replace(self, child, with)
   self.operands:replace(child, with)
+end
+
+function class:_yield_children()
+  object:class_base(class)._yield_children(self)
+  self.operands:_yield_items()
 end
 
 return class

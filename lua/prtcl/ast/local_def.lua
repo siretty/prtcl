@@ -13,4 +13,14 @@ function class:_init(kwargs)
   self.init_expr = collection:new{owner=self}
 end
 
+function class:replace(child, with)
+  object:class_base(class).replace(self, child, with)
+  self.init_expr:replace(child, with)
+end
+
+function class:_yield_children()
+  object:class_base(class)._yield_children(self)
+  self.init_expr:_yield_items()
+end
+
 return class

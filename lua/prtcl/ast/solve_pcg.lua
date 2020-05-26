@@ -21,11 +21,21 @@ function class:_init(kwargs)
 end
 
 function class:replace(child, with)
+  object:class_base(class).replace(self, child, with)
   self.setup_rhs:replace(child, with)
   self.setup_guess:replace(child, with)
   self.product_precond:replace(child, with)
   self.product_system:replace(child, with)
   self.apply:replace(child, with)
+end
+
+function class:_yield_children()
+  object:class_base(class)._yield_children(self)
+  self.setup_rhs:_yield_items()
+  self.setup_guess:_yield_items()
+  self.product_precond:_yield_items()
+  self.product_system:_yield_items()
+  self.apply:_yield_items()
 end
 
 return class

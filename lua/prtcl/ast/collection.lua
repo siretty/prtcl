@@ -26,13 +26,20 @@ function class:find(obj)
 end
 
 function class:replace(child, with)
-  assert(child:is_child_of(self.owner))
+  if not self.owner:is_parent_of(child) then return end
+
   local owner_base = object:class_base(object:classof(self.owner))
 
   local index = self:find(child)
   if index ~= nil then
     self[index] = with
-    owner_base.replace(self.owner, child, with)
+    owner_base._replace(self.owner, child, with)
+  end
+end
+
+function class:_yield_items()
+  for _, item in ipairs(self) do
+    coroutine.yield(item)
   end
 end
 

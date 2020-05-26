@@ -12,7 +12,13 @@ function class:_init(kwargs)
 end
 
 function class:replace(child, with)
+  object:class_base(class).replace(self, child, with)
   self.statements:replace(child, with)
+end
+
+function class:_yield_children()
+  object:class_base(class)._yield_children(self)
+  self.statements:_yield_items()
 end
 
 return class

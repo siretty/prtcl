@@ -13,8 +13,15 @@ function class:_init(kwargs)
 end
 
 function class:replace(child, with)
+  object:class_base(class).replace(self, child, with)
   self.subject:replace(child, with)
   self.indices:replace(child, with)
+end
+
+function class:_yield_children()
+  object:class_base(class)._yield_children(self)
+  self.subject:_yield_items()
+  self.indices:_yield_items()
 end
 
 return class

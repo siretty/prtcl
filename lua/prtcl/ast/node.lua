@@ -21,7 +21,12 @@ function node:is_parent_of(other)
   return self == other._parent
 end
 
-function node:replace(child, with)
+-- Helper function for replace implementations.
+--
+-- It replaces the parent
+-- - of \p child with nil and
+-- - of \p with with the former parent of \p child.
+function node:_replace(child, with)
   assert(child ~= nil)
   child._parent = nil
   if with ~= nil then
@@ -29,6 +34,12 @@ function node:replace(child, with)
   end
   return self
 end
+
+-- Default implementation (noop).
+--
+-- This being empty allows derived classes to unconditionally call
+-- their base class implementation.
+function node:replace(child, with) end
 
 function node:replace_me(with)
   assert(self._parent ~= nil)
@@ -44,6 +55,40 @@ function node:replace_parent(with)
   self._parent = with
   return self
 end
+
+
+function node:find_ancestor(predicate)
+  local ancestor = self._parent
+  while ancestor ~= nil do
+    if predicate(ancestor) then
+      return ancestor
+    end
+    ancestor = ancestor._parent
+  end
+  return nil
+end
+
+function node:ancestors(predicate)
+  return coroutine.wrap(function()
+    local ancestor = self:find_ancestor(predicate)
+    while ancestor ~= nil do
+      coroutine.yield(ancestor)
+      ancestor = ancestor:find_ancestor(predicate)
+    end
+  end)
+end
+
+
+-- default implementation (noop)
+function node:_yield_children() end
+
+-- returns an iterable that generates the children
+function node:children()
+  return coroutine.wrap(function()
+    self:_yield_children()
+  end)
+end
+
 
 function node:debug(log)
   log:iput("node: debug"):nl()

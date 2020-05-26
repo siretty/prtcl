@@ -1,15 +1,18 @@
 local object = require "prtcl.object"
 local node = require "prtcl.ast.node"
 
-local varying_ref = object:make_class(block)
+local class = object:make_class(node, "varying_ref")
 
-function varying_ref:_init(kwargs)
+function class:_init(kwargs)
   if kwargs == nil then kwargs = {} end
-  object:init(varying_ref, self, kwargs)
-  self.field_ref = kwargs.field_ref
-  self.group_ref = kwargs.group_ref
-  self.index_ref = kwargs.index_ref
-  self.value_type = kwargs.value_type
+  object:init(class, self, kwargs)
+  -- stores a reference to the field_def node
+  self._ref_name = kwargs._ref_name
+  self._ref_loop = kwargs._ref_loop
+  -- debugging information
+  self.debug_alias = self._ref_name.alias
+  self.debug_name = self._ref_name.name
+  self.debug_type = self._ref_name.type
 end
 
-return varying_ref
+return class

@@ -136,12 +136,27 @@ function Infix(node_type, operator, argument)
 end
 
 
+local prtcl_ndtype = require "prtcl.ndtype"
+
+local function fake_ndtype(type_, extents)
+  assert(type(type_) == "string")
+  assert(type(extents) == "table")
+  return Node("ndtype", 
+    node.store_one("type", node.value(type_)) *
+    node.store_one("extents", node.value(extents))
+  ) / function(capture)
+    return prtcl_ndtype:new(capture)
+  end
+end
+
 local ndtype = Node("ndtype", JOINED_WS(
   node.store_one("type", P"real" + P"integer" + P"boolean"),
   node.store_all("extents", JOIN_WS(
     JOINED_WS(P"[", C(R"09")^1 + node.value(0), P"]")
   )^-1)
-))
+)) / function(capture)
+  return prtcl_ndtype:new(capture)
+end
 
 grammar.grammar = lpeg.P{
   "start",
@@ -351,11 +366,7 @@ grammar.grammar = lpeg.P{
         -- TODO: support extented (typed) literals
         Node("literal",
           -- HACK: fixed type 'real' (no extents)
-          node.store_one("type", Node("ndtype",
-            node.store_one("type", node.value("real"))
-            *
-            node.store_all("extents", P"")
-          ))
+          node.store_one("type", fake_ndtype("real", {}))
           *
           node.store_one("value", number)
         )
