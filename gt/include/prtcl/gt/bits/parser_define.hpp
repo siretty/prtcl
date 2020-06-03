@@ -195,7 +195,7 @@ auto const reduce_def = //
 auto const foreach_neighbor_statement_def = local | compute | reduce;
 
 auto const foreach_neighbor_def = //
-    (lit("foreach") >> ("particle" >> attr(std::nullopt) | identifier) >>
+    (lit("foreach") >> ("_" >> attr(std::nullopt) | identifier) >>
      "neighbor" >> identifier) > ('{' >>                           //
                                   *(foreach_neighbor_statement) >> //
                                   '}');

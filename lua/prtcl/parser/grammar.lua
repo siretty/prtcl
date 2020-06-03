@@ -249,7 +249,9 @@ grammar.grammar = lpeg.P{
   )),
 
   foreach_neighbor = Node("foreach_neighbor", JOINED_WS(
-    id.WORD("foreach"), id.store_name("groups"),
+    id.WORD("foreach"),
+          (id.store_name("groups")
+            + node.store_one_if("groups", P"_", "@particle@")),
           id.WORD("neighbor"), id.store_name("index"), Block(
       node.store_all("statements", JOIN_WS(
         V"local_def" + V"reduce" + V"compute"
@@ -307,18 +309,19 @@ grammar.grammar = lpeg.P{
   compute = Statement(Node("compute", JOINED_WS(
     id.WORD("compute"),
     node.store_one("target", V"math"),
-    node.store_one("operator", P"=" + V"OPEQ"),
+    node.store_one("operator", V"COMPUTE_OP"),
     node.store_one("argument", V"math")
   ))),
 
   reduce = Statement(Node("reduce", JOINED_WS(
     id.WORD("reduce"),
     node.store_one("target", V"math"),
-    node.store_one("operator", V"OPEQ"),
+    node.store_one("operator", V"REDUCE_OP"),
     node.store_one("argument", V"math")
   ))),
 
-  OPEQ = (S"+-*/" + P"min" + P"max") * P"=",
+  COMPUTE_OP = P"=" + (S"+-*/" + P"min" + P"max") * P"=",
+  REDUCE_OP = (S"+-*" + P"min" + P"max") * P"=",
   
   ndtype = ndtype,
 

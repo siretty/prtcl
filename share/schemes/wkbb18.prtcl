@@ -52,7 +52,7 @@ scheme wkbb18 {
       compute sp.f = zeros<real[][]>();
 
       // accumulate over fluid neighbors
-      foreach particle neighbor f_f {
+      foreach _ neighbor f_f {
         compute sp.f +=
             10 // HACK: this is actually a dimensionality correction factor (10 in 3D, 8 in 2D)
           *
@@ -126,7 +126,7 @@ scheme wkbb18 {
       product system with iterate into result {
         local a_f : real[] = zeros<real[]>();
 
-        foreach particle neighbor f_f {
+        foreach _ neighbor f_f {
           compute a_f += 
               10 // HACK: this is actually a dimensionality correction factor (10 in 3D, 8 in 2D)
             *

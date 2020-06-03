@@ -7,7 +7,6 @@
 #include <prtcl/schemes/aiast12.hpp>
 #include <prtcl/schemes/he14.hpp>
 #include <prtcl/schemes/wkbb18.hpp>
-#include <prtcl/schemes/wkbb18_solvers.hpp>
 
 #include <prtcl/schemes/iisph.hpp>
 
@@ -51,7 +50,7 @@ public:
   void on_require_schemes(model_type &model) override {
     require_all(
         model, advect, boundary, density, iisph, gravity, viscosity,
-        implicit_viscosity, implicit_viscosity_solvers);
+        implicit_viscosity);
 #if SURFACE_TENSION != 0
     surface_tension.require(model);
 #endif
@@ -60,7 +59,7 @@ public:
   void on_load_schemes(model_type &model) override {
     load_all(
         model, advect, boundary, density, iisph, gravity, viscosity,
-        implicit_viscosity, implicit_viscosity_solvers);
+        implicit_viscosity);
 #if SURFACE_TENSION != 0
     surface_tension.load(model);
 #endif
@@ -159,9 +158,6 @@ public:
       implicit_viscosity.compute_diagonal(nhood);
       implicit_viscosity.accumulate_acceleration(nhood);
 
-      // size_t iterations =
-      //    implicit_viscosity_solvers.accumulate_acceleration(nhood);
-
       // prtcl::core::log::debug("app", "wkbb18", "no. iterations ",
       // iterations);
     }
@@ -180,7 +176,6 @@ public:
   prtcl::schemes::gravity<model_policy> gravity;
   prtcl::schemes::viscosity<model_policy> viscosity;
   prtcl::schemes::wkbb18<model_policy> implicit_viscosity;
-  prtcl::schemes::wkbb18_solvers<model_policy> implicit_viscosity_solvers;
 #if SURFACE_TENSION == SURFACE_TENSION_AAT13
   prtcl::schemes::aat13<model_policy> surface_tension;
 #endif

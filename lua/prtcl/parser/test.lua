@@ -23,7 +23,7 @@ scheme test_scheme {
 
   /* non-dynamic, aka. static particles */
   groups static {
-    select type particle and not tag dynamic;
+    select type particle and (not tag dynamic or tag static);
 
     varying field x = real[] position;
   }
@@ -82,23 +82,33 @@ scheme test_scheme {
 
 ]==]
 
-function test_example_a()
-  local g = require "prtcl.parser.grammar"
-  local h = require "prtcl.helper"
+function prtcl_to_ast(source, printer)
+  if printer == nil then
+    printer = require("prtcl.printer.file"):new()
+  end
 
-  local printer = require("prtcl.printer.file"):new()
+  local src_to_pst = require "prtcl.src_to_pst"
   
-  --local result = g.grammar:match(example_a)
-  --
-  local pst = g.parse(example_a)
-  if pst ~= nil then
-    --g.format_gv(printer, pst)
+  local pst = src_to_pst(source)
+  if pst == nil then
+    error('error parsing the source code', 0)
   end
 
-  local ast = require("prtcl.pst_to_ast")(pst)
-  if ast ~= nil then
-    require("prtcl.ast.to_gv")(printer, ast)
+  local pst_to_ast = require "prtcl.pst_to_ast"
+
+  local ast = pst_to_ast(pst)
+  if ast == nil then
+    error('error transforming the pst to the ast', 0)
   end
+
+  require("prtcl.ast.to_gv")(printer, ast)
+end
+
+function test_example_a()
+  f = io.open('../share/schemes/pt16.prtcl', 'r')
+  source = f:read('*a')
+  prtcl_to_ast(source)
+  --prtcl_to_ast(example_a)
 end
 
 test_example_a()

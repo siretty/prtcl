@@ -82,4 +82,9 @@ function object:init(class, obj, ...)
   return obj
 end
 
+
+object.object = object:make_class(nil, 'object')
+
+function object.object:_init() end
+
 return object

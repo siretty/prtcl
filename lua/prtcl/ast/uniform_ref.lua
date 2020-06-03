@@ -8,6 +8,7 @@ function class:_init(kwargs)
   object:init(class, self, kwargs)
   -- stores a reference to the field_def node
   self._ref_name = kwargs._ref_name
+  self._ref_loop = kwargs._ref_loop
   -- debugging information
   self.debug_alias = self._ref_name.alias
   self.debug_name = self._ref_name.name

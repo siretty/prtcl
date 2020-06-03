@@ -10,6 +10,10 @@ function class:_init(kwargs)
   self.owner = kwargs.owner
 end
 
+function class:empty()
+  return 0 == #self
+end
+
 function class:append(item)
   assert(item ~= nil)
   item:replace_parent(self.owner)

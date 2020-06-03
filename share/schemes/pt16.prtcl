@@ -82,7 +82,7 @@ scheme pt16 {
       // initialize the velocity gradient with zeros
       local vg_f : real[][] = zeros<real[][]>();
 
-      //foreach particle neighbor f_f {
+      //foreach _ neighbor f_f {
       //  // accumulate the velocity gradient
       //  compute vg_f +=
       //      (m.f_f / rho.f_f)
@@ -95,7 +95,7 @@ scheme pt16 {
       //compute vg_f *= 1 / pt16_one.f;
 
       local rho_f : real = 0;
-      foreach particle neighbor f_f {
+      foreach _ neighbor f_f {
         // accumulate the velocity gradient
         compute vg_f +=
             m.f_f
@@ -129,7 +129,7 @@ scheme pt16 {
 
       // // compute fluid-only density for the vorticity diffusion system
       // local fluid_rho_f : real = zeros<real>();
-      // foreach particle neighbor f_f {
+      // foreach _ neighbor f_f {
       //   compute fluid_rho_f += m.f_f * kernel_h(x.f - x.f_f, h);
       // }
 
@@ -190,7 +190,7 @@ scheme pt16 {
         local tmp : real[] = zeros<real[]>();
         local rho_f : real = 0;
 
-        foreach particle neighbor f_f {
+        foreach _ neighbor f_f {
           compute tmp -=
               m.f_f
             *

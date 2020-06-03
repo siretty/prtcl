@@ -7,6 +7,7 @@ function class:_init(kwargs)
   if kwargs == nil then kwargs = {} end
   self._indent_prefix = kwargs.indent_prefix or nil
   self._indent = indent:new(kwargs.indent)
+  self._saved_indent = {}
   return self
 end
 
@@ -37,6 +38,18 @@ end
 function class:decrease_indent()
   self._indent:decrease_indent()
   return self
+end
+
+function class:isave(indent)
+  table.insert(self._saved_indent, self._indent)
+
+  if indent ~= nil then
+    self._indent = indent
+  end
+end
+
+function class:iload(indent)
+  self._indent = self._saved_indent[#self._saved_indent]
 end
 
 return class

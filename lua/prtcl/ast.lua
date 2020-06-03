@@ -1,3 +1,5 @@
+local object = require 'prtcl.object'
+
 local ast = {}
 
 ast.prtcl = require "prtcl.ast.prtcl"
@@ -43,5 +45,32 @@ ast.bop = require "prtcl.ast.bop"
 
 ast.block = require "prtcl.ast.block"
 ast.unprocessed = require "prtcl.ast.unprocessed"
+
+
+function ast.dfs(node, on_ascent, on_descent)
+  for child in node:children() do
+    if on_descent ~= nil then on_descent(child) end
+
+    ast.dfs(child, on_ascent, on_descent)
+
+    if on_ascent ~= nil then on_ascent(child) end
+  end
+end
+
+function ast.contains(node, predicate)
+  local not_found, error = pcall(ast.dfs, node, function(n)
+    if predicate(n) then
+      error(n)
+    end
+  end)
+  return not not_found
+end
+
+function ast.contains_instance(node, class)
+  return ast.contains(node, function(n)
+    return object:isinstance(n, class)
+  end)
+end
+
 
 return ast

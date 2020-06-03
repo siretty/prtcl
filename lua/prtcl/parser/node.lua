@@ -2,24 +2,28 @@ local node = {}
 
 local lpeg = require "lpeg"
 
-function node.store_one(name, pattern)
-  return lpeg.Cg(
-    pattern, name
-  )
-end
-
-function node.store_all(name, pattern)
-  return lpeg.Cg(
-    lpeg.Ct(pattern), name
-  )
-end
-
 function node.ignore(pattern)
   return pattern / function(...) end
 end
 
 function node.value(value)
   return lpeg.Cc(value)
+end
+
+function node.store_one(name, pattern)
+  return lpeg.Cg(
+    pattern, name
+  )
+end
+
+function node.store_one_if(name, pattern, value)
+  return node.store_one(name, node.ignore(pattern) * node.value(value))
+end
+
+function node.store_all(name, pattern)
+  return lpeg.Cg(
+    lpeg.Ct(pattern), name
+  )
 end
 
 function node.make(node_type, pattern)

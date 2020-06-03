@@ -117,7 +117,7 @@ function handlers:_handle_multary(pst, operator)
 
   -- combine the operands from left-to-right
   while #operands >= 2 do
-    local bop = ast.bop:new{operator="logic_con"}
+    local bop = ast.bop:new{operator=operator}
     bop.operands:append(table.remove(operands, 1))
     bop.operands:append(table.remove(operands, 1))
     table.insert(operands, 1, bop)
@@ -322,12 +322,7 @@ function handlers:call(pst)
 end
 
 
-local function dfs(ast, action)
-  for child in ast:children() do
-    dfs(child, action)
-    action(child)
-  end
-end
+local dfs = ast.dfs
 
 
 local function pst_to_ast(pst)
@@ -351,13 +346,24 @@ local function pst_to_ast(pst)
         or object:isinstance(n, ast.foreach_particle)
   end
 
+  local function is_loop_like(n) return is_loop(n) or is_solve(n) end
+
   -- blocks get a table for defined locals
   dfs(tree, function(node)
+    if object:isinstance(node, ast.foreach_neighbor) then
+      -- same-as-particle neighbor loop
+      if node.groups_name == '@particle@' then
+        local loop = node:find_ancestor(is_loop_like)
+        node._ref_groups = loop._ref_groups
+      end
+    end
+  end, function(node)
     if is_block(node) then
       node._locals = {}
     end
 
-    if is_loop(node) or object:isinstance(node, ast.solve_pcg) then
+    -- reference the groups node
+    if is_loop(node) or is_solve(node) then
       local scheme = node:find_ancestor(is_scheme)
       for _, groups in ipairs(scheme.groups) do
         if groups.name == node.groups_name then
@@ -416,46 +422,6 @@ local function pst_to_ast(pst)
       else
         -- name_ref refers to SOLVING, VARYING or UNIFORM
 
-        --[[
-        -- TODO: handle solve_pcg, solve_setup, solve_product, solve_apply
-        -- check if .from refers to an index of an enclosing solve_pcg node
-        local solve = node:find_ancestor(is_solve)
-        if solve ~= nil then
-          if solve.index_name == node.from then
-            local part = node:find_ancestor(is_solve_part)
-            if part ~= nil then
-              if part.with_name == node.name then
-                replacement = ast.solving_with_ref:new{_ref_name=part,_ref_loop=solve}
-                goto name_ref_done
-              end
-
-              if part.into_name == node.name then
-                replacement = ast.solving_into_ref:new{_ref_name=part,_ref_loop=solve}
-                goto name_ref_done
-              end
-            end
-
-            for _, vf in ipairs(solve._ref_groups.varying_fields) do
-              if vf.alias == node.name then
-                replacement = ast.varying_ref:new{_ref_name=vf,_ref_loop=solve}
-                goto name_ref_done
-              end
-            end
-
-            for _, uf in ipairs(solve._ref_groups.uniform_fields) do
-              if uf.alias == node.name then
-                replacement = ast.uniform_ref:new{_ref_name=uf,_ref_loop=solve}
-                goto name_ref_done
-              end
-            end
-
-            goto name_ref_done
-          end
-        end
-        --]]
-
-        local function is_loop_like(n) return is_loop(n) or is_solve(n) end
-
         -- check if .from refers to an index of an enclosing loop
         for loop in node:ancestors(is_loop_like) do
           if loop.index_name == node.from then
@@ -487,51 +453,34 @@ local function pst_to_ast(pst)
             end
 
             goto name_ref_done
-            --[[
-            for _, vf in ipairs(loop._ref_groups.varying_fields) do
-              if vf.alias == node.name then
-                replacement = ast.varying_ref:new{_ref_name=vf,_ref_loop=loop}
-                goto name_ref_done
-              end
-            end
-
-            for _, uf in ipairs(loop._ref_groups.uniform_fields) do
-              if uf.alias == node.name then
-                replacement = ast.uniform_ref:new{_ref_name=uf,_ref_loop=loop}
-                goto name_ref_done
-              end
-            end
-
-            goto name_ref_done
-            --]]
           end
         end
 
+        -- TODO: this does not work, since the actual group this refers to is unknown
         -- check if .from refers to any groups of the enclosing scheme
-        local scheme = node:find_ancestor(is_scheme)
-        for _, groups in ipairs(scheme.groups) do
-          if groups.name == node.from then
-            for _, uf in ipairs(groups.uniform_fields) do
-              if uf.alias == node.name then
-                replacement = ast.uniform_ref:new{_ref_name=uf}
-                goto name_ref_done
-              end
-            end
-            goto name_ref_done
-          end
-        end
+        --local scheme = node:find_ancestor(is_scheme)
+        --for _, groups in ipairs(scheme.groups) do
+        --  if groups.name == node.from then
+        --    for _, uf in ipairs(groups.uniform_fields) do
+        --      if uf.alias == node.name then
+        --        replacement = ast.uniform_ref:new{_ref_name=uf}
+        --        goto name_ref_done
+        --      end
+        --    end
+
+        --    goto name_ref_done
+        --  end
+        --end
       end
+
       ::name_ref_done::
 
       if replacement ~= nil then
         node:replace_me(replacement)
       else
-        -- TODO: proper error handling
-        print('// NAMEREF COULD NOT BE REPLACED!')
+        error({message='unresolved name_ref', node=node}, 0)
       end
-      print('// NAMEREF', object:classnameof(node))
     end
-    print('// dfs node', object:classnameof(node))
   end)
 
   return tree
