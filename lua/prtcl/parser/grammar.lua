@@ -235,9 +235,21 @@ grammar.grammar = lpeg.P{
     id.WORD("procedure"),
       id.store_name("name"), Block(
       node.store_all("statements", JOIN_WS(
-        V"local_def" + V"compute" + V"foreach_particle" + V"solve"
+        V"local_def" + V"compute" +
+         V"foreach_dimension_index" + V"foreach_particle" + V"solve"
       )^-1)
   ))),
+
+  foreach_dimension_index = Node("foreach_dimension_index", JOINED_WS(
+    id.WORD("foreach"),
+          id.WORD("dimension"),
+          id.WORD("index"),
+          id.store_name("index"), Block(
+      node.store_all("statements", JOIN_WS(
+        V"local_def" + V"compute" + V"foreach_particle" + V"solve"
+      )^-1)
+    ) 
+  )),
 
   foreach_particle = Node("foreach_particle", JOINED_WS(
     id.WORD("foreach"), id.store_name("groups"),

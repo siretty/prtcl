@@ -27,12 +27,16 @@ find_program(
 )
 
 function( prtcl_generate_scheme_header _NAME )
+  set( _CMD ${CMAKE_SOURCE_DIR}/lua/prtcl-generate-cxx-omp-ph )
+
   file( MAKE_DIRECTORY ${_BLD}/prtcl/schemes )
 
   add_custom_command(
     OUTPUT  ${_BLD}/prtcl/schemes/${_NAME}.raw.hpp
-    COMMAND prtcl-gt-schemes ${_PRJ}/../share/schemes/${_NAME}.prtcl ${_BLD}/prtcl/schemes/${_NAME}.raw.hpp ${_NAME} prtcl schemes
-    DEPENDS prtcl-gt-schemes ${_PRJ}/../share/schemes/${_NAME}.prtcl
+    COMMAND ${_CMD} ${_PRJ}/../share/schemes/${_NAME}.prtcl ${_BLD}/prtcl/schemes/${_NAME}.raw.hpp ${_NAME} prtcl schemes
+    DEPENDS ${_CMD} ${_PRJ}/../share/schemes/${_NAME}.prtcl
+    #COMMAND prtcl-gt-schemes ${_PRJ}/../share/schemes/${_NAME}.prtcl ${_BLD}/prtcl/schemes/${_NAME}.raw.hpp ${_NAME} prtcl schemes
+    #DEPENDS prtcl-gt-schemes ${_PRJ}/../share/schemes/${_NAME}.prtcl
     COMMENT "Generating ${_NAME} scheme code."
   )
 

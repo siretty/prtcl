@@ -27,6 +27,7 @@ hpp_header = [===[
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
 #endif
 ]===]
 -- }}}
@@ -80,7 +81,7 @@ local function ndtype_t(ndtype)
 end
 -- }}}
 
--- {{{ field_{name,decl}, groups_data_type
+-- {{{ field_{name,decl}, index_name, groups_data_type
 local function field_name(field)
   if object:isinstance(field, ast.field_def) then
     if     field.kind == 'global' then
@@ -96,6 +97,20 @@ local function field_name(field)
     return 'l_' .. field.name
   else
     assert(false, 'invalid field class')
+  end
+end
+
+local function index_name(loop)
+  if     object:isinstance(loop, ast.foreach_dimension_index) then
+    return 'i_' .. loop.index_name
+  elseif object:isinstance(loop, ast.foreach_particle) then
+    return 'i'
+  elseif object:isinstance(loop, ast.solve_pcg) then
+    return 'i'
+  elseif object:isinstance(loop, ast.foreach_neighbor) then
+    return 'j'
+  else
+    raise_error('node has no index', loop)
   end
 end
 
@@ -185,7 +200,7 @@ local the_fmt_select_expr = fmt_select_expr:new{}
 
 function fmt_select_expr:group_selector(o, node)
   if     node.kind == 'tag' then
-    o:put('(group.has_tag("' .. node.name .. '))')
+    o:put('(group.has_tag("' .. node.name .. '"))')
   elseif node.kind == 'type' then
     o:put('(group.get_type() == "' .. node.name .. '")')
   end
@@ -197,7 +212,7 @@ local fmt_math_expr = object:make_class(fmt_expr, 'fmt_math_expr')
 local the_fmt_math_expr = fmt_math_expr:new{}
 
 function fmt_math_expr:literal(o, node)
-  o:put(tostring(node.value))
+  o:put('static_cast<dtype_t<dtype::real>>(' .. tostring(node.value) .. ')')
 end
 
 function fmt_math_expr:local_ref(o, node)
@@ -274,7 +289,11 @@ end
 
 -- {{{ fmt_math_expr: call
 function fmt_math_expr:call(o, node)
-  o:put('o::' .. node.name)
+  o:put('o::')
+  if type(node.type) == 'table' then
+    o:put('template ')
+  end
+  o:put(node.name)
   if type(node.type) == 'table' then
     o:put('<' .. ndtype_template_args(node.type) .. '>')
   end
@@ -297,7 +316,6 @@ function fmt_stmt:local_def(o, n)
   o:iput('// local_def ...;'):nl()
   o:iput(ndtype_t(n.type) .. ' ' .. field_name(n))
   o:put(' = ')
-  print(object:classnameof(n.init_expr[1]))
   the_fmt_math_expr:dispatch(o, n.init_expr[1])
   o:put(';'):nl()
 end
@@ -360,6 +378,25 @@ function fmt_stmt:reduce(o, n)
   end
 
   o:put(';'):nl()
+end
+-- }}}
+
+-- {{{ fmt_stmt: foreach_dimension_index
+function fmt_stmt:foreach_dimension_index(o, n)
+  local description = 'foreach dimension index ' .. n.index_name
+
+  o:iput('// ' .. description):nl()
+  o:iput('for (size_t ' .. index_name(n) .. ' = 0; '
+      .. index_name(n) .. ' < N; ++' .. index_name(n) .. ') {'):nl()
+  o:increase_indent()
+
+  for stmt_index, stmt in ipairs(n.statements) do
+    if stmt_index > 1 then o:nl() end
+    self:dispatch(o, stmt)
+  end
+  
+  o:decrease_indent()
+  o:iput('} // ' .. description):nl()
 end
 -- }}}
 
@@ -462,7 +499,7 @@ function fmt_stmt:foreach_particle(o, n)
 
   cxx_pragma(o, 'omp for' .. omp_for_extra)
 
-  o:iput('for (size_t i = 0; i < p.count; ++i) {'):nl()
+  o:iput('for (size_t i = 0; i < p._count; ++i) {'):nl()
   o:increase_indent()
 
   -- {{{ cleanup and find neighbors
@@ -552,7 +589,7 @@ function fmt_stmt:foreach_neighbor(o, n)
 
   --o:iput('neighbor_count += neighbors[n.index].size();'):nl()
 
-  o:iput('for (size_t j = 0; j < p.count; ++j) {'):nl()
+  o:iput('for (auto const j : neighbors[n.index]) {'):nl()
   o:increase_indent()
 
   for stmt_index, stmt in ipairs(n.statements) do
@@ -629,20 +666,49 @@ function fmt_stmt:solve_pcg(o, n)
   self:dispatch(o, n.apply[1])
   o:nl();
 
+  o:iput('auto const iterations = solver.solve(p, setup_r, setup_g, product_s, product_p, apply, p.u_pcg_max_error[0], p.u_pcg_max_iters[0]);'):nl()
+  o:nl()
+
+  o:iput('p.u_pcg_iterations[0] = iterations;'):nl()
+  o:nl()
+
+  o:iput('prtcl::core::log::debug("scheme", "pcg solver iterations ", iterations);'):nl()
+
   o:decrease_indent()
   o:iput('}'):nl()
   o:nl()
 
-  o:iput('dtype_pt<dtype::real> const max_error = 1;'):nl()
-  o:iput('size_t const max_iters = static_cast<size_t>(1);'):nl()
-
-  o:iput('auto const iterations = solver.solve(p, setup_r, setup_g, product_s, product_p, apply, p.pcg_max_error[0], p.pcg_max_iters[0]);'):nl()
-  o:nl()
-
-  o:iput('p.pcg_iterations[0] = iterations;'):nl()
-
   o:decrease_indent()
   o:iput('} // ... solve_pcg'):nl()
+end
+-- }}}
+
+-- {{{ fmt_stmt: help_solve_part_neighbors
+function fmt_stmt:help_solve_part_neighbors(o, n)
+  local needs_neighbors = ast.contains_instance(n, ast.foreach_neighbor)
+
+  -- {{{ cleanup and find neighbors
+  if needs_neighbors then
+    o:iput('// fetch the neighbor storage for this thread'):nl()
+    o:iput('auto &neighbors = _per_thread[omp_get_thread_num()].neighbors;'):nl()
+    o:nl()
+
+    o:iput('// cleanup neighbor storage'):nl()
+    o:iput('for (auto &pgn : neighbors)'):nl()
+    o:increase_indent()
+    o:iput('pgn.clear();'):nl()
+    o:decrease_indent()
+    o:nl()
+
+    o:iput('// find all neighbors of (p, i)'):nl()
+    o:iput('nhood.neighbors(p.index, i, [&neighbors](auto n_index, auto j) {'):nl()
+    o:increase_indent()
+    o:iput('neighbors[n_index].push_back(j);'):nl()
+    o:decrease_indent()
+    o:iput('});'):nl()
+    o:nl()
+  end
+  -- }}}
 end
 -- }}}
 
@@ -653,6 +719,8 @@ function fmt_stmt:solve_setup(o, n)
 
   o:iput('// solve_setup ' .. ''):nl()
   o:nl()
+
+  self:help_solve_part_neighbors(o, n)
 
   for stmt_index, stmt in ipairs(n.statements) do
     if stmt_index > 1 then o:nl() end
@@ -666,11 +734,13 @@ end
 
 -- {{{ fmt_stmt: solve_product
 function fmt_stmt:solve_product(o, n)
-  o:put('[&](auto &p, size_t i, auto &p_with, auto &p_into) {'):nl()
+  o:put('[&](auto &p, size_t i, auto &p_into, auto &p_with) {'):nl()
   o:increase_indent()
 
   o:iput('// solve_product ' .. ''):nl()
   o:nl()
+
+  self:help_solve_part_neighbors(o, n)
 
   for stmt_index, stmt in ipairs(n.statements) do
     if stmt_index > 1 then o:nl() end
@@ -690,6 +760,8 @@ function fmt_stmt:solve_apply(o, n)
   o:iput('// solve_apply ' .. ''):nl()
   o:nl()
 
+  self:help_solve_part_neighbors(o, n)
+
   for stmt_index, stmt in ipairs(n.statements) do
     if stmt_index > 1 then o:nl() end
     self:dispatch(o, stmt)
@@ -702,7 +774,7 @@ end
 -- }}}
 
 
-function module.generate_hpp(prtcl, printer, namespaces)
+function module.generate_hpp(prtcl, printer, namespaces, scheme_name)
   local o = printer
 
   o:put(hpp_header)
@@ -716,317 +788,323 @@ function module.generate_hpp(prtcl, printer, namespaces)
   -- }}}
 
   for _, scheme in ipairs(prtcl.schemes) do
-    o:put('template <typename ModelPolicy_>'):nl()
-    o:put('class ' .. scheme.name .. ' {'):nl()
-    o:increase_indent()
+    if scheme_name == nil or scheme_name == scheme.name then
+      o:put('template <typename ModelPolicy_>'):nl()
+      o:put('class ' .. scheme.name .. ' {'):nl()
+      o:increase_indent()
 
-    -- {{{ type aliases
-    cxx_access_modifier(o, 'public')
-    o:iput('using model_policy = ModelPolicy_;'):nl()
-    o:iput('using type_policy = typename model_policy::type_policy;'):nl()
-    o:iput('using math_policy = typename model_policy::math_policy;'):nl()
-    o:iput('using data_policy = typename model_policy::data_policy;'):nl()
-    o:nl()
-    o:iput('using dtype = prtcl::core::dtype;'):nl()
-    o:nl()
-    o:iput('template <dtype DType_> using dtype_t ='):nl()
-    o:increase_indent()
-    o:iput('typename type_policy::template dtype_t<DType_>;'):nl()
-    o:decrease_indent()
-    o:nl()
-    o:iput('template <dtype DType_, size_t ...Ns_> using ndtype_t ='):nl()
-    o:increase_indent()
-    o:iput('typename math_policy::template ndtype_t<DType_, Ns_...>;'):nl()
-    o:decrease_indent()
-    o:nl()
-    o:iput('template <dtype DType_, size_t ...Ns_> using ndtype_data_ref_t ='):nl()
-    o:increase_indent()
-    o:iput('typename data_policy::template ndtype_data_ref_t<DType_, Ns_...>;'):nl()
-    o:decrease_indent()
-    o:nl()
-    o:iput('static constexpr size_t N = model_policy::dimensionality;'):nl()
-    o:nl()
-    o:iput('using model_type = prtcl::rt::basic_model<model_policy>;'):nl()
-    o:iput('using group_type = prtcl::rt::basic_group<model_policy>;'):nl()
-    o:nl()
-    -- }}}
+      -- {{{ type aliases
+      cxx_access_modifier(o, 'public')
+      o:iput('using model_policy = ModelPolicy_;'):nl()
+      o:iput('using type_policy = typename model_policy::type_policy;'):nl()
+      o:iput('using math_policy = typename model_policy::math_policy;'):nl()
+      o:iput('using data_policy = typename model_policy::data_policy;'):nl()
+      o:nl()
+      o:iput('using dtype = prtcl::core::dtype;'):nl()
+      o:nl()
+      o:iput('template <dtype DType_> using dtype_t ='):nl()
+      o:increase_indent()
+      o:iput('typename type_policy::template dtype_t<DType_>;'):nl()
+      o:decrease_indent()
+      o:nl()
+      o:iput('template <dtype DType_, size_t ...Ns_> using ndtype_t ='):nl()
+      o:increase_indent()
+      o:iput('typename math_policy::template ndtype_t<DType_, Ns_...>;'):nl()
+      o:decrease_indent()
+      o:nl()
+      o:iput('template <dtype DType_, size_t ...Ns_> using ndtype_data_ref_t ='):nl()
+      o:increase_indent()
+      o:iput('typename data_policy::template ndtype_data_ref_t<DType_, Ns_...>;'):nl()
+      o:decrease_indent()
+      o:nl()
+      o:iput('static constexpr size_t N = model_policy::dimensionality;'):nl()
+      o:nl()
+      o:iput('using model_type = prtcl::rt::basic_model<model_policy>;'):nl()
+      o:iput('using group_type = prtcl::rt::basic_group<model_policy>;'):nl()
+      o:nl()
+      -- }}}
 
-    -- {{{ struct global_data
-    if not scheme.global:empty() then
+      -- {{{ struct global_data
+      if not scheme.global:empty() then
+        cxx_access_modifier(o, 'private')
+        o:iput('struct global_data {'):nl()
+        o:increase_indent()
+
+        for _, field in ipairs(scheme.global[1].global_fields) do
+          o:iput(field_decl(field) .. ';'):nl()
+        end
+
+        o:decrease_indent()
+        o:iput('};'):nl()
+        o:nl()
+      end
+      -- }}}
+
+      -- {{{ struct groups_..._data
+      for _, groups in ipairs(scheme.groups) do
+        cxx_access_modifier(o, 'private')
+        o:iput('struct ' .. groups_data_type(groups) .. ' {'):nl()
+        o:increase_indent()
+
+        o:iput('size_t _count;'):nl()
+        o:iput('size_t index;'):nl()
+        o:nl()
+
+        o:iput('// uniform fields'):nl()
+        for _, field in ipairs(groups.uniform_fields) do
+          o:iput(field_decl(field) .. ';'):nl()
+        end
+        o:nl()
+
+        o:iput('// varying fields'):nl()
+        for _, field in ipairs(groups.varying_fields) do
+          o:iput(field_decl(field) .. ';'):nl()
+        end
+        o:nl()
+
+        o:iput('static bool selects(group_type &group) {'):nl()
+        o:increase_indent()
+
+        o:iput('return ')
+        the_fmt_select_expr:dispatch(o, groups.select_expr[1])
+        o:put(';'):nl()
+
+        o:decrease_indent()
+        o:iput('}'):nl()
+
+        o:decrease_indent()
+        o:iput('};'):nl()
+        o:nl()
+      end
+      -- }}}
+
+      -- {{{ member _data
       cxx_access_modifier(o, 'private')
-      o:iput('struct global_data {'):nl()
-      o:increase_indent()
-
-      for _, field in ipairs(scheme.global[1].global_fields) do
-        o:iput(field_decl(field) .. ';'):nl()
-      end
-
-      o:decrease_indent()
-      o:iput('}'):nl()
-      o:nl()
-    end
-    -- }}}
-
-    -- {{{ struct groups_..._data
-    for _, groups in ipairs(scheme.groups) do
-      cxx_access_modifier(o, 'private')
-      o:iput('struct ' .. groups_data_type(groups) .. ' {'):nl()
-      o:increase_indent()
-
-      o:iput('size_t count;'):nl()
-      o:iput('size_t index;'):nl()
-      o:nl()
-
-      o:iput('// uniform fields'):nl()
-      for _, field in ipairs(groups.uniform_fields) do
-        o:iput(field_decl(field) .. ';'):nl()
-      end
-      o:nl()
-
-      o:iput('// varying fields'):nl()
-      for _, field in ipairs(groups.varying_fields) do
-        o:iput(field_decl(field) .. ';'):nl()
-      end
-      o:nl()
-
-      o:iput('static bool selects(group_type &group) {'):nl()
-      o:increase_indent()
-
-      o:iput('return ')
-      the_fmt_select_expr:dispatch(o, groups.select_expr[1])
-      o:put(';'):nl()
-
-      o:decrease_indent()
-      o:iput('}'):nl()
-
-      o:decrease_indent()
-      o:iput('}'):nl()
-      o:nl()
-    end
-    -- }}}
-
-    -- {{{ member _data
-    cxx_access_modifier(o, 'private')
-    o:iput('struct {'):nl()
-    o:increase_indent()
-
-    if not scheme.global:empty() then
-      o:iput('global_data global;'):nl()
-      o:nl()
-    end
-
-    if not scheme.groups:empty() then
       o:iput('struct {'):nl()
       o:increase_indent()
 
-      for _, groups in ipairs(scheme.groups) do
-        o:iput('std::vector<' .. groups_data_type(groups) .. '> ' .. groups.name .. ';'):nl()
-      end
-
-      o:decrease_indent()
-      o:iput('} groups;'):nl()
-      o:nl()
-    end
-
-    o:iput('size_t group_count;'):nl()
-
-    o:decrease_indent()
-    o:iput('} _data;'):nl()
-    o:nl()
-    -- }}}
-
-    -- {{{ member _per_thread
-    cxx_access_modifier(o, 'private')
-    o:iput('struct per_thread_data {'):nl()
-    o:increase_indent()
-
-    o:iput('std::vector<std::vector<size_t>> neighbors;'):nl()
-
-    -- TODO: reductions?
-
-    o:decrease_indent()
-    o:iput('};'):nl()
-    o:nl()
-
-    o:iput('std::vector<per_thread_data> _per_thread;'):nl()
-    o:nl()
-    -- }}}
-
-    -- TODO: make require obsolete!
-    -- {{{ method require(model)
-    cxx_access_modifier(o, 'public')
-    o:iput('static void require(model_type &model) {'):nl()
-    o:increase_indent()
-
-    -- {{{ global fields
-    if not scheme.global:empty() then
-      o:iput('// global fields'):nl()
-      for _, field in ipairs(scheme.global[1].global_fields) do
-        o:iput('model.template add_global<')
-        o:put(ndtype_template_args(field.type))
-        o:put('>("' .. field.name .. '");'):nl()
-      end
-      o:nl()
-    end
-    -- }}}
-
-    -- {{{ uniform and varying fields
-    if not scheme.groups:empty() then
-      o:iput('for (auto &group : model.groups()) {'):nl()
-      o:increase_indent()
-
-      for groups_index, groups in ipairs(scheme.groups) do
-        if groups_index > 1 then o:nl() end
-
-        o:iput('if (' .. groups_data_type(groups) .. '::selects(group)) {'):nl()
-        o:increase_indent()
-
-        if not groups.uniform_fields:empty() then
-          o:iput('// uniform fields'):nl()
-          for _, field in ipairs(groups.uniform_fields) do
-            o:iput('group.template add_uniform<')
-            o:put(ndtype_template_args(field.type))
-            o:put('>("' .. field.name .. '");'):nl()
-          end
-
-          if not groups.varying_fields:empty() then o:nl() end
-        end
-
-        if not groups.varying_fields:empty() then
-          o:iput('// variant fields'):nl()
-          for _, field in ipairs(groups.varying_fields) do
-            o:iput('group.template add_varying<')
-            o:put(ndtype_template_args(field.type))
-            o:put('>("' .. field.name .. '");'):nl()
-          end
-        end
-
-        o:decrease_indent()
-        o:iput('}'):nl()
-      end
-
-      o:decrease_indent()
-      o:iput('}'):nl()
-    end
-    -- }}}
-
-    o:decrease_indent()
-    o:iput('}'):nl()
-    o:nl()
-    -- }}}
-
-    -- {{{ method load(model)
-    cxx_access_modifier(o, 'public')
-    o:iput('void load(model_type &model) {'):nl()
-    o:increase_indent()
-
-    -- {{{ global fields
-    if not scheme.global:empty() then
-      o:iput('// global fields'):nl()
-      for _, field in ipairs(scheme.global[1].global_fields) do
-        o:iput('_data.global.' .. field_name(field))
-        o:put(' = model.template get_global<')
-        o:put(ndtype_template_args(field.type))
-        o:put('>("' .. field.name .. '");'):nl()
-      end
-      o:nl()
-    end
-    -- }}}
-
-    -- {{{ uniform and varying fields
-    if not scheme.groups:empty() then
-      o:iput('auto group_count = model.groups().size();'):nl()
-      o:iput('_data.group_count = group_count;'):nl()
-      o:nl()
-      o:iput('for (size_t group_index = 0; group_index < group_count; ++group_index) {'):nl()
-      o:increase_indent()
-
-      o:iput('auto &group = model.groups()[group_index];'):nl()
-      o:nl();
-
-      for groups_index, groups in ipairs(scheme.groups) do
-        if groups_index > 1 then o:nl() end
-
-        o:iput('if (' .. groups_data_type(groups) .. '::selects(group)) {'):nl()
-        o:increase_indent()
-
-        o:iput('auto &data = _data.groups.')
-        o:put(groups.name)
-        o:put('.emplace_back();'):nl()
-        o:nl()
-
-        o:iput('data.count = group.size();'):nl()
-        o:iput('data.index = group_index;'):nl()
-        o:nl()
-
-        if not groups.uniform_fields:empty() then
-          o:iput('// uniform fields'):nl()
-          for _, field in ipairs(groups.uniform_fields) do
-            o:iput('data.' .. field_name(field))
-            o:put(' = group.template get_uniform<')
-            o:put(ndtype_template_args(field.type))
-            o:put('>("' .. field.name .. '");'):nl()
-          end
-
-          if not groups.varying_fields:empty() then o:nl() end
-        end
-
-        if not groups.varying_fields:empty() then
-          o:iput('// variant fields'):nl()
-          for _, field in ipairs(groups.varying_fields) do
-            o:iput('data.' .. field_name(field))
-            o:put(' = group.template add_varying<')
-            o:put(ndtype_template_args(field.type))
-            o:put('>("' .. field.name .. '");'):nl()
-          end
-        end
-
-        o:decrease_indent()
-        o:iput('}'):nl()
-      end
-
-      o:decrease_indent()
-      o:iput('}'):nl()
-    end
-    -- }}}
-
-    o:decrease_indent()
-    o:iput('}'):nl()
-    -- }}}
-
-    -- {{{ procedures
-    for _, proc in ipairs(scheme.procedures) do
-      o:nl()
-      cxx_access_modifier(o, 'public')
-      o:iput('template <typename NHood>'):nl()
-      o:iput('void ' .. proc.name .. '(NHood const &nhood) {'):nl()
-      o:increase_indent()
-
       if not scheme.global:empty() then
-        o:iput('auto &g = _data.global;'):nl()
+        o:iput('global_data global;'):nl()
         o:nl()
       end
 
-      o:iput('// mathematical operations'):nl()
-      o:iput('using o = typename math_policy::operations;'):nl()
-      o:nl()
+      if not scheme.groups:empty() then
+        o:iput('struct {'):nl()
+        o:increase_indent()
 
-      o:iput('// resize per-thread storage'):nl()
-      o:iput('_per_thread.resize(omp_get_max_threads());'):nl()
-      o:nl()
+        for _, groups in ipairs(scheme.groups) do
+          o:iput('std::vector<' .. groups_data_type(groups) .. '> ' .. groups.name .. ';'):nl()
+        end
 
-      for stmt_index, stmt in ipairs(proc.statements) do
-        if stmt_index > 1 then o:nl() end
-        the_fmt_stmt:dispatch(o, stmt)
+        o:decrease_indent()
+        o:iput('} groups;'):nl()
+        o:nl()
       end
+
+      o:iput('size_t group_count;'):nl()
+
+      o:decrease_indent()
+      o:iput('} _data;'):nl()
+      o:nl()
+      -- }}}
+
+      -- {{{ member _per_thread
+      cxx_access_modifier(o, 'private')
+      o:iput('struct per_thread_data {'):nl()
+      o:increase_indent()
+
+      o:iput('std::vector<std::vector<size_t>> neighbors;'):nl()
+
+      -- TODO: reductions?
+
+      o:decrease_indent()
+      o:iput('};'):nl()
+      o:nl()
+
+      o:iput('std::vector<per_thread_data> _per_thread;'):nl()
+      o:nl()
+      -- }}}
+
+      -- TODO: make require obsolete!
+      -- {{{ method require(model)
+      cxx_access_modifier(o, 'public')
+      o:iput('static void require(model_type &model) {'):nl()
+      o:increase_indent()
+
+      -- {{{ global fields
+      if not scheme.global:empty() then
+        o:iput('// global fields'):nl()
+        for _, field in ipairs(scheme.global[1].global_fields) do
+          o:iput('model.template add_global<')
+          o:put(ndtype_template_args(field.type))
+          o:put('>("' .. field.name .. '");'):nl()
+        end
+        o:nl()
+      end
+      -- }}}
+
+      -- {{{ uniform and varying fields
+      if not scheme.groups:empty() then
+        o:iput('for (auto &group : model.groups()) {'):nl()
+        o:increase_indent()
+
+        for groups_index, groups in ipairs(scheme.groups) do
+          if groups_index > 1 then o:nl() end
+
+          o:iput('if (' .. groups_data_type(groups) .. '::selects(group)) {'):nl()
+          o:increase_indent()
+
+          if not groups.uniform_fields:empty() then
+            o:iput('// uniform fields'):nl()
+            for _, field in ipairs(groups.uniform_fields) do
+              o:iput('group.template add_uniform<')
+              o:put(ndtype_template_args(field.type))
+              o:put('>("' .. field.name .. '");'):nl()
+            end
+
+            if not groups.varying_fields:empty() then o:nl() end
+          end
+
+          if not groups.varying_fields:empty() then
+            o:iput('// variant fields'):nl()
+            for _, field in ipairs(groups.varying_fields) do
+              o:iput('group.template add_varying<')
+              o:put(ndtype_template_args(field.type))
+              o:put('>("' .. field.name .. '");'):nl()
+            end
+          end
+
+          o:decrease_indent()
+          o:iput('}'):nl()
+        end
+
+        o:decrease_indent()
+        o:iput('}'):nl()
+      end
+      -- }}}
 
       o:decrease_indent()
       o:iput('}'):nl()
-    end
-    -- }}}
+      o:nl()
+      -- }}}
 
-    o:decrease_indent()
-    o:put('};'):nl()
+      -- {{{ method load(model)
+      cxx_access_modifier(o, 'public')
+      o:iput('void load(model_type &model) {'):nl()
+      o:increase_indent()
+
+      -- {{{ global fields
+      if not scheme.global:empty() then
+        o:iput('// global fields'):nl()
+        for _, field in ipairs(scheme.global[1].global_fields) do
+          o:iput('_data.global.' .. field_name(field))
+          o:put(' = model.template get_global<')
+          o:put(ndtype_template_args(field.type))
+          o:put('>("' .. field.name .. '");'):nl()
+        end
+        o:nl()
+      end
+      -- }}}
+
+      -- {{{ uniform and varying fields
+      if not scheme.groups:empty() then
+        o:iput('auto group_count = model.groups().size();'):nl()
+        o:iput('_data.group_count = group_count;'):nl()
+        o:nl()
+        for _, groups in ipairs(scheme.groups) do
+          o:iput('_data.groups.' .. groups.name .. '.clear();'):nl()
+        end
+        o:nl()
+        o:iput('for (size_t group_index = 0; group_index < group_count; ++group_index) {'):nl()
+        o:increase_indent()
+
+        o:iput('auto &group = model.groups()[group_index];'):nl()
+        o:nl();
+
+        for groups_index, groups in ipairs(scheme.groups) do
+          if groups_index > 1 then o:nl() end
+
+          o:iput('if (' .. groups_data_type(groups) .. '::selects(group)) {'):nl()
+          o:increase_indent()
+
+          o:iput('auto &data = _data.groups.')
+          o:put(groups.name)
+          o:put('.emplace_back();'):nl()
+          o:nl()
+
+          o:iput('data._count = group.size();'):nl()
+          o:iput('data.index = group_index;'):nl()
+          o:nl()
+
+          if not groups.uniform_fields:empty() then
+            o:iput('// uniform fields'):nl()
+            for _, field in ipairs(groups.uniform_fields) do
+              o:iput('data.' .. field_name(field))
+              o:put(' = group.template get_uniform<')
+              o:put(ndtype_template_args(field.type))
+              o:put('>("' .. field.name .. '");'):nl()
+            end
+
+            if not groups.varying_fields:empty() then o:nl() end
+          end
+
+          if not groups.varying_fields:empty() then
+            o:iput('// varying fields'):nl()
+            for _, field in ipairs(groups.varying_fields) do
+              o:iput('data.' .. field_name(field))
+              o:put(' = group.template get_varying<')
+              o:put(ndtype_template_args(field.type))
+              o:put('>("' .. field.name .. '");'):nl()
+            end
+          end
+
+          o:decrease_indent()
+          o:iput('}'):nl()
+        end
+
+        o:decrease_indent()
+        o:iput('}'):nl()
+      end
+      -- }}}
+
+      o:decrease_indent()
+      o:iput('}'):nl()
+      -- }}}
+
+      -- {{{ procedures
+      for _, proc in ipairs(scheme.procedures) do
+        o:nl()
+        cxx_access_modifier(o, 'public')
+        o:iput('template <typename NHood>'):nl()
+        o:iput('void ' .. proc.name .. '(NHood const &nhood) {'):nl()
+        o:increase_indent()
+
+        if not scheme.global:empty() then
+          o:iput('auto &g = _data.global;'):nl()
+          o:nl()
+        end
+
+        o:iput('// mathematical operations'):nl()
+        o:iput('using o = typename math_policy::operations;'):nl()
+        o:nl()
+
+        o:iput('// resize per-thread storage'):nl()
+        o:iput('_per_thread.resize(omp_get_max_threads());'):nl()
+        o:nl()
+
+        for stmt_index, stmt in ipairs(proc.statements) do
+          if stmt_index > 1 then o:nl() end
+          the_fmt_stmt:dispatch(o, stmt)
+        end
+
+        o:decrease_indent()
+        o:iput('}'):nl()
+      end
+      -- }}}
+
+      o:decrease_indent()
+      o:put('};'):nl()
+    end
   end
 
   -- {{{ close namespaces

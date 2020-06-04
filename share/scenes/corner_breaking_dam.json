@@ -2,7 +2,8 @@
   "name_value": {
     "model": {
       "parameters": {
-        "maximum_time_step": 0.0002
+        "maximum_time_step": 0.005,
+        "maximum_simulation_seconds": 20
       },
       "group": {
         "f": {

@@ -2,8 +2,8 @@
   "name_value": {
     "model": {
       "parameters": {
-        "maximum_time_step": 0.005,
-        "minimum_time_step": 0.005,
+        "maximum_time_step": 0.002,
+        "minimum_time_step": 0.002,
         "maximum_simulation_seconds": 20
       },
       "group": {
@@ -13,7 +13,7 @@
           "tag": "density",
           "parameters": {
             "surface_tension": 1,
-            "dynamic_viscosity": 10.0,
+            "dynamic_viscosity": 1000.0,
             "wkbb18_maximum_error": 0.05,
             "wkbb18_maximum_iterations": 100,
             "strain_rate_viscosity": 1.0,

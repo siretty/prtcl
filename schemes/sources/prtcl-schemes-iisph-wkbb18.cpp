@@ -73,7 +73,7 @@ public:
     g[0] = o::template zeros<dtype::real, N>();
     g[0][1] = static_cast<real>(-9.81);
 
-    ::feenableexcept(FE_DIVBYZERO | FE_OVERFLOW | FE_INVALID);
+    //::feenableexcept(FE_DIVBYZERO | FE_OVERFLOW | FE_INVALID);
   }
 
   void on_prepare_step(model_type &, neighborhood_type &) override {

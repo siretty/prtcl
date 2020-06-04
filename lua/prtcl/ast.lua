@@ -12,6 +12,7 @@ ast.group_selector = require "prtcl.ast.group_selector"
 ast.field_def = require "prtcl.ast.field_def"
 
 ast.procedure = require "prtcl.ast.procedure"
+ast.foreach_dimension_index = require "prtcl.ast.foreach_dimension_index"
 ast.foreach_particle = require "prtcl.ast.foreach_particle"
 ast.foreach_neighbor = require "prtcl.ast.foreach_neighbor"
 

@@ -11,10 +11,12 @@ clean-output:
 
 .PHONY: build
 build:
+	mkdir -p bld/$(BLD)
 	ninja -C bld/$(BLD)
 
 .PHONY: run
 run:
+	mkdir -p output
 	./bld/$(BLD)/schemes/$(SCH) --load-json=share/scenes/$(SCENE)
 
 .PHONY: run-rr

@@ -9,9 +9,7 @@ function class:_init(kwargs)
 
   self.name = kwargs.name
   self.groups_name = nil
-  self.groups_ref = nil
   self.index_name = nil
-  self.index_ref = nil
 end
 
 return class

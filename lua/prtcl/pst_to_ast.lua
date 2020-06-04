@@ -184,6 +184,12 @@ function handlers:procedure(pst)
   return self:_handle_named_block(pst, ast.procedure)
 end
 
+function handlers:foreach_dimension_index(pst)
+  local block = self:_handle_named_block(pst, ast.foreach_dimension_index)
+  block.index_name = pst.index
+  return block
+end
+
 function handlers:foreach_particle(pst)
   local block = self:_handle_named_block(pst, ast.foreach_particle)
   block.groups_name = pst.groups
