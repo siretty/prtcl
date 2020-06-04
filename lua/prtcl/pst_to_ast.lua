@@ -352,6 +352,10 @@ local function pst_to_ast(pst)
         or object:isinstance(n, ast.foreach_particle)
   end
 
+  local function is_index_loop(n)
+    return object:isinstance(n, ast.foreach_dimension_index)
+  end
+
   local function is_loop_like(n) return is_loop(n) or is_solve(n) end
 
   -- blocks get a table for defined locals
@@ -391,7 +395,7 @@ local function pst_to_ast(pst)
     local replacement = nil
     if object:isinstance(node, ast.name_ref) then
       if node.from == nil then
-        -- name_ref refers to GLOBAL or LOCAL
+        -- name_ref refers to GLOBAL or LOCAL or INDEX
 
         -- check locals in ancestors
         -- TODO: atm. this does not validate that names are declared before
@@ -425,7 +429,19 @@ local function pst_to_ast(pst)
             end
           end
         end
-      else
+
+        --print('NOOOOOOOOOT')
+
+        -- check indices from 'foreach dimension index' loops
+        local loop = node:find_ancestor(is_index_loop)
+        if loop ~= nil then
+          --print('MOOOOOOOOP', object:classnameof(node))
+          if loop.index_name == node.name then
+            replacement = ast.index_ref:new{_ref_name=loop}
+            goto name_ref_done
+          end
+        end
+      else -- node.from ~= nil
         -- name_ref refers to SOLVING, VARYING or UNIFORM
 
         -- check if .from refers to an index of an enclosing loop
@@ -461,22 +477,6 @@ local function pst_to_ast(pst)
             goto name_ref_done
           end
         end
-
-        -- TODO: this does not work, since the actual group this refers to is unknown
-        -- check if .from refers to any groups of the enclosing scheme
-        --local scheme = node:find_ancestor(is_scheme)
-        --for _, groups in ipairs(scheme.groups) do
-        --  if groups.name == node.from then
-        --    for _, uf in ipairs(groups.uniform_fields) do
-        --      if uf.alias == node.name then
-        --        replacement = ast.uniform_ref:new{_ref_name=uf}
-        --        goto name_ref_done
-        --      end
-        --    end
-
-        --    goto name_ref_done
-        --  end
-        --end
       end
 
       ::name_ref_done::

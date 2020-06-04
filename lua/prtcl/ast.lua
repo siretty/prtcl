@@ -34,6 +34,7 @@ ast.literal = require "prtcl.ast.literal"
 ast.call = require "prtcl.ast.call"
 
 ast.name_ref = require "prtcl.ast.name_ref"
+ast.index_ref = require "prtcl.ast.index_ref"
 ast.local_ref = require "prtcl.ast.local_ref"
 ast.global_ref = require "prtcl.ast.global_ref"
 ast.uniform_ref = require "prtcl.ast.uniform_ref"

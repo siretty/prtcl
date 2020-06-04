@@ -215,6 +215,10 @@ function fmt_math_expr:literal(o, node)
   o:put('static_cast<dtype_t<dtype::real>>(' .. tostring(node.value) .. ')')
 end
 
+function fmt_math_expr:index_ref(o, node)
+  o:put(index_name(node._ref_name))
+end
+
 function fmt_math_expr:local_ref(o, node)
   o:put(field_name(node._ref_name))
 end
@@ -303,6 +307,27 @@ function fmt_math_expr:call(o, node)
     self:dispatch(o, arg)
   end
   o:put(')')
+end
+-- }}}
+
+-- {{{ fmt_math_expr: slice
+function fmt_math_expr:slice(o, n)
+  if #n.indices ~= 1 then
+    raise_error('must have exactly one index (multiple not implemented yet)', n)
+  end
+
+  if not object:isinstance(n.indices[1], ast.index_ref) then
+    raise_error('index must refer to an foreach dimension index loop', n)
+  end
+
+  if #n.subject ~= 1 then
+    raise_error('must have exactly one subject', n)
+  end
+  
+  self:dispatch(o, n.subject[1])
+  o:put('[') -- TODO: support multiple indices
+  self:dispatch(o, n.indices[1])
+  o:put(']')
 end
 -- }}}
 -- }}}

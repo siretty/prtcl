@@ -352,7 +352,7 @@ grammar.grammar = lpeg.P{
           node.store_one("subject", V"atom"),
           P"[",
           node.store_all("indices",
-            INFIX_WS(P",", C(number) + id.name())
+            INFIX_WS(P",", C(number) + Node("name_ref", id.store_name("name")))
           ),
           P"]"
         ))
