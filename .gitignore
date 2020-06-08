@@ -4,3 +4,7 @@
 schemes/include/**/*.hpp
 !schemes/include/**/pt16_solvers.hpp
 /third_party/archives
+/.clangd/
+/.gdb_history
+/cmake-build-*/
+/output/
