@@ -74,6 +74,8 @@ prtcl_generate_scheme_header( he14 )
 prtcl_generate_scheme_header( pt16 )
 prtcl_generate_scheme_header( wkbb18 )
 
+prtcl_generate_scheme_header( horas )
+
 prtcl_add_library(
   prtcl-schemes
   TYPE INTERFACE
@@ -93,6 +95,8 @@ prtcl_add_library(
     ${_INC}/prtcl/schemes/he14.hpp
     ${_INC}/prtcl/schemes/pt16.hpp
     ${_INC}/prtcl/schemes/wkbb18.hpp
+
+    ${_INC}/prtcl/schemes/horas.hpp
 )
 target_include_directories( prtcl-schemes INTERFACE ${_INC} )
 target_link_libraries( prtcl-schemes
@@ -259,6 +263,40 @@ target_include_directories(
 )
 target_link_libraries(
   prtcl-schemes-iisph-wkbb18
+  PUBLIC prtcl-schemes
+  PUBLIC prtcl-rt
+  PUBLIC Eigen3::Eigen
+  PUBLIC Threads::Threads
+  PUBLIC OpenMP::OpenMP_CXX
+  PUBLIC ${CMAKE_DL_LIBS}
+)
+
+
+add_executable(
+  prtcl-schemes-iisph-horas
+
+  ${_TRACY_CPP} # tracing
+
+  ${_PRJ}/sources/prtcl-schemes-iisph-horas.cpp
+)
+DE_CXX17_Target( prtcl-schemes-iisph-horas )
+DE_Common_Diagnostics_CXX_Target( prtcl-schemes-iisph-horas )
+DE_LibCXX_Target( prtcl-schemes-iisph-horas )
+DE_Add_Our_Include_Directories( prtcl-schemes-iisph-horas include sources )
+PRTCL_Add_Target_CXX_FLAGS_FastMath( prtcl-schemes-iisph-horas )
+PRTCL_Add_Target_CXX_FLAGS_OptimizeForNative( prtcl-schemes-iisph-horas )
+target_compile_definitions(
+  prtcl-schemes-iisph-horas
+  PUBLIC
+    #PRTCL_RT_LOG_TRACE_TRACY
+)
+target_include_directories(
+  prtcl-schemes-iisph-horas
+  PUBLIC
+    ${_TRACY_DIR}
+)
+target_link_libraries(
+  prtcl-schemes-iisph-horas
   PUBLIC prtcl-schemes
   PUBLIC prtcl-rt
   PUBLIC Eigen3::Eigen

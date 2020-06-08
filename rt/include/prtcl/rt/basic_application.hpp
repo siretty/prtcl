@@ -323,6 +323,8 @@ private:
         "app", "main", "current time_step = ",
         model.template get_global<dtype::real>("time_step")[0]);
 
+    this->do_frame_done(model, nhood);
+
     PRTCL_RT_LOG_TRACE_CFRAME_MARK();
   }
 
@@ -452,7 +454,7 @@ public:
     }();
 
     size_t const fps = 30;
-    size_t const max_frame = static_cast<size_t>(std::round(max_seconds * fps));
+    auto const max_frame = static_cast<size_t>(std::round(max_seconds * fps));
 
     auto const seconds_per_frame = (1.0L / fps);
 

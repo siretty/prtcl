@@ -1,0 +1,64 @@
+
+scheme horas {
+  groups visible {
+    select tag visible;
+
+    varying field x = real[] position;
+  }
+
+  groups horason {
+    select type horason;
+
+    varying field x = real[] position;
+    varying field x0 = real[] initial_position;
+
+    varying field d = real[] direction;
+    varying field t = real parameter;
+    
+    varying field phi = real implicit_function;
+  }
+
+  global {
+    field h = real smoothing_scale;
+  }
+
+  procedure reset {
+    foreach horason particle i {
+      compute x.i = x0.i;
+      compute t.i = 0;
+    }
+  }
+
+  procedure step {
+    local R : real = 2 * kernel_support_radius(h);
+    local W : real = h / 2;
+    local O : real = h;
+    local L : real = 1.1;
+  
+    foreach horason particle i {
+      local nom : real[] = zeros<real[]>();
+      local den : real = 0;
+
+      foreach visible neighbor j {
+        local k : real = norm(x.i - x.j) / R;
+        compute k = (1 - k * k);
+        compute k = k * k * k;
+
+        compute nom += x.j * k;
+        compute den += k;
+      }
+
+      local v_bar : real[] = nom * reciprocal_or_zero(den, 1e-9);
+      compute phi.i = min(
+            (norm(x.i - v_bar) - W) * unit_step_r(1e-9, den)
+          +
+            O * unit_step_r(den, 1e-9)
+        ,
+          O
+      );
+
+      compute t.i += phi.i / L;
+      compute x.i = x0.i + t.i * d.i;
+    }
+  }
+}

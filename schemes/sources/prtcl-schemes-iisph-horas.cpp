@@ -1,29 +1,31 @@
-#include "prtcl/schemes/density.hpp"
 #include <prtcl/rt/basic_application.hpp>
+#include <prtcl/rt/camera.hpp>
 #include <prtcl/rt/math/aat13_math_policy_mixin.hpp>
+
+#include <prtcl/core/log/logger.hpp>
 
 #include <prtcl/schemes/aat13.hpp>
 #include <prtcl/schemes/aiast12.hpp>
-#include <prtcl/schemes/correction.hpp>
 #include <prtcl/schemes/density.hpp>
 #include <prtcl/schemes/gravity.hpp>
 #include <prtcl/schemes/he14.hpp>
+#include <prtcl/schemes/horas.hpp>
 #include <prtcl/schemes/iisph.hpp>
-#include <prtcl/schemes/pt16.hpp>
 #include <prtcl/schemes/symplectic_euler.hpp>
 #include <prtcl/schemes/viscosity.hpp>
 
 #include <iostream>
 #include <string_view>
 
-#define SURFACE_TENSION 0
 #define SURFACE_TENSION_AAT13 1
 #define SURFACE_TENSION_He14 2
 
-//#define SURFACE_TENSION SURFACE_TENSION_AAT13
+#define SURFACE_TENSION SURFACE_TENSION_AAT13
+
+namespace log = prtcl::core::log;
 
 template <typename ModelPolicy_>
-class iisph_pt16_application final
+class iisph_horas_application final
     : public prtcl::rt::basic_application<ModelPolicy_> {
   using base_type = prtcl::rt::basic_application<ModelPolicy_>;
 
@@ -37,16 +39,20 @@ public:
 
   using dtype = prtcl::core::dtype;
 
-  using real = typename type_policy::real;
-  using o = typename math_policy::operations;
-
   static constexpr size_t N = model_policy::dimensionality;
+
+  using real = typename type_policy::real;
+  using rvec = typename math_policy::template ndtype_t<dtype::real, N>;
+
+  using o = typename math_policy::operations;
 
 public:
   void on_require_schemes(model_type &model) override {
+    // add the group that will contain the horasons
+    model.add_group("camera", "horason");
+
     require_all(
-        model, advect, boundary, density, correction, iisph, gravity, viscosity,
-        implicit_viscosity);
+        model, advect, boundary, density, iisph, gravity, viscosity, horas);
 #if SURFACE_TENSION != 0
     surface_tension.require(model);
 #endif
@@ -54,8 +60,7 @@ public:
 
   void on_load_schemes(model_type &model) override {
     load_all(
-        model, advect, boundary, density, correction, iisph, gravity, viscosity,
-        implicit_viscosity);
+        model, advect, boundary, density, iisph, gravity, viscosity, horas);
 #if SURFACE_TENSION != 0
     surface_tension.load(model);
 #endif
@@ -67,14 +72,51 @@ public:
 
     auto g = model.template add_global<dtype::real, N>("gravity");
     g[0] = o::template zeros<dtype::real, N>();
-    g[0][0] = static_cast<real>(0);
     g[0][1] = static_cast<real>(-9.81);
-    g[0][2] = static_cast<real>(1);
 
-    prtcl::core::log::debug(
-        "app", "pt16", "implicit viscosity = ",
-        1 - model.get_group("f").template get_uniform<dtype::real>(
-                "viscosity")[0]);
+    { // setting up the fluid group for rendering
+      auto &group = model.get_group("f");
+      group.add_tag("visible");
+    }
+
+    { // setup the camera and horasons
+      camera.camera.origin = o::template zeros<dtype::real, N>();
+      camera.camera.origin[0] = -3;
+
+      camera.camera.principal = o::template zeros<dtype::real, N>();
+      camera.camera.principal[0] = 1;
+
+      camera.camera.up = o::template zeros<dtype::real, N>();
+      camera.camera.up[1] = static_cast<real>(1);
+
+      camera.camera.focal_length = 1;
+
+      camera.sensor.width = 640;
+      camera.sensor.height = 480;
+
+      auto &group = model.get_group("camera");
+      group.add_tag("cannot_be_neighbor");
+
+      group.resize(camera.sensor.width * camera.sensor.height);
+      group.dirty(true);
+
+      auto v_x = group.template get_varying<dtype::real, N>("position");
+      auto v_x0 =
+          group.template get_varying<dtype::real, N>("initial_position");
+      auto v_d = group.template get_varying<dtype::real, N>("direction");
+
+      camera.cast([&sensor = camera.sensor, &v_x, &v_x0,
+                   &v_d](auto ix, auto iy, rvec x0, rvec d) {
+        auto index = iy * sensor.width + ix;
+        v_x[index] = x0;
+        v_x0[index] = x0;
+        v_d[index] = d;
+
+        // prtcl::core::log::debug(
+        //    "iisph-horas", "setup_horason", "ix=", ix, " iy=", iy,
+        //    " ii=", index);
+      });
+    }
   }
 
   void on_prepare_step(model_type &, neighborhood_type &) override {
@@ -82,10 +124,12 @@ public:
   }
 
   void on_step(model_type &model, neighborhood_type &nhood) override {
+    namespace log = prtcl::core::log;
+
     density.compute_density(nhood);
-    correction.compute_gradient_correction(nhood);
 
     gravity.initialize_acceleration(nhood);
+    viscosity.accumulate_acceleration(nhood);
 
 #if SURFACE_TENSION == SURFACE_TENSION_AAT13
     // AAT13: Surface Tension
@@ -101,58 +145,8 @@ public:
     surface_tension.accumulate_acceleration(nhood);
 #endif
 
-    { // viscosity solver
-      auto &group = model.get_group("f");
-
-      // auto vg = model.get_group("f").template get_varying<dtype::real, N, N>(
-      //    "velocity_gradient");
-      /*
-      auto omega = group.template get_varying<dtype::real, N>("vorticity");
-      */
-      // auto omega_dgn = model.get_group("f").template
-      // get_varying<dtype::real>(
-      //    "pt16_vorticity_diffusion_diagonal");
-      // auto omega_rhs =
-      //    model.get_group("f").template get_varying<dtype::real, N>(
-      //        "pt16_vorticity_diffusion_rhs");
-
-      implicit_viscosity.setup(nhood);
-
-      { // vorticity diffusion
-        group.template get_uniform<dtype::real>("pt16_maximum_error")[0] =
-            //static_cast<real>(1e-5) *
-            // group.template get_uniform<dtype::real>("rest_density")[0] *
-            group.template get_uniform<dtype::real>(
-                "pt16_vorticity_diffusion_maximum_error")[0];
-        group.template get_uniform<dtype::integer>(
-            "pt16_maximum_iterations")[0] =
-            group.template get_uniform<dtype::integer>(
-                "pt16_vorticity_diffusion_maximum_iterations")[0];
-
-        implicit_viscosity.solve_vorticity_diffusion(nhood);
-      }
-
-      { // velocity reconstruction
-        group.template get_uniform<dtype::real>("pt16_maximum_error")[0] =
-            //static_cast<real>(1e-5) *
-            // group.template get_uniform<dtype::real>("rest_density")[0] *
-            group.template get_uniform<dtype::real>(
-                "pt16_velocity_reconstruction_maximum_error")[0];
-        group.template get_uniform<dtype::integer>(
-            "pt16_maximum_iterations")[0] =
-            group.template get_uniform<dtype::integer>(
-                "pt16_velocity_reconstruction_maximum_iterations")[0];
-
-        // this modifies the velocity field directly
-        implicit_viscosity.solve_velocity_reconstruction(nhood);
-      }
-    }
-
-    // integrate the velocity (explicit)
+    // predict the velocity at the next timestep (explicit)
     advect.integrate_velocity_with_hard_fade(nhood);
-
-    // integrate the velocity (viscosity)
-    //advect.integrate_velocity_with_hard_fade(nhood);
 
     { // pressure solver
       auto aprde = model.template get_global<dtype::real>("iisph_aprde");
@@ -164,7 +158,7 @@ public:
 
       constexpr int min_solver_iterations = 3;
       constexpr int max_solver_iterations = 2000;
-      constexpr auto const max_aprde = static_cast<real>(0.0001);
+      constexpr auto const max_aprde = static_cast<real>(0.001);
 
       real cur_aprde = 0;
 
@@ -177,8 +171,11 @@ public:
           break;
 
         // break the loop if there are no particles
-        if (nprde[0] == 0)
+        if (nprde[0] == 0) {
+          log::debug(
+              "app", "iisph", "pressure iteration canceled, no particles");
           break;
+        }
 
         // reset the accum. positive relative density error
         aprde[0] = 0;
@@ -190,34 +187,60 @@ public:
         cur_aprde = aprde[0] / static_cast<real>(nprde[0]);
       }
 
-      prtcl::core::log::debug(
+      log::debug(
           "app", "iisph", "last aprde = ", aprde[0],
           " cur_aprde = ", cur_aprde);
-      prtcl::core::log::debug(
-          "app", "iisph", "no. iterations ", pressure_iteration);
+      log::debug("app", "iisph", "no. iterations ", pressure_iteration);
     }
 
-    // predict the velocity at the next timestep (... + pressure)
+    // predict the velocity at the next timestep (explicit + pressure)
     advect.integrate_velocity_with_hard_fade(nhood);
 
     // integrate the particle position
     advect.integrate_position(nhood);
   }
 
+  void on_frame_done(model_type &model, neighborhood_type &nhood) override {
+    namespace log = prtcl::core::log;
+
+    static int frame = 1;
+
+    horas.reset(nhood);
+
+    for (size_t step_i = 0; step_i < 300; ++step_i) {
+      // TESTING: one rendering step
+      log::debug("app", "horas", "step");
+      horas.step(nhood);
+      log::debug("app", "horas", "done");
+    }
+
+    auto &group = model.get_group("camera");
+    //auto v_phi = group.template get_varying<dtype::real>("implicit_function");
+    //auto v_t = group.template get_varying<dtype::real>("parameter");
+    //for (size_t i = 0; i < v_phi.size(); ++i) {
+    //  log::debug("app", "horas", "i=", i, " t=", v_t[i], " phi=", v_phi[i]);
+    //}
+
+    auto cwd = ::prtcl::rt::filesystem::getcwd();
+    auto output_dir = cwd + "/" + "output";
+    save_group(output_dir, group, frame++);
+  }
+
   prtcl::schemes::density<model_policy> density;
-  prtcl::schemes::correction<model_policy> correction;
   prtcl::schemes::symplectic_euler<model_policy> advect;
   prtcl::schemes::aiast12<model_policy> boundary;
   prtcl::schemes::iisph<model_policy> iisph;
   prtcl::schemes::gravity<model_policy> gravity;
   prtcl::schemes::viscosity<model_policy> viscosity;
-  prtcl::schemes::pt16<model_policy> implicit_viscosity;
 #if SURFACE_TENSION == SURFACE_TENSION_AAT13
   prtcl::schemes::aat13<model_policy> surface_tension;
 #endif
 #if SURFACE_TENSION == SURFACE_TENSION_He14
   prtcl::schemes::he14<model_policy> surface_tension;
 #endif
+
+  prtcl::schemes::horas<model_policy> horas;
+  prtcl::rt::pinhole_camera<model_policy> camera;
 };
 
 constexpr size_t N = 3;
@@ -237,6 +260,6 @@ int main(int argc_, char **argv_) {
   std::cerr << "PRESS [ENTER] TO START";
   std::getchar();
 
-  iisph_pt16_application<model_policy> application;
+  iisph_horas_application<model_policy> application;
   application.main(argc_, argv_);
 }

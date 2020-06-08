@@ -4,7 +4,7 @@
       "parameters": {
         "maximum_time_step": 0.001,
         "minimum_time_step": 0.001,
-        "maximum_simulation_seconds": 10
+        "maximum_simulation_seconds": 30
       },
       "group": {
         "f": {
@@ -16,11 +16,11 @@
             "dynamic_viscosity": 1000.0,
             "wkbb18_maximum_error": 0.01,
             "wkbb18_maximum_iterations": 100,
-            "strain_rate_viscosity": 0.5,
-            "pt16_vorticity_error": 1,
-            "pt16_vorticity_iters": 5000,
-            "pt16_velocity_error": 1,
-            "pt16_velocity_iters": 5000
+            "strain_rate_viscosity": 0.95,
+            "pt16_vorticity_error": 0.001,
+            "pt16_vorticity_iters": 200,
+            "pt16_velocity_error": 0.008,
+            "pt16_velocity_iters": 200
           },
           "sample": {
             "volume": {

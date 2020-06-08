@@ -24,6 +24,7 @@ template <typename GridType_> class neighbourhood {
 
 private:
   using model_type = basic_model<model_policy>;
+  using group_type = basic_group<model_policy>;
 
   using real = typename type_policy::template dtype_t<dtype::real>;
   static constexpr size_t dimensionality = model_policy::dimensionality;
@@ -48,7 +49,17 @@ private:
     get_element_ref(group_data_type const &g_, size_t i_) {
       return g_.position[i_];
     }
+
+    friend bool can_be_neighbor(group_data_type const &g_) {
+      // NOTE: keep in sync with static can_be_neighbor(group_type const &)
+      return not g_.tags.contains("cannot_be_neighbor");
+    }
   };
+
+  static bool can_be_neighbor(group_type const &g_) {
+    // NOTE: keep in sync with group_data_type::can_be_neighbor
+    return not g_.has_tag("cannot_be_neighbor");
+  }
 
   struct model_data_type {
     std::vector<group_data_type> groups;
@@ -130,8 +141,11 @@ public:
     _grid.compute_group_permutations(_perm_it);
 #pragma omp parallel
     {
-      for (size_t i = 0; i < model_.groups().size(); ++i)
-        model_.groups()[static_cast<ssize_t>(i)].permute(_perm[i]);
+      for (size_t i = 0; i < model_.groups().size(); ++i) {
+        auto &group = model_.groups()[static_cast<ssize_t>(i)];
+        if (can_be_neighbor(group))
+          group.permute(_perm[i]);
+      }
     }
     // update the grid with the permuted positions
     _grid.update(_data);

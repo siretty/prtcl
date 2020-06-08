@@ -153,12 +153,23 @@ private:
     // new number of sorted indices
     size_t new_sorted_index_count = 0;
     for (size_t group = 0; group < get_group_count(x); ++group) {
+      auto &group_ref = get_group_ref(x, group);
+
       // old number of raw indices in group
       size_t const old_raw_index_count = raw_to_sorted_[group].size();
 
+      // elements from groups that cannot be neighbors are not included in the
+      // '...sorted...' maps
+      if (not can_be_neighbor(group_ref)) {
+        if (old_raw_index_count > 0)
+          reset_sorted_to_raw_flag = true;
+
+        raw_to_sorted_[group].clear();
+        continue;
+      }
+
       // new number of raw indices in group
-      size_t const new_raw_index_count =
-          get_element_count(get_group_ref(x, group));
+      size_t const new_raw_index_count = get_element_count(group_ref);
       PRTCL_ASSERT(new_raw_index_count < max_raw_index);
 
       // resize according to the current number of raw indices in group
@@ -400,16 +411,16 @@ public:
 
   template <typename GroupedVectorData, typename Fn>
   void neighbors(
-      size_t group, size_t index, GroupedVectorData const &x, Fn fn) const {
-    PRTCL_ASSERT(N == get_vector_extent(x));
+      size_t group, size_t index, GroupedVectorData const &data, Fn fn) const {
+    PRTCL_ASSERT(N == get_vector_extent(data));
 
     real radius_squared = core::constpow(radius_, 2);
     potential_neighbors(
-        group, index,
-        [group, index, radius_squared, &fn, &x](size_t i_g, size_t i_r) {
+        group, index, data,
+        [group, index, radius_squared, &fn, &data](size_t i_g, size_t i_r) {
           auto const distance = math_policy::operations::norm_squared(
-              get_element_ref(get_group_ref(x, group), index) -
-              get_element_ref(get_group_ref(x, i_g), i_r));
+              get_element_ref(get_group_ref(data, group), index) -
+              get_element_ref(get_group_ref(data, i_g), i_r));
           if (distance < radius_squared) {
             std::invoke(fn, i_g, i_r);
           }
@@ -458,24 +469,31 @@ private:
 
   // }}}
 
-public:
+private:
   // potential_neighbors(group, index, callback) {{{
 
-  template <typename Fn>
-  void potential_neighbors(size_t group, size_t index, Fn fn) const {
+  template <typename GroupedVectorData, typename Fn>
+  void potential_neighbors(
+      size_t group, size_t index, GroupedVectorData const &data, Fn fn) const {
     PRTCL_ASSERT(group < max_raw_group);
     PRTCL_ASSERT(index < max_raw_index);
 
-    raw_grouped_index i_gr{static_cast<raw_group>(group),
-                           static_cast<raw_index>(index)};
+    raw_grouped_index i_gr{
+        static_cast<raw_group>(group), static_cast<raw_index>(index)};
 
-    sorted_index i_s = raw_to_sorted(i_gr);
-    cell_index i_c = sorted_to_cell(i_s);
+    auto &group_ref = get_group_ref(data, i_gr.get_group());
 
-    potential_neighbors(i_c, fn);
+    if (can_be_neighbor(group_ref)) {
+      sorted_index i_s = raw_to_sorted(i_gr);
+      cell_index i_c = sorted_to_cell(i_s);
 
-    for (cell_index j_c : cell_to_adjacent_cells(i_c))
-      potential_neighbors(j_c, fn);
+      potential_neighbors(i_c, fn);
+
+      for (cell_index j_c : cell_to_adjacent_cells(i_c))
+        potential_neighbors(j_c, fn);
+    } else {
+      potential_neighbors(get_element_ref(group_ref, i_gr.get_index()), fn);
+    }
   }
 
   // }}}
