@@ -1,9 +1,13 @@
 #ifndef PRTCL_MODEL_HPP
 #define PRTCL_MODEL_HPP
 
+#include <prtcl/tensors.hpp>
+#include <prtcl/group.hpp>
+
+#include <memory>
 #include <string>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 namespace prtcl {
 
@@ -24,8 +28,8 @@ public:
   }
 
 public:
-  template<typename T, size_t ...N>
-  auto AddGlobal(string name) {
+  template <typename T, size_t... N>
+  auto AddGlobal(std::string name) {
     // TODO auto AddGlobal(string)
   }
 
@@ -40,6 +44,6 @@ private:
   std::unordered_map<std::string, size_t> group_name_to_index_;
 };
 
-} //
+} // namespace prtcl
 
 #endif // PRTCL_MODEL_HPP

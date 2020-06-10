@@ -2,17 +2,13 @@
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 find_package(Boost 1.70 REQUIRED COMPONENTS container)
 
-add_library(libprtcl-develtarget STATIC
-    ${S}/prtcl/log.cpp)
+prtcl_add_library_simple(
+    libprtcl STATIC
 
-set(libprtcl_components)
-list(
-    APPEND libprtcl_components
-
+    PHYSICAL_COMPONENTS
     prtcl/config
 
-    # c++ compatibility
-    prtcl/cxx
+    prtcl/cxx # c++ compatibility
 
     prtcl/constpow
     prtcl/morton_order
@@ -38,29 +34,13 @@ list(
     prtcl/math/eigen
     prtcl/math/impl
     prtcl/math
+
+    LINK_LIBRARIES
+    Eigen3::Eigen
+    Boost::container
 )
 
-set(libprtcl_sources "${libprtcl_components}")
-list(TRANSFORM libprtcl_sources PREPEND "${S}/")
-list(TRANSFORM libprtcl_sources APPEND ".cpp")
-
-set(libprtcl_headers "${libprtcl_components}")
-list(TRANSFORM libprtcl_headers PREPEND "${I}/")
-list(TRANSFORM libprtcl_headers APPEND ".hpp")
-
-prtcl_add_library(
-    libprtcl STATIC
-
-    PRIVATE_SOURCES
-    ${libprtcl_sources}
-
-    PUBLIC_HEADERS
-    ${libprtcl_headers}
+add_library(
+    libprtcl-idecollector STATIC
+    ${S}/prtcl/config.cpp
 )
-set_target_properties(libprtcl PROPERTIES
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED ON
-    CXX_EXTENSIONS OFF
-    )
-target_include_directories(libprtcl PUBLIC ${I} PRIVATE ${S})
-target_link_libraries(libprtcl Eigen3::Eigen Boost::container)
