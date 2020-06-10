@@ -13,6 +13,7 @@ function( prtcl_add_executable NAME_ )
     "${NAME_}"
     ${l_arg_SOURCES}
   )
+
   if( NOT "${l_arg_TYPE}" STREQUAL "INTERFACE" )
     DE_CXX17_Target( "${NAME_}" )                               
     DE_LibCXX_Target( "${NAME_}" )                              

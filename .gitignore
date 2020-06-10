@@ -1,10 +1,14 @@
 
-/deps
-/bld
-schemes/include/**/*.hpp
-!schemes/include/**/pt16_solvers.hpp
-/third_party/archives
+# default build directory
+/build/
+
+# default output directory for simulation data
+/output/
+
+# developer tool specific directories
 /.clangd/
 /.gdb_history
-/cmake-build-*/
-/output/
+
+# project specific files
+schemes/include/**/*.hpp
+!schemes/include/**/pt16_solvers.hpp
