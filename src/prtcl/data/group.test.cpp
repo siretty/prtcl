@@ -17,7 +17,7 @@ TEST(DataTests, CheckGroup) {
     ASSERT_EQ(group.GetGroupName(), "name");
     ASSERT_EQ(group.GetGroupType(), "type");
 
-    ASSERT_EQ(group.GetSize(), 0);
+    ASSERT_EQ(group.GetItemCount(), 0);
 
     {
       ASSERT_TRUE(std::empty(group.GetTags()));
@@ -60,7 +60,7 @@ TEST(DataTests, CheckGroup) {
     ASSERT_EQ(group.GetVarying().GetFieldCount(), 1);
 
     group.Resize(10);
-    ASSERT_EQ(group.GetSize(), 10);
+    ASSERT_EQ(group.GetItemCount(), 10);
     ASSERT_EQ(group.GetVarying().GetItemCount(), 10);
     ASSERT_EQ(vf_b.GetSize(), 10);
 
@@ -71,7 +71,7 @@ TEST(DataTests, CheckGroup) {
     {
       auto indices = group.CreateItems(5);
       ASSERT_EQ(indices.size(), 5);
-      ASSERT_EQ(group.GetSize(), 15);
+      ASSERT_EQ(group.GetItemCount(), 15);
       ASSERT_EQ(group.GetVarying().GetItemCount(), 15);
       ASSERT_EQ(vf_b.GetSize(), 15);
     }
@@ -82,7 +82,7 @@ TEST(DataTests, CheckGroup) {
     {
       std::array<size_t, 10> const indices{1, 4, 6, 7, 11, 3, 5, 13, 0, 8};
       group.DestroyItems(indices);
-      ASSERT_EQ(group.GetSize(), 5);
+      ASSERT_EQ(group.GetItemCount(), 5);
       ASSERT_EQ(group.GetVarying().GetItemCount(), 5);
       ASSERT_EQ(vf_b.GetSize(), 5);
     }
@@ -100,7 +100,7 @@ TEST(DataTests, CheckGroup) {
 
       std::array<size_t, 5> const perm{3, 4, 1, 2, 0};
       group.Permute(perm);
-      ASSERT_EQ(group.GetSize(), 5);
+      ASSERT_EQ(group.GetItemCount(), 5);
       ASSERT_EQ(group.GetVarying().GetItemCount(), 5);
       ASSERT_EQ(vf_b.GetSize(), 5);
 

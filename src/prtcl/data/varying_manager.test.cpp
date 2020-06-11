@@ -71,7 +71,7 @@ TEST(DataTests, CheckVaryingManager) {
     }
 
     std::vector<std::string> names;
-    boost::copy(manager->GetNames(), std::back_inserter(names));
+    boost::copy(manager->GetFieldNames(), std::back_inserter(names));
     boost::sort(names);
     ASSERT_EQ(names.size(), 2);
     ASSERT_EQ(names[0], "x");

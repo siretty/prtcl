@@ -13,6 +13,7 @@
 #include <boost/container/flat_map.hpp>
 
 #include <boost/range/adaptor/map.hpp>
+#include <boost/range/adaptor/transformed.hpp>
 
 namespace prtcl {
 
@@ -53,7 +54,10 @@ public:
       return nullptr;
   }
 
-  void RemoveField(std::string name) { fields_.erase(name); }
+  void RemoveField(std::string_view name) {
+    if (auto it = fields_.find(name); it != fields_.end())
+      fields_.erase(it);
+  }
 
   bool HasField(std::string_view name) {
     return fields_.find(name) != fields_.end();
@@ -79,10 +83,6 @@ public:
   }
 
 private:
-  // std::unordered_map<std::string,
-  // std::unique_ptr<CollectionOfMutableTensors>>
-  //    fields_ = {};
-
   boost::container::flat_map<
       std::string, std::unique_ptr<CollectionOfMutableTensors>, std::less<>>
       fields_ = {};

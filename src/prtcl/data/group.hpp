@@ -10,6 +10,7 @@
 #include "vector_of_tensors.hpp"
 
 #include <iterator>
+#include <limits>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -17,10 +18,16 @@
 #include <unordered_set>
 #include <vector>
 
+#include <boost/container/flat_set.hpp>
+
 #include <boost/range/algorithm/copy.hpp>
 #include <boost/range/iterator_range.hpp>
 
 namespace prtcl {
+
+enum class GroupIndex : size_t {
+  kNoIndex = std::numeric_limits<size_t>::max()
+};
 
 class Group {
 public:
@@ -29,8 +36,10 @@ public:
   Group(Group &&) = default;
   Group &operator=(Group &&) = default;
 
-  Group(std::string_view name, std::string_view type)
-      : name_{name}, type_{type} {
+  Group(
+      std::string_view name, std::string_view type,
+      GroupIndex index = GroupIndex::kNoIndex)
+      : name_{name}, type_{type}, index_{index} {
     if (not IsValidIdentifier(name_))
       throw InvalidIdentifierError{};
     if (not IsValidIdentifier(type_))
@@ -38,12 +47,14 @@ public:
   }
 
 public:
-  size_t GetSize() const { return varying_.GetItemCount(); }
+  size_t GetItemCount() const { return varying_.GetItemCount(); }
 
 public:
   std::string_view GetGroupName() const { return name_; }
 
   std::string_view GetGroupType() const { return type_; }
+
+  GroupIndex GetGroupIndex() const { return index_; }
 
 public:
   auto GetTags() const { return boost::make_iterator_range(tags_); }
@@ -79,6 +90,12 @@ public:
   }
 
 public:
+  void RemoveField(std::string_view name) {
+    uniform_.RemoveField(name);
+    varying_.RemoveField(name);
+  }
+
+public:
   auto CreateItems(size_t count) { return varying_.CreateItems(count); }
 
   void DestroyItems(cxx::span<size_t const> indices) {
@@ -99,7 +116,9 @@ public:
 private:
   std::string name_;
   std::string type_;
-  std::unordered_set<std::string> tags_;
+  GroupIndex index_ = GroupIndex::kNoIndex;
+
+  boost::container::flat_set<std::string> tags_ = {};
 
   VaryingManager varying_ = {};
   UniformManager uniform_ = {};
