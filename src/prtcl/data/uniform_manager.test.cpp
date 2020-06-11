@@ -1,4 +1,3 @@
-
 #include <gtest/gtest.h>
 
 #include "uniform_manager.hpp"
@@ -24,13 +23,13 @@ TEST(DataTests, CheckUniformManager) {
       ASSERT_EQ(x.GetSize(), 1);
     }
     {
-      auto *x = manager->GetField<float, 2, 3>("x");
+      auto *x = manager->TryGetField<float, 2, 3>("x");
       ASSERT_NE(x, nullptr);
       ASSERT_EQ(x->GetSize(), 1);
     }
 
     {
-      auto x = manager->GetField<float, 2, 3>("x")->GetAccess();
+      auto x = manager->TryGetField<float, 2, 3>("x")->GetAccess();
       ASSERT_EQ(x.GetSize(), 1);
     }
     {

@@ -1,16 +1,16 @@
 #ifndef PRTCL_GROUP_HPP
 #define PRTCL_GROUP_HPP
 
+#include "../errors/field_of_different_kind_already_exists_error.hpp"
+#include "../errors/invalid_identifier_error.hpp"
+#include "../is_valid_identifier.hpp"
 #include "collection_of_mutable_tensors.hpp"
+#include "uniform_manager.hpp"
 #include "varying_manager.hpp"
 #include "vector_of_tensors.hpp"
 
-#include <prtcl/errors/field_exists_error.hpp>
-#include <prtcl/errors/invalid_identifier_error.hpp>
-
 #include <iterator>
 #include <memory>
-#include <regex>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -29,7 +29,8 @@ public:
   Group(Group &&) = default;
   Group &operator=(Group &&) = default;
 
-  Group(std::string name, std::string type) : name_{name}, type_{type} {
+  Group(std::string_view name, std::string_view type)
+      : name_{name}, type_{type} {
     if (not IsValidIdentifier(name_))
       throw InvalidIdentifierError{};
     if (not IsValidIdentifier(type_))
@@ -37,89 +38,62 @@ public:
   }
 
 public:
-  size_t GetSize() const { return size_; }
+  size_t GetSize() const { return varying_.GetItemCount(); }
 
 public:
-  std::string_view GroupName() const { return name_; }
+  std::string_view GetGroupName() const { return name_; }
 
-  std::string_view GroupType() const { return type_; }
+  std::string_view GetGroupType() const { return type_; }
 
 public:
-  auto Tags() const { return boost::make_iterator_range(tags_); }
+  auto GetTags() const { return boost::make_iterator_range(tags_); }
 
   bool HasTag(std::string const &tag) const {
     return tags_.find(tag) != tags_.end();
   }
 
-  auto &AddTag(std::string const &tag) {
-    tags_.insert(tag);
-    return *this;
-  }
+  void AddTag(std::string const &tag) { tags_.insert(tag); }
 
-  auto &RemoveTag(std::string const &tag) {
-    tags_.erase(tag);
-    return *this;
-  }
+  void RemoveTag(std::string const &tag) { tags_.erase(tag); }
 
 public:
-  template <typename T, size_t... N>
-  auto AddVarying(std::string name) {
-    if (not IsValidIdentifier(name))
-      throw InvalidIdentifierError{};
-
-    auto tensors = std::make_unique<VectorOfTensors<T, N...>>();
-    auto [it, inserted] = varying_.emplace(name_, std::move(tensors));
-    auto *result = it->second.get();
-
-    if (not inserted and
-        (result->ComponentTypeID() != tensors->ComponentTypeID() or
-         result->Shape() != tensors->Shape()))
-      throw FieldExistsError{};
-
-    result->Resize(GetSize());
-
-    return AccessToVectorOfTensors<T, N...>{
-        *static_cast<VectorOfTensors<T, N...> *>(result)};
-  }
+  UniformManager const &GetUniform() const { return uniform_; }
 
   template <typename T, size_t... N>
-  auto AddUniform(std::string name) {
-    // TODO auto AddUniform<T, N...>(string name)
+  auto const &AddUniformField(std::string_view name) {
+    if (not varying_.HasField(std::string{name}))
+      return uniform_.AddField<T, N...>(name);
+    else
+      throw FieldOfDifferentKindAlreadyExistsError{};
   }
 
 public:
-  VaryingManager &GetVarying() { return varying_m_; }
+  VaryingManager const &GetVarying() const { return varying_; }
 
-  VaryingManager const &GetVarying() const { return varying_m_; }
-
-public:
-  // TODO IntervalOf<size_t> Create(size_t count)
-
-  // TODO void Erase(IntervalOf<size_t> indices)
-
-  // TODO bool Dirty() const
-
-  // TODO void Dirty(bool) const
-
-public:
-  void Resize(size_t new_size) {
-    for (auto &[name, field] : varying_)
-      field->Resize(new_size);
-
-    size_ = new_size;
-    varying_m_.ResizeItems(new_size);
+  template <typename T, size_t... N>
+  auto const &AddVaryingField(std::string_view name) {
+    if (not uniform_.HasField(name))
+      return varying_.AddField<T, N...>(std::string{name});
+    else
+      throw FieldOfDifferentKindAlreadyExistsError{};
   }
+
+public:
+  auto CreateItems(size_t count) { return varying_.CreateItems(count); }
+
+  void DestroyItems(cxx::span<size_t const> indices) {
+    varying_.DestroyItems(indices);
+  }
+
+  bool IsDirty() const { return varying_.IsDirty(); }
+
+  void SetDirty(bool value) { varying_.SetDirty(value); }
+
+public:
+  void Resize(size_t new_size) { varying_.ResizeItems(new_size); }
 
   void Permute(cxx::span<size_t const> input_perm) {
-    varying_m_.PermuteItems(input_perm);
-  }
-
-private:
-  template <typename S>
-  static bool IsValidIdentifier(S const &s) {
-    static std::regex const valid_ident{R"([a-zA-Z][a-zA-Z0-9_]*)"};
-    using std::begin, std::end;
-    return std::regex_match(begin(s), end(s), valid_ident);
+    varying_.PermuteItems(input_perm);
   }
 
 private:
@@ -127,13 +101,9 @@ private:
   std::string type_;
   std::unordered_set<std::string> tags_;
 
-  size_t size_;
-
-  std::unordered_map<std::string, std::unique_ptr<CollectionOfMutableTensors>> uniform_;
-  std::unordered_map<std::string, std::unique_ptr<CollectionOfMutableTensors>> varying_;
-
-  VaryingManager varying_m_; // TODO
-};                           // namespace prtcl
+  VaryingManager varying_ = {};
+  UniformManager uniform_ = {};
+}; // namespace prtcl
 
 } // namespace prtcl
 

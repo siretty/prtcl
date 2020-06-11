@@ -29,6 +29,15 @@ public:
   using ItemType = math::Tensor<T, N...>;
 
 public:
+  VectorOfTensors() = default;
+
+  VectorOfTensors(VectorOfTensors const &) = delete;
+  VectorOfTensors &operator=(VectorOfTensors const &) = delete;
+
+  VectorOfTensors(VectorOfTensors &&) = default;
+  VectorOfTensors &operator=(VectorOfTensors &&) = default;
+
+public:
   size_t GetSize() const final { return items_.size(); }
 
 public:

@@ -14,6 +14,7 @@ prtcl_add_library_simple(
     prtcl/morton_order
     prtcl/scheduler
     prtcl/virtual_clock
+    prtcl/is_valid_identifier
 
     prtcl/data/component_type
     prtcl/data/shape
@@ -29,9 +30,10 @@ prtcl_add_library_simple(
     prtcl/data/group
     prtcl/data/model
 
-    prtcl/errors/invalid_identifier_error
-    prtcl/errors/field_exists_error
     prtcl/errors/field_does_not_exist
+    prtcl/errors/field_of_different_type_already_exists_error
+    prtcl/errors/field_of_different_kind_already_exists_error
+    prtcl/errors/invalid_identifier_error
 
     prtcl/log/level
     prtcl/log/logger

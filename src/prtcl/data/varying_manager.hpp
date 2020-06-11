@@ -2,6 +2,9 @@
 #define PRTCL_DATA_VARYING_FIELD_MANAGER_HPP
 
 #include "../errors/field_does_not_exist.hpp"
+#include "../errors/field_of_different_type_already_exists_error.hpp"
+#include "../errors/invalid_identifier_error.hpp"
+#include "../is_valid_identifier.hpp"
 #include "collection_of_mutable_tensors.hpp"
 #include "vector_of_tensors.hpp"
 
@@ -11,6 +14,7 @@
 #include <unordered_map>
 
 #include <boost/range/adaptor/map.hpp>
+#include <boost/range/adaptor/transformed.hpp>
 #include <boost/range/algorithm/copy_backward.hpp>
 #include <boost/range/algorithm/set_algorithm.hpp>
 #include <boost/range/irange.hpp>
@@ -29,23 +33,37 @@ public:
 public:
   template <typename T, size_t... N>
   ColT<T, N...> const &AddField(std::string name) {
+    if (not IsValidIdentifier(name))
+      throw InvalidIdentifierError{};
+
     auto [it, inserted] = fields_.emplace(name, nullptr);
     if (inserted)
       it->second.reset(new ColT<T, N...>);
+    else if (it->second.get()->GetType() != GetTensorTypeCRef<T, N...>())
+      throw FieldOfDifferentTypeAlreadyExistsError{};
+
     auto *col = static_cast<ColT<T, N...> *>(it->second.get());
     col->Resize(GetItemCount());
     return *col;
   }
 
   template <typename T, size_t... N>
-  ColT<T, N...> const *GetField(std::string name) const {
-    if (auto it = fields_.find(name); it != fields_.end())
-      return static_cast<ColT<T, N...> *>(it->second.get());
-    else
+  ColT<T, N...> const *TryGetField(std::string name) const {
+    if (auto it = fields_.find(name); it != fields_.end()) {
+      if (auto *field = it->second.get();
+          field->GetType() == GetTensorTypeCRef<T, N...>())
+        return static_cast<ColT<T, N...> *>(it->second.get());
+      else
+        throw FieldOfDifferentTypeAlreadyExistsError{};
+    } else
       return nullptr;
   }
 
   void RemoveField(std::string name) { fields_.erase(name); }
+
+  bool HasField(std::string name) {
+    return fields_.find(name) != fields_.end();
+  }
 
 public:
   void ResizeItems(size_t new_size) {
@@ -121,14 +139,26 @@ public:
 
   size_t GetItemCount() const { return size_; }
 
-  auto GetNames() const {
-    return boost::make_iterator_range(fields_) | boost::adaptors::map_keys;
+public:
+  auto GetNamedFields() const {
+    return boost::make_iterator_range(fields_) |
+           boost::adaptors::transformed([](auto const &entry) {
+             return std::pair<
+                 std::string const &, CollectionOfMutableTensors const &>{
+                 entry.first, *entry.second.get()};
+           });
+  }
+
+  auto GetNames() const { return GetNamedFields() | boost::adaptors::map_keys; }
+
+  auto GetFields() const {
+    return GetNamedFields() | boost::adaptors::map_values;
   }
 
 private:
-  size_t size_;
+  size_t size_ = 0;
   std::unordered_map<std::string, std::unique_ptr<CollectionOfMutableTensors>>
-      fields_;
+      fields_ = {};
 };
 
 } // namespace prtcl

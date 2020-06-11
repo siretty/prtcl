@@ -5,10 +5,10 @@
 
 namespace prtcl {
 
-class FieldExistsError : public std::exception{
+class FieldOfDifferentTypeAlreadyExistsError : public std::exception{
 public:
   char const *what() const noexcept override {
-    return "field with the same name but different types already exists";
+    return "field with the same name but different type already exists";
   }
 };
 

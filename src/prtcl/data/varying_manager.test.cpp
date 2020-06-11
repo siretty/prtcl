@@ -1,4 +1,3 @@
-
 #include <gtest/gtest.h>
 
 #include "varying_manager.hpp"
@@ -15,6 +14,7 @@ TEST(DataTests, CheckVaryingManager) {
   {
     auto manager = std::make_shared<VaryingManager>();
     ASSERT_EQ(manager->GetFieldCount(), 0);
+    ASSERT_EQ(manager->GetItemCount(), 0);
 
     manager->ResizeItems(5);
     ASSERT_TRUE(manager->IsDirty());
@@ -31,7 +31,7 @@ TEST(DataTests, CheckVaryingManager) {
       ASSERT_EQ(x.GetSize(), 5);
     }
     {
-      auto *x = manager->GetField<float, 2, 3>("x");
+      auto *x = manager->TryGetField<float, 2, 3>("x");
       ASSERT_NE(x, nullptr);
       ASSERT_EQ(x->GetSize(), 5);
     }
@@ -40,7 +40,7 @@ TEST(DataTests, CheckVaryingManager) {
     ASSERT_TRUE(manager->IsDirty());
 
     {
-      auto x = manager->GetField<float, 2, 3>("x")->GetAccess();
+      auto x = manager->TryGetField<float, 2, 3>("x")->GetAccess();
       ASSERT_EQ(x.GetSize(), 10);
     }
     {
