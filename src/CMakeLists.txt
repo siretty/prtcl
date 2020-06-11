@@ -3,7 +3,7 @@ find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 find_package(Boost 1.70 REQUIRED COMPONENTS container)
 
 prtcl_add_library_simple(
-    libprtcl STATIC
+    prtcl STATIC
 
     PHYSICAL_COMPONENTS
     prtcl/config
@@ -54,17 +54,17 @@ prtcl_add_library_simple(
 )
 
 add_library(
-    libprtcl-idecollector STATIC
+    prtcl-idecollector STATIC
     ${S}/prtcl/config.cpp
     )
 
 target_link_libraries(
-    libprtcl-idecollector
-    libprtcl
+    prtcl-idecollector
+    prtcl
 )
 
 set_target_properties(
-    libprtcl-idecollector
+    prtcl-idecollector
 
     PROPERTIES
     CXX_STANDARD 17
