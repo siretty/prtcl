@@ -1,0 +1,6 @@
+[submodule "external/span"]
+	path = external/span
+	url = git@github.com:tcbrindle/span.git
+[submodule "external/googletest"]
+	path = external/googletest
+	url = git@github.com:google/googletest.git

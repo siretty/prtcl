@@ -1,8 +1,8 @@
 #ifndef PRTCL_MODEL_HPP
 #define PRTCL_MODEL_HPP
 
-#include <prtcl/tensors.hpp>
-#include <prtcl/group.hpp>
+#include "collection_of_mutable_tensors.hpp"
+#include "group.hpp"
 
 #include <memory>
 #include <string>
@@ -38,7 +38,7 @@ public:
   }
 
 private:
-  std::unordered_map<std::string, std::unique_ptr<Tensors>> global_;
+  std::unordered_map<std::string, std::unique_ptr<CollectionOfMutableTensors>> global_;
 
   std::vector<std::unique_ptr<Group>> groups_;
   std::unordered_map<std::string, size_t> group_name_to_index_;

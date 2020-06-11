@@ -44,7 +44,9 @@ function(prtcl_add_library_simple NAME_)
       SOURCES_DIR HEADERS_DIR
       PHYSICAL_COMPONENTS
       EXTRA_HEADERS EXTRA_SOURCES
-      LINK_LIBRARIES)
+      LINK_LIBRARIES INCLUDE_DIRECTORIES)
+
+  message(STATUS "Adding prtcl library: ${NAME_}")
 
   cmake_parse_arguments(
       PARSE_ARGV 1 l_arg
@@ -71,6 +73,15 @@ function(prtcl_add_library_simple NAME_)
   list(TRANSFORM sources PREPEND "${S}/")
   list(TRANSFORM sources APPEND ".cpp")
   list(APPEND sources ${EXTRA_SOURCES})
+
+  set(test_sources)
+  foreach (component ${l_arg_PHYSICAL_COMPONENTS})
+    set(test_source "${component}.test.cpp")
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${test_source}")
+      message(VERBOSE "Found test source (${test_source}) for physical component (${component}).")
+      list(APPEND test_sources ${test_source})
+    endif ()
+  endforeach ()
 
   set(headers "${libprtcl_components}")
   list(TRANSFORM headers PREPEND "${I}/")
@@ -112,8 +123,26 @@ function(prtcl_add_library_simple NAME_)
     )
   endif ()
 
+  set(TEST_NAME_ "${NAME_}_test")
+
+  message(STATUS "Adding test executable for ${NAME_}: ${TEST_NAME_}")
+
+  add_executable(
+      ${TEST_NAME_}
+      ${CMAKE_CURRENT_SOURCE_DIR}/${NAME_}-run-tests.cpp
+      ${test_sources}
+  )
+
+  target_link_libraries(
+      ${TEST_NAME_}
+      ${NAME_}
+      gtest_main
+  )
+
   set_target_properties(
-      "${NAME_}" PROPERTIES
+      "${NAME_}" "${TEST_NAME_}"
+
+      PROPERTIES
       CXX_STANDARD 17
       CXX_STANDARD_REQUIRED ON
       CXX_EXTENSIONS OFF

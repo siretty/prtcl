@@ -1,7 +1,7 @@
-#include <prtcl/vector_of_tensors.hpp>
+#include <prtcl/data/group.hpp>
+#include <prtcl/data/vector_of_tensors.hpp>
 #include <prtcl/log.hpp>
 #include <prtcl/math.hpp>
-#include <prtcl/group.hpp>
 
 int main() {
   namespace log = prtcl::log;
@@ -31,7 +31,7 @@ int main() {
 
   log::Info("app", "testme", "data.Size() == ", data.Size());
 
-  prtcl::VectorOfTensorsRef<float, 1, 2> data_ref_a{data};
-  prtcl::VectorOfTensorsRef<float, 1, 2> data_ref_b{data};
+  prtcl::AccessToVectorOfTensors<float, 1, 2> data_ref_a{data};
+  prtcl::AccessToVectorOfTensors<float, 1, 2> data_ref_b{data};
   log::Info("app", "testme", "a == b ? ", data_ref_a == data_ref_b);
 }

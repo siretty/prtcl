@@ -3,6 +3,11 @@
 
 #include <prtcl/config.hpp>
 
+#include <cstddef>
+
+#define TCB_SPAN_NAMESPACE_NAME prtcl::cxx
+#include "cxx/span.inc"
+
 #include <type_traits>
 
 namespace prtcl::cxx {

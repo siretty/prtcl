@@ -1,11 +1,14 @@
 #ifndef PRTCL_GROUP_HPP
 #define PRTCL_GROUP_HPP
 
+#include "collection_of_mutable_tensors.hpp"
+#include "varying_manager.hpp"
+#include "vector_of_tensors.hpp"
+
 #include <prtcl/errors/field_exists_error.hpp>
 #include <prtcl/errors/invalid_identifier_error.hpp>
-#include <prtcl/tensors.hpp>
-#include <prtcl/vector_of_tensors.hpp>
 
+#include <iterator>
 #include <memory>
 #include <regex>
 #include <string>
@@ -14,6 +17,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include <boost/range/algorithm/copy.hpp>
 #include <boost/range/iterator_range.hpp>
 
 namespace prtcl {
@@ -33,7 +37,7 @@ public:
   }
 
 public:
-  size_t Size() const { return size_; }
+  size_t GetSize() const { return size_; }
 
 public:
   std::string_view GroupName() const { return name_; }
@@ -72,16 +76,21 @@ public:
          result->Shape() != tensors->Shape()))
       throw FieldExistsError{};
 
-    result->Resize(Size());
+    result->Resize(GetSize());
 
-    return VectorOfTensorsRef<T, N...>{
+    return AccessToVectorOfTensors<T, N...>{
         *static_cast<VectorOfTensors<T, N...> *>(result)};
   }
 
-  template <typename T, size_t ...N>
+  template <typename T, size_t... N>
   auto AddUniform(std::string name) {
     // TODO auto AddUniform<T, N...>(string name)
   }
+
+public:
+  VaryingManager &GetVarying() { return varying_m_; }
+
+  VaryingManager const &GetVarying() const { return varying_m_; }
 
 public:
   // TODO IntervalOf<size_t> Create(size_t count)
@@ -98,9 +107,12 @@ public:
       field->Resize(new_size);
 
     size_ = new_size;
+    varying_m_.ResizeItems(new_size);
   }
 
-  // TODO void Permute(SpanOf<size_t> perm)
+  void Permute(cxx::span<size_t const> input_perm) {
+    varying_m_.PermuteItems(input_perm);
+  }
 
 private:
   template <typename S>
@@ -117,9 +129,11 @@ private:
 
   size_t size_;
 
-  std::unordered_map<std::string, std::unique_ptr<Tensors>> uniform_;
-  std::unordered_map<std::string, std::unique_ptr<Tensors>> varying_;
-};
+  std::unordered_map<std::string, std::unique_ptr<CollectionOfMutableTensors>> uniform_;
+  std::unordered_map<std::string, std::unique_ptr<CollectionOfMutableTensors>> varying_;
+
+  VaryingManager varying_m_; // TODO
+};                           // namespace prtcl
 
 } // namespace prtcl
 

@@ -11,6 +11,8 @@
 #include <type_traits>
 #include <utility>
 
+#include <cstddef>
+
 // TODO: adapt names to coding style (PascalCase)
 //       -> this requires translating the names of .prtcl function calls
 
@@ -27,6 +29,10 @@ namespace detail {
 
 template <typename T, size_t... N>
 struct SelectTensor {
+  static_assert(
+      sizeof...(N) <= 2, "The math implementation based on the Eigen library "
+                         "currently only supports tensors of up to rank 2.");
+
   using Type = Eigen::Matrix<T, static_cast<int>(N)...>;
 };
 
@@ -284,6 +290,26 @@ template <typename T, size_t... N>
 decltype(auto) identity() {
   static_assert(sizeof...(N) == 2, "unsupported: rank must be exactly 2");
   return Tensor<T, N...>::Identity();
+}
+
+template <typename Arg>
+decltype(auto) At(Arg &&arg, cxx::span<size_t const> index) {
+  if constexpr (IsScalar<Arg>()) {
+    assert(index.size() == 0);
+    return std::forward<Arg>(arg);
+  } else {
+    assert(index.size() >= 1 and index.size() <= 2);
+    switch (index.size()) {
+    case 1:
+      return std::forward<Arg>(arg)(static_cast<Eigen::Index>(index[0]));
+    case 2:
+      return std::forward<Arg>(arg)(
+          static_cast<Eigen::Index>(index[0]),
+          static_cast<Eigen::Index>(index[1]));
+    default:
+      std::terminate();
+    }
+  }
 }
 
 template <typename T>
