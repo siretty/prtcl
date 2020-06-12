@@ -34,7 +34,7 @@ public:
 
 public:
   template <typename T, size_t... N>
-  ColT<T, N...> const &AddField(std::string_view name) {
+  ColT<T, N...> const &AddFieldImpl(std::string_view name) {
     if (not IsValidIdentifier(name))
       throw InvalidIdentifierError{};
 
@@ -50,14 +50,20 @@ public:
   }
 
   template <typename T, size_t... N>
-  ColT<T, N...> const *TryGetField(std::string_view name) const {
-    if (auto it = fields_.find(name); it != fields_.end()) {
-      if (auto *field = it->second.get();
-          field->GetType() == GetTensorTypeCRef<T, N...>())
-        return static_cast<ColT<T, N...> *>(it->second.get());
+  ColT<T, N...> const *TryGetFieldImpl(std::string_view name) const {
+    if (auto const *field = TryGetField(name))
+      if (field->GetType() == GetTensorTypeCRef<T, N...>())
+        return static_cast<ColT<T, N...> const *>(field);
       else
         throw FieldOfDifferentTypeAlreadyExistsError{};
-    } else
+    else
+      return nullptr;
+  }
+
+  CollectionOfMutableTensors const *TryGetField(std::string_view name) const {
+    if (auto it = fields_.find(name); it != fields_.end())
+      return it->second.get();
+    else
       return nullptr;
   }
 
@@ -66,7 +72,7 @@ public:
       fields_.erase(it);
   }
 
-  bool HasField(std::string_view name) {
+  bool HasField(std::string_view name) const {
     return fields_.find(name) != fields_.end();
   }
 

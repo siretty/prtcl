@@ -38,20 +38,20 @@ endfunction(prtcl_add_library)
 
 function(prtcl_add_library_simple NAME_)
   # parse remaining function arguments
-  set(l_options)
-  set(l_ov_kwargs TYPE)
+  set(l_options POSITION_INDEPENDENT_CODE)
+  set(l_ov_kwargs TYPE OUTPUT_NAME)
   set(l_mv_kwargs
       SOURCES_DIR HEADERS_DIR
       PHYSICAL_COMPONENTS
       EXTRA_HEADERS EXTRA_SOURCES
       LINK_LIBRARIES INCLUDE_DIRECTORIES)
 
-  message(STATUS "Adding prtcl library: ${NAME_}")
-
   cmake_parse_arguments(
       PARSE_ARGV 1 l_arg
       "${l_options}" "${l_ov_kwargs}" "${l_mv_kwargs}"
   )
+
+  message(STATUS "Adding prtcl library: ${NAME_} ${l_arg_TYPE}")
 
   set(include_directories)
 
@@ -98,6 +98,13 @@ function(prtcl_add_library_simple NAME_)
       $<INSTALL_INTERFACE:include/prtcl>
   )
 
+  if (l_arg_INCLUDE_DIRECTORIES)
+    target_include_directories(
+        ${NAME_}
+        ${l_arg_INCLUDE_DIRECTORIES}
+    )
+  endif ()
+
   target_sources(
       "${NAME_}"
       PRIVATE ${sources}
@@ -120,6 +127,20 @@ function(prtcl_add_library_simple NAME_)
     target_link_libraries(
         "${NAME_}"
         ${l_arg_LINK_LIBRARIES}
+    )
+  endif ()
+
+  if (l_arg_POSITION_INDEPENDENT_CODE)
+    set_property(
+        TARGET "${NAME_}"
+        PROPERTY POSITION_INDEPENDENT_CODE ON
+    )
+  endif ()
+
+  if (l_arg_OUTPUT_NAME)
+    set_property(
+        TARGET "${NAME_}"
+        PROPERTY OUTPUT_NAME "${l_arg_OUTPUT_NAME}"
     )
   endif ()
 

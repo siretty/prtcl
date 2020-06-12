@@ -20,35 +20,23 @@ namespace prtcl {
 
 class Model {
 public:
-  Group &AddGroup(std::string_view name, std::string_view type) {
-    if (not IsValidIdentifier(name))
-      throw InvalidIdentifierError{};
+  Model();
 
-    auto [it, inserted] = groups_.emplace(std::string{name}, nullptr);
-    if (inserted) {
-      auto group_index = static_cast<GroupIndex>(groups_by_index_.size());
-      it->second.reset(new Group{name, type, group_index});
-      groups_by_index_.emplace_back(it->second.get());
-    }
+  Model(Model const &) = delete;
+  Model &operator=(Model const &) = delete;
 
-    return *it->second.get();
-  }
+  Model(Model &&) = default;
+  Model &operator=(Model &&) = default;
 
-  Group *TryGetGroup(std::string_view name) {
-    if (auto it = groups_.find(name); it != groups_.end())
-      return it->second.get();
-    else
-      return nullptr;
-  }
+public:
+  Group &AddGroup(std::string_view name, std::string_view type);
 
-  void RemoveGroup(std::string_view name) {
-    if (auto it = groups_.find(name); it != groups_.end()) {
-      auto &group_ptr = it->second;
-      auto const group_index = static_cast<size_t>(group_ptr->GetGroupIndex());
-      groups_by_index_[group_index] = nullptr;
-      groups_.erase(it);
-    }
-  }
+  Group *TryGetGroup(std::string_view name);
+
+  void RemoveGroup(std::string_view name);
+
+public:
+  size_t GetGroupCount() const { return groups_.size(); }
 
 public:
   auto GetNamedGroups() {
@@ -94,14 +82,11 @@ public:
   }
 
 public:
-  size_t GetGroupCount() const { return groups_.size(); }
-
-public:
   UniformManager const &GetGlobal() const { return global_; }
 
   template <typename T, size_t... N>
   auto const &AddGlobalField(std::string_view name) {
-    return global_.AddField<T, N...>(name);
+    return global_.AddFieldImpl<T, N...>(name);
   }
 
   void RemoveGlobalField(std::string_view name) { global_.RemoveField(name); }

@@ -3,12 +3,25 @@
 
 #include <prtcl/config.hpp>
 
+#include <type_traits>
+
 #include <cstddef>
 
 #define TCB_SPAN_NAMESPACE_NAME prtcl::cxx
 #include "cxx/span.inc"
 
-#include <type_traits>
+// export / import from https://stackoverflow.com/a/2164853/9686644
+#if defined(_MSC_VER)
+#define PRTCL_EXPORT __declspec(dllexport)
+#define PRTCL_IMPORT __declspec(dllimport)
+#elif defined(__GNUC__)
+#define PRTCL_EXPORT __attribute__((visibility("default")))
+#define PRTCL_IMPORT
+#else
+#define PRTCL_EXPORT
+#define PRTCL_IMPORT
+#pragma warning "Unknown dynamic link import/export semantics."
+#endif
 
 namespace prtcl::cxx {
 

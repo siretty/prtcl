@@ -2,8 +2,6 @@
 #define PRTCL_GROUP_HPP
 
 #include "../errors/field_of_different_kind_already_exists_error.hpp"
-#include "../errors/invalid_identifier_error.hpp"
-#include "../is_valid_identifier.hpp"
 #include "collection_of_mutable_tensors.hpp"
 #include "uniform_manager.hpp"
 #include "varying_manager.hpp"
@@ -12,6 +10,7 @@
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -29,6 +28,8 @@ enum class GroupIndex : size_t {
   kNoIndex = std::numeric_limits<size_t>::max()
 };
 
+std::ostream &operator<<(std::ostream &, GroupIndex);
+
 class Group {
 public:
   Group() = delete;
@@ -38,16 +39,7 @@ public:
 
   Group(
       std::string_view name, std::string_view type,
-      GroupIndex index = GroupIndex::kNoIndex)
-      : name_{name}, type_{type}, index_{index} {
-    if (not IsValidIdentifier(name_))
-      throw InvalidIdentifierError{};
-    if (not IsValidIdentifier(type_))
-      throw InvalidIdentifierError{};
-  }
-
-public:
-  size_t GetItemCount() const { return varying_.GetItemCount(); }
+      GroupIndex index = GroupIndex::kNoIndex);
 
 public:
   std::string_view GetGroupName() const { return name_; }
@@ -55,6 +47,9 @@ public:
   std::string_view GetGroupType() const { return type_; }
 
   GroupIndex GetGroupIndex() const { return index_; }
+
+public:
+  size_t GetItemCount() const { return varying_.GetItemCount(); }
 
 public:
   auto GetTags() const { return boost::make_iterator_range(tags_); }
@@ -73,7 +68,7 @@ public:
   template <typename T, size_t... N>
   auto const &AddUniformField(std::string_view name) {
     if (not varying_.HasField(std::string{name}))
-      return uniform_.AddField<T, N...>(name);
+      return uniform_.AddFieldImpl<T, N...>(name);
     else
       throw FieldOfDifferentKindAlreadyExistsError{};
   }
@@ -84,7 +79,7 @@ public:
   template <typename T, size_t... N>
   auto const &AddVaryingField(std::string_view name) {
     if (not uniform_.HasField(name))
-      return varying_.AddField<T, N...>(std::string{name});
+      return varying_.AddFieldImpl<T, N...>(std::string{name});
     else
       throw FieldOfDifferentKindAlreadyExistsError{};
   }

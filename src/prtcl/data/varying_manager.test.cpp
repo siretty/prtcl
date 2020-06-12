@@ -25,13 +25,13 @@ TEST(DataTests, CheckVaryingManager) {
     ASSERT_EQ(manager->GetItemCount(), 5);
 
     {
-      auto &x = manager->AddField<float, 2, 3>("x");
+      auto &x = manager->AddFieldImpl<float, 2, 3>("x");
       ASSERT_EQ(manager->GetFieldCount(), 1);
       ASSERT_EQ(x.GetType(), (TensorType{ComponentType::kFloat32, {2, 3}}));
       ASSERT_EQ(x.GetSize(), 5);
     }
     {
-      auto *x = manager->TryGetField<float, 2, 3>("x");
+      auto *x = manager->TryGetFieldImpl<float, 2, 3>("x");
       ASSERT_NE(x, nullptr);
       ASSERT_EQ(x->GetSize(), 5);
     }
@@ -40,16 +40,16 @@ TEST(DataTests, CheckVaryingManager) {
     ASSERT_TRUE(manager->IsDirty());
 
     {
-      auto x = manager->TryGetField<float, 2, 3>("x")->GetAccess();
+      auto x = manager->TryGetFieldImpl<float, 2, 3>("x")->GetAccess();
       ASSERT_EQ(x.GetSize(), 10);
     }
     {
-      auto x = manager->AddField<float, 2, 3>("x").GetAccess();
+      auto x = manager->AddFieldImpl<float, 2, 3>("x").GetAccess();
       ASSERT_EQ(x.GetSize(), 10);
     }
 
     {
-      auto &y = manager->AddField<bool, 3, 1>("y");
+      auto &y = manager->AddFieldImpl<bool, 3, 1>("y");
       ASSERT_EQ(manager->GetFieldCount(), 2);
       ASSERT_EQ(y.GetType(), (TensorType{ComponentType::kBoolean, {3, 1}}));
       ASSERT_EQ(y.GetSize(), 10);

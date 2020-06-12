@@ -54,6 +54,7 @@ add_subdirectory(schemes)
 
 
 add_subdirectory(external/googletest)
+add_subdirectory(external/sol2)
 
 
 set(I ${CMAKE_CURRENT_SOURCE_DIR}/include)
