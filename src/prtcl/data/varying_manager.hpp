@@ -4,8 +4,8 @@
 #include "../errors/field_does_not_exist.hpp"
 #include "../errors/field_of_different_type_already_exists_error.hpp"
 #include "../errors/invalid_identifier_error.hpp"
-#include "../is_valid_identifier.hpp"
 #include "collection_of_mutable_tensors.hpp"
+#include "prtcl/util/is_valid_identifier.hpp"
 #include "vector_of_tensors.hpp"
 
 #include <algorithm>
@@ -48,6 +48,9 @@ public:
     col->Resize(GetItemCount());
     return *col;
   }
+
+  CollectionOfMutableTensors const &
+  AddField(std::string_view name, TensorType type);
 
   template <typename T, size_t... N>
   ColT<T, N...> const *TryGetFieldImpl(std::string_view name) const {

@@ -5,9 +5,12 @@
 
 #include <algorithm>
 #include <initializer_list>
+#include <iosfwd>
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include <cassert>
 
 #include <boost/operators.hpp>
 
@@ -29,6 +32,11 @@ public:
     return {extents_.data(), extents_.size()};
   }
 
+  size_t operator[](size_t dim) const {
+    assert(dim < GetRank());
+    return extents_[dim];
+  }
+
 public:
   bool IsEmpty() const {
     return extents_.empty() or
@@ -39,6 +47,8 @@ public:
   friend bool operator==(Shape const &lhs, Shape const &rhs) {
     return lhs.extents_ == rhs.extents_;
   }
+
+  friend std::ostream &operator<<(std::ostream &, Shape const &);
 
 public:
   std::string ToString() const;

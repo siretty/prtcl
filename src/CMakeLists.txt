@@ -18,9 +18,6 @@ prtcl_add_library_simple(
 
     prtcl/constpow
     prtcl/morton_order
-    prtcl/scheduler
-    prtcl/virtual_clock
-    prtcl/is_valid_identifier
 
     prtcl/data/component_type
     prtcl/data/shape
@@ -40,6 +37,8 @@ prtcl_add_library_simple(
     prtcl/errors/field_of_different_type_already_exists_error
     prtcl/errors/field_of_different_kind_already_exists_error
     prtcl/errors/invalid_identifier_error
+    prtcl/errors/invalid_shape_error
+    prtcl/errors/not_implemented_error
 
     prtcl/log/level
     prtcl/log/logger
@@ -49,6 +48,10 @@ prtcl_add_library_simple(
     prtcl/math/eigen
     prtcl/math/impl
     prtcl/math
+
+    prtcl/util/is_valid_identifier
+    prtcl/util/scheduler
+    prtcl/util/virtual_clock
 
     EXTRA_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/prtcl/cxx/span.inc
@@ -94,7 +97,7 @@ set_target_properties(
 add_library(
     prtcl-idecollector STATIC
     ${S}/prtcl/config.cpp
-    )
+)
 target_link_libraries(
     prtcl-idecollector
     prtcl prtcl_lua

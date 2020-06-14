@@ -6,12 +6,15 @@
 #include "../math.hpp"
 
 #include <algorithm>
+#include <memory>
 #include <utility>
 #include <vector>
 
 #include <cstddef>
 
 #include <boost/algorithm/apply_permutation.hpp>
+
+#include <boost/container/small_vector.hpp>
 
 #include <boost/operators.hpp>
 
@@ -43,6 +46,7 @@ public:
 public:
   void Resize(size_t new_size) final {
     items_.resize(new_size, math::zeros<T, N...>());
+    access_ = GetAccessImpl();
   }
 
   void Permute(cxx::span<size_t> permutation) final {
@@ -50,16 +54,20 @@ public:
   }
 
 public:
-  AccessToVectorOfTensors<T, N...> GetAccess() const;
+  AccessToVectorOfTensors<T, N...> GetAccessImpl() const;
+
+  AccessToMutableTensors const &GetAccess() const final { return access_; }
 
 public:
   friend void swap(VectorOfTensors &a, VectorOfTensors &b) {
     using std::swap;
     swap(a.items_, b.items_);
+    swap(a.access_, b.access_);
   }
 
 private:
-  mutable std::vector<ItemType> items_;
+  mutable boost::container::small_vector<ItemType, 1> items_;
+  AccessToVectorOfTensors<T, N...> access_ = {};
 
   friend class AccessToVectorOfTensors<T, N...>;
 };
@@ -88,7 +96,8 @@ public:
 
   using AccessToMutableTensorsImpl<T, N...>::GetComponent;
 
-  void SetComponent(size_t item, cxx::span<size_t const> cidx, T value) final {
+  void
+  SetComponent(size_t item, cxx::span<size_t const> cidx, T value) const final {
     assert(item < GetSize());
     math::At(items_[item], cidx) = value;
   }
@@ -99,7 +108,7 @@ public:
   ItemType const &GetItem(size_t index) const { return items_[index]; }
 
   template <typename Arg>
-  void SetItem(size_t index, Arg &&arg) {
+  void SetItem(size_t index, Arg &&arg) const {
     items_[index] = std::forward<Arg>(arg);
   }
 
@@ -121,7 +130,8 @@ private:
 };
 
 template <typename T, size_t... N>
-AccessToVectorOfTensors<T, N...> VectorOfTensors<T, N...>::GetAccess() const {
+AccessToVectorOfTensors<T, N...>
+VectorOfTensors<T, N...>::GetAccessImpl() const {
   return {*this};
 }
 

@@ -1,8 +1,8 @@
 #ifndef PRTCL_MODEL_HPP
 #define PRTCL_MODEL_HPP
 
-#include "../is_valid_identifier.hpp"
 #include "group.hpp"
+#include "prtcl/util/is_valid_identifier.hpp"
 
 #include <algorithm>
 #include <memory>
@@ -47,8 +47,6 @@ public:
            });
   }
 
-  auto GetGroupNames() { return GetNamedGroups() | boost::adaptors::map_keys; }
-
   auto GetGroups() { return GetNamedGroups() | boost::adaptors::map_values; }
 
 public:
@@ -85,8 +83,12 @@ public:
   UniformManager const &GetGlobal() const { return global_; }
 
   template <typename T, size_t... N>
-  auto const &AddGlobalField(std::string_view name) {
+  auto const &AddGlobalFieldImpl(std::string_view name) {
     return global_.AddFieldImpl<T, N...>(name);
+  }
+
+  auto const &AddGlobalField(std::string_view name, TensorType type) {
+    return global_.AddField(name, type);
   }
 
   void RemoveGlobalField(std::string_view name) { global_.RemoveField(name); }

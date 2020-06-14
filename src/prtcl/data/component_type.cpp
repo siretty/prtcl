@@ -1,5 +1,6 @@
 #include "component_type.hpp"
 
+#include <ostream>
 #include <type_traits>
 
 namespace prtcl {
@@ -26,6 +27,10 @@ std::string_view ComponentType::ToStringView() const {
   default:
     return "INVALID";
   }
+}
+
+std::ostream &operator<<(std::ostream &o, ComponentType const &ctype) {
+  return (o << ctype.ToStringView());
 }
 
 ComponentType ComponentType::FromString(std::string_view input) {

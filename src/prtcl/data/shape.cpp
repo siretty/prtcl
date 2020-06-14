@@ -1,19 +1,25 @@
 #include "shape.hpp"
 
+#include <ostream>
 #include <regex>
 #include <sstream>
 
 namespace prtcl {
 
+std::ostream &operator<<(std::ostream &o, Shape const &shape) {
+  o << '[';
+  for (size_t dim = 0; dim < shape.GetRank(); ++dim) {
+    if (dim > 0)
+      o << ", ";
+    o << shape[dim];
+  }
+  o << ']';
+  return o;
+}
+
 std::string Shape::ToString() const {
   std::ostringstream ss;
-  ss << '[';
-  for (size_t dim = 0; dim < extents_.size(); ++dim) {
-    if (dim > 0)
-      ss << ", ";
-    ss << extents_[dim];
-  }
-  ss << ']';
+  ss << *this;
   return ss.str();
 }
 

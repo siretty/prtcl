@@ -31,7 +31,7 @@ public:
   virtual T GetComponent(size_t item, cxx::span<size_t const> cidx) const = 0;
 
   virtual void
-  SetComponent(size_t item, cxx::span<size_t const> cidx, T value) = 0;
+  SetComponent(size_t item, cxx::span<size_t const> cidx, T value) const = 0;
 
   // --------------------------------------------
   //  Final Methods
@@ -48,7 +48,8 @@ public:
   }
 
   void SetComponentVariant(
-      size_t item, cxx::span<size_t const> cidx, ComponentVariant value) final {
+      size_t item, cxx::span<size_t const> cidx,
+      ComponentVariant value) const final {
     SetComponent(item, cidx, std::get<T>(value));
   }
 
@@ -60,7 +61,8 @@ public:
     return this->GetComponent(item, cxx::span<size_t const>{cidx});
   }
 
-  void SetComponent(size_t item, std::initializer_list<size_t> cidx, T value) {
+  void
+  SetComponent(size_t item, std::initializer_list<size_t> cidx, T value) const {
     return this->SetComponent(item, cxx::span<size_t const>{cidx}, value);
   }
 

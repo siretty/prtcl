@@ -50,12 +50,12 @@ TEST(DataTests, CheckModel) {
     }
 
     {
-      auto &gf_a = model.AddGlobalField<float, 2, 3>("a");
+      auto &gf_a = model.AddGlobalFieldImpl<float, 2, 3>("a");
       ASSERT_EQ(model.GetGlobal().GetFieldCount(), 1);
       ASSERT_EQ(gf_a.GetSize(), 1);
 
       ASSERT_THROW(
-          { (void)(model.AddGlobalField<float, 3, 2>("a")); },
+          { (void)(model.AddGlobalFieldImpl<float, 3, 2>("a")); },
           FieldOfDifferentTypeAlreadyExistsError);
     }
 

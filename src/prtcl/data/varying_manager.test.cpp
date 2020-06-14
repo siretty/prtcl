@@ -40,11 +40,11 @@ TEST(DataTests, CheckVaryingManager) {
     ASSERT_TRUE(manager->IsDirty());
 
     {
-      auto x = manager->TryGetFieldImpl<float, 2, 3>("x")->GetAccess();
+      auto x = manager->TryGetFieldImpl<float, 2, 3>("x")->GetAccessImpl();
       ASSERT_EQ(x.GetSize(), 10);
     }
     {
-      auto x = manager->AddFieldImpl<float, 2, 3>("x").GetAccess();
+      auto x = manager->AddFieldImpl<float, 2, 3>("x").GetAccessImpl();
       ASSERT_EQ(x.GetSize(), 10);
     }
 

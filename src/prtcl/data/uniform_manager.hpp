@@ -4,11 +4,14 @@
 #include "../errors/field_does_not_exist.hpp"
 #include "../errors/field_of_different_type_already_exists_error.hpp"
 #include "../errors/invalid_identifier_error.hpp"
-#include "../is_valid_identifier.hpp"
+#include "../errors/not_implemented_error.hpp"
+#include "prtcl/util/is_valid_identifier.hpp"
 #include "vector_of_tensors.hpp"
 
 #include <memory>
 #include <unordered_map>
+
+#include <cstddef>
 
 #include <boost/container/flat_map.hpp>
 
@@ -41,6 +44,9 @@ public:
     col->Resize(1);
     return *col;
   }
+
+  CollectionOfMutableTensors const &
+  AddField(std::string_view name, TensorType type);
 
   template <typename T, size_t... N>
   ColT<T, N...> const *TryGetFieldImpl(std::string name) const {
@@ -83,7 +89,7 @@ public:
            });
   }
 
-  auto GetNames() const { return GetNamedFields() | boost::adaptors::map_keys; }
+  auto GetFieldNames() const { return GetNamedFields() | boost::adaptors::map_keys; }
 
   auto GetFields() const {
     return GetNamedFields() | boost::adaptors::map_values;
@@ -93,7 +99,7 @@ private:
   boost::container::flat_map<
       std::string, std::unique_ptr<CollectionOfMutableTensors>, std::less<>>
       fields_ = {};
-};
+}; // namespace prtcl
 
 } // namespace prtcl
 

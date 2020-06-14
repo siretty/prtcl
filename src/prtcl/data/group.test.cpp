@@ -48,15 +48,15 @@ TEST(DataTests, CheckGroup) {
     ASSERT_EQ(group.GetVarying().GetFieldCount(), 0);
     ASSERT_EQ(std::as_const(group).GetVarying().GetFieldCount(), 0);
 
-    auto &uf_a = group.AddUniformField<float, 2, 3>("a");
+    auto &uf_a = group.AddUniformFieldImpl<float, 2, 3>("a");
     ASSERT_EQ(group.GetUniform().GetFieldCount(), 1);
     ASSERT_EQ(uf_a.GetSize(), 1);
 
     ASSERT_THROW(
-        { (void)(group.AddVaryingField<float, 2, 3>("a")); },
+        { (void)(group.AddVaryingFieldImpl<float, 2, 3>("a")); },
         FieldOfDifferentKindAlreadyExistsError);
 
-    auto &vf_b = group.AddVaryingField<float, 3, 2>("b");
+    auto &vf_b = group.AddVaryingFieldImpl<float, 3, 2>("b");
     ASSERT_EQ(group.GetVarying().GetFieldCount(), 1);
 
     group.Resize(10);
@@ -91,7 +91,7 @@ TEST(DataTests, CheckGroup) {
     group.SetDirty(false);
 
     {
-      auto b = vf_b.GetAccess();
+      auto b = vf_b.GetAccessImpl();
       b.SetComponent(0, {0, 0}, 1);
       b.SetComponent(1, {0, 0}, 2);
       b.SetComponent(2, {0, 0}, 3);

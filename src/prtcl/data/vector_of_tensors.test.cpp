@@ -20,7 +20,7 @@ TEST(DataTests, CheckVectorOfTensors) {
     std::array<size_t, 2> cidx = {2, 1};
 
     {
-      auto access = tensors.GetAccess();
+      auto access = tensors.GetAccessImpl();
 
       access.SetComponent(0, cidx, 1);
       ASSERT_FLOAT_EQ(access.GetComponent(0, cidx), 1);
@@ -46,7 +46,7 @@ TEST(DataTests, CheckVectorOfTensors) {
     }
 
     {
-      auto access = tensors.GetAccess();
+      auto access = tensors.GetAccessImpl();
 
       access.SetComponent(0, cidx, 1);
       access.SetComponent(1, cidx, 2);

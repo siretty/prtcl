@@ -4,6 +4,7 @@
 #include <regex>
 #include <string_view>
 #include <variant>
+#include <iosfwd>
 
 #include <cstddef>
 
@@ -14,6 +15,8 @@ namespace prtcl {
 class ComponentType : public boost::equality_comparable<ComponentType> {
 public:
   ComponentType() = default;
+
+  ComponentType(std::string_view input) : ctype_{FromString(input).ctype_} {}
 
 public:
   bool IsValid() const { return ctype_ != CType::kInvalid; }
@@ -31,6 +34,8 @@ public:
   friend bool operator==(ComponentType const &lhs, ComponentType const &rhs) {
     return lhs.ctype_ == rhs.ctype_;
   }
+
+  friend std::ostream &operator<<(std::ostream &, ComponentType const &);
 
 public:
   static ComponentType const kInvalid;

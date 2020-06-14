@@ -1,8 +1,8 @@
 #include "group.hpp"
 
 #include "../errors/invalid_identifier_error.hpp"
-#include "../is_valid_identifier.hpp"
 #include "../log.hpp"
+#include "prtcl/util/is_valid_identifier.hpp"
 
 namespace prtcl {
 

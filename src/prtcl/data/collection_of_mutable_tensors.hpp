@@ -9,11 +9,14 @@
 #include <typeindex>
 
 #include <cstddef>
+#include <cstdint>
 
 #include <boost/range/algorithm/copy.hpp>
 #include <boost/range/irange.hpp>
 
 namespace prtcl {
+
+class AccessToMutableTensors;
 
 class CollectionOfMutableTensors {
 public:
@@ -28,6 +31,9 @@ public:
   virtual void Resize(size_t new_size) = 0;
 
   virtual void Permute(cxx::span<size_t> mut_perm) = 0;
+
+public:
+  virtual AccessToMutableTensors const &GetAccess() const = 0;
 };
 
 class AccessToMutableTensors {
@@ -47,7 +53,8 @@ public:
   GetComponentVariant(size_t item, cxx::span<size_t const> cidx) const = 0;
 
   virtual void SetComponentVariant(
-      size_t item, cxx::span<size_t const> cidx, ComponentVariant value) = 0;
+      size_t item, cxx::span<size_t const> cidx,
+      ComponentVariant value) const = 0;
 
   // --------------------------------------------
   //  Helper Methods
@@ -59,7 +66,8 @@ public:
   }
 
   void SetComponentVariant(
-      size_t item, std::initializer_list<size_t> cidx, ComponentVariant value) {
+      size_t item, std::initializer_list<size_t> cidx,
+      ComponentVariant value) const {
     this->SetComponentVariant(item, cxx::span<size_t const>{cidx}, value);
   }
 };

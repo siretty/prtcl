@@ -27,13 +27,21 @@ namespace prtcl::math {
 
 namespace detail {
 
-template <typename T, size_t... N>
+template <typename, size_t... N>
 struct SelectTensor {
   static_assert(
       sizeof...(N) <= 2, "The math implementation based on the Eigen library "
                          "currently only supports tensors of up to rank 2.");
+};
 
-  using Type = Eigen::Matrix<T, static_cast<int>(N)...>;
+template <typename T, size_t Rows, size_t Cols>
+struct SelectTensor<T, Rows, Cols> {
+  using Type = Eigen::Matrix<T, static_cast<int>(Rows), static_cast<int>(Cols)>;
+};
+
+template <typename T, size_t Rows>
+struct SelectTensor<T, Rows> {
+  using Type = Eigen::Matrix<T, static_cast<int>(Rows), 1>;
 };
 
 template <typename T>
@@ -41,10 +49,35 @@ struct SelectTensor<T> {
   using Type = T;
 };
 
-} // namespace detail
+template <typename T, size_t R>
+struct SelectDynamicTensor {
+  static_assert(
+      R <= 2, "The math implementation based on the Eigen library "
+              "currently only supports tensors of up to rank 2.");
+};
+
+template <typename T>
+struct SelectDynamicTensor<T, 2> {
+  using Type = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>;
+};
+
+template <typename T>
+struct SelectDynamicTensor<T, 1> {
+  using Type = Eigen::Matrix<T, Eigen::Dynamic, 1>;
+};
+
+template <typename T>
+struct SelectDynamicTensor<T, 0> {
+  using Type = T;
+};
+
+}; // namespace detail
 
 template <typename T, size_t... N>
 using Tensor = typename detail::SelectTensor<T, N...>::Type;
+
+template <typename T, size_t R>
+using DynamicTensor = typename detail::SelectDynamicTensor<T, R>::Type;
 
 namespace detail {
 

@@ -33,6 +33,8 @@ private:
   time_point now_ = {};
 };
 
+using VirtualClock = virtual_clock<double>;
+
 } // namespace prtcl
 
 #endif // PRTCL_VIRTUAL_CLOCK_HPP

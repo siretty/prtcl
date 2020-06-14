@@ -29,23 +29,24 @@ TEST(DataTests, CheckUniformManager) {
     }
 
     {
-      auto x = manager->TryGetFieldImpl<float, 2, 3>("x")->GetAccess();
+      auto x = manager->TryGetFieldImpl<float, 2, 3>("x")->GetAccessImpl();
       ASSERT_EQ(x.GetSize(), 1);
     }
     {
-      auto x = manager->AddFieldImpl<float, 2, 3>("x").GetAccess();
+      auto x = manager->AddFieldImpl<float, 2, 3>("x").GetAccessImpl();
       ASSERT_EQ(x.GetSize(), 1);
     }
 
     {
-      auto &y = manager->AddFieldImpl<bool, 3, 1>("y");
+      TensorType const y_ttype{ComponentType::kBoolean, {3}};
+      auto &y = manager->AddField("y", y_ttype);
       ASSERT_EQ(manager->GetFieldCount(), 2);
-      ASSERT_EQ(y.GetType(), (TensorType{ComponentType::kBoolean, {3, 1}}));
+      ASSERT_EQ(y.GetType(), y_ttype);
       ASSERT_EQ(y.GetSize(), 1);
     }
 
     std::vector<std::string> names;
-    boost::copy(manager->GetNames(), std::back_inserter(names));
+    boost::copy(manager->GetFieldNames(), std::back_inserter(names));
     boost::sort(names);
     ASSERT_EQ(names.size(), 2);
     ASSERT_EQ(names[0], "x");

@@ -66,9 +66,16 @@ public:
   UniformManager const &GetUniform() const { return uniform_; }
 
   template <typename T, size_t... N>
-  auto const &AddUniformField(std::string_view name) {
+  auto const &AddUniformFieldImpl(std::string_view name) {
     if (not varying_.HasField(std::string{name}))
       return uniform_.AddFieldImpl<T, N...>(name);
+    else
+      throw FieldOfDifferentKindAlreadyExistsError{};
+  }
+
+  auto const &AddUniformField(std::string_view name, TensorType type) {
+    if (not varying_.HasField(std::string{name}))
+      return uniform_.AddField(name, type);
     else
       throw FieldOfDifferentKindAlreadyExistsError{};
   }
@@ -77,9 +84,16 @@ public:
   VaryingManager const &GetVarying() const { return varying_; }
 
   template <typename T, size_t... N>
-  auto const &AddVaryingField(std::string_view name) {
+  auto const &AddVaryingFieldImpl(std::string_view name) {
     if (not uniform_.HasField(name))
       return varying_.AddFieldImpl<T, N...>(std::string{name});
+    else
+      throw FieldOfDifferentKindAlreadyExistsError{};
+  }
+
+  auto const &AddVaryingField(std::string_view name, TensorType type) {
+    if (not uniform_.HasField(name))
+      return varying_.AddField(name, type);
     else
       throw FieldOfDifferentKindAlreadyExistsError{};
   }
