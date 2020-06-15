@@ -8,6 +8,8 @@
 #include "prtcl/util/is_valid_identifier.hpp"
 #include "vector_of_tensors.hpp"
 
+#include "../log.hpp"
+
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -58,7 +60,7 @@ public:
       if (field->GetType() == GetTensorTypeCRef<T, N...>())
         return static_cast<ColT<T, N...> const *>(field);
       else
-        throw FieldOfDifferentTypeAlreadyExistsError{};
+        return nullptr;
     else
       return nullptr;
   }

@@ -53,6 +53,8 @@ prtcl_add_library_simple(
     prtcl/util/scheduler
     prtcl/util/virtual_clock
 
+    prtcl/util/save_vtk
+
     EXTRA_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/prtcl/cxx/span.inc
 
@@ -97,7 +99,7 @@ set_target_properties(
 add_library(
     prtcl-idecollector STATIC
     ${S}/prtcl/config.cpp
-)
+    )
 target_link_libraries(
     prtcl-idecollector
     prtcl prtcl_lua

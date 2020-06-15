@@ -79,6 +79,8 @@ using Tensor = typename detail::SelectTensor<T, N...>::Type;
 template <typename T, size_t R>
 using DynamicTensor = typename detail::SelectDynamicTensor<T, R>::Type;
 
+using Index = Eigen::Index;
+
 namespace detail {
 
 // from: https://stackoverflow.com/a/51472601/9686644

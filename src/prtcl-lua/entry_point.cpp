@@ -11,12 +11,14 @@
 
 #include <prtcl/util/scheduler.hpp>
 #include <prtcl/util/virtual_clock.hpp>
+#include <prtcl/util/save_vtk.hpp>
 
 #include <prtcl/errors/invalid_shape_error.hpp>
 
 #include <prtcl/log.hpp>
 
 #include <vector>
+#include <fstream>
 
 #include <sol/sol.hpp>
 
@@ -190,6 +192,11 @@ static auto ModuleData(sol::state_view lua) {
     // TODO: t["destroy_items"] = &Group::DestroyItems;
     t["resize"] = &Group::Resize;
     // TODO: t["permute"] = &Group::Permute;
+
+    t["save_vtk"] = [](Group const &self, std::string path) {
+      std::fstream file{path, file.out};
+      SaveVTK(file, self);
+    };
   }
 
   {
