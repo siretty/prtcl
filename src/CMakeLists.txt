@@ -16,9 +16,6 @@ prtcl_add_library_simple(
 
     prtcl/cxx # c++ compatibility
 
-    prtcl/constpow
-    prtcl/morton_order
-
     prtcl/data/component_type
     prtcl/data/shape
     prtcl/data/tensor_type
@@ -49,9 +46,15 @@ prtcl_add_library_simple(
     prtcl/math/impl
     prtcl/math
 
+    prtcl/util/constpow
+    prtcl/util/morton_order
     prtcl/util/is_valid_identifier
+
     prtcl/util/scheduler
     prtcl/util/virtual_clock
+
+    prtcl/util/neighborhood
+    prtcl/util/grouped_uniform_grid
 
     prtcl/util/save_vtk
 

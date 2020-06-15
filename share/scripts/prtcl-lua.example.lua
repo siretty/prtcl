@@ -43,7 +43,10 @@ print(type(item), #item)
 print(b.group_name, b.group_type, b.group_index, b.uniform.field_count, b.varying.field_count, b.item_count)
 
 
-
+local nhood = prtcl.util.neighborhood.new()
+nhood:load(model)
+nhood:update()
+nhood:permute(model)
 
 
 local schedule = prtcl.util.virtual_scheduler.new()

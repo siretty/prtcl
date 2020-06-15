@@ -9,16 +9,17 @@
 #include <prtcl/data/uniform_manager.hpp>
 #include <prtcl/data/varying_manager.hpp>
 
+#include <prtcl/util/neighborhood.hpp>
+#include <prtcl/util/save_vtk.hpp>
 #include <prtcl/util/scheduler.hpp>
 #include <prtcl/util/virtual_clock.hpp>
-#include <prtcl/util/save_vtk.hpp>
 
 #include <prtcl/errors/invalid_shape_error.hpp>
 
 #include <prtcl/log.hpp>
 
-#include <vector>
 #include <fstream>
+#include <vector>
 
 #include <sol/sol.hpp>
 
@@ -370,6 +371,15 @@ static auto ModuleUtil(sol::state_view lua) {
             return callback(self, delay.count());
           });
     };
+  }
+
+  {
+    auto t = m.new_usertype<Neighborhood>(
+        "neighborhood", sol::constructors<Neighborhood()>());
+
+    t["load"] = &Neighborhood::Load;
+    t["update"] = &Neighborhood::Update;
+    t["permute"] = &Neighborhood::Permute;
   }
 
   return m;

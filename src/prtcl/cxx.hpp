@@ -26,11 +26,21 @@
 namespace prtcl::cxx {
 
 #ifdef PRTCL_CXX_HAS_REMOVE_CVREF
-template <typename T> using remove_cvref_t = std::remove_cvref_t<T>;
+template <typename T>
+using remove_cvref_t = std::remove_cvref_t<T>;
 #else
-template<typename T> using remove_cvref_t = std::remove_cv_t<std::remove_reference_t<T>>;
+template <typename T>
+using remove_cvref_t = std::remove_cv_t<std::remove_reference_t<T>>;
 #endif
+
+template <class... Ts>
+struct overloaded : Ts... {
+  using Ts::operator()...;
+};
+
+template <class... Ts>
+overloaded(Ts...) -> overloaded<Ts...>;
 
 } // namespace prtcl::cxx
 
-#endif //PRTCL_CXX_HPP
+#endif // PRTCL_CXX_HPP
