@@ -34,28 +34,11 @@ public:
 
   void Permute(Model &model);
 
-  void FindNeighbors(
+  void CopyNeighbors(
       size_t g_, size_t i_, std::vector<std::vector<size_t>> &neighbors) const;
-
-  /*
-  template <typename X>
-  void FindNeighbors(
-      X const &x_, std::vector<std::vector<size_t>> &neighbors) const {
-    log::Debug("lib", "Neighborhood", "FindNeighbors(..., ", &neighbors, ")");
-    //_grid.neighbors(x_, _data, std::forward<Fn>(fn));
-  }
-   */
 
 private:
   std::unique_ptr<NeighborhoodPImpl, NeighborhoodPImplDeleter> pimpl_;
-
-  /*
-  grid_type _grid;
-  model_data_type _data;
-  std::vector<std::vector<size_t>> _perm;
-  std::vector<std::back_insert_iterator<typename decltype(_perm)::value_type>>
-      _perm_it;
-   */
 };
 
 } // namespace prtcl

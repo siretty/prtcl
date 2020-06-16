@@ -26,7 +26,7 @@ void WriteVOT(std::ostream &o, VectorOfTensors<T, N> const &v) {
   for (size_t item_i = 0; item_i < a.GetSize(); ++item_i) {
     auto item = a.GetItem(item_i);
     for (math::Index comp_i = 0; comp_i < comp_n; ++comp_i) {
-      if (comp_i > 1)
+      if (comp_i > 0)
         o << ' ';
       o << std::fixed << item[comp_i];
     }

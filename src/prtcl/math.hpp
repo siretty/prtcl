@@ -106,6 +106,9 @@ namespace prtcl {
 template <typename T, size_t... N>
 using TensorT = math::Tensor<T, N...>;
 
+template <typename T, size_t R>
+using DynamicTensorT = math::DynamicTensor<T, R>;
+
 } // namespace prtcl
 
 #endif // PRTCL_MATH_HPP

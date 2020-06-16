@@ -37,6 +37,11 @@ prtcl_add_library_simple(
     prtcl/errors/invalid_shape_error
     prtcl/errors/not_implemented_error
 
+    prtcl/geometry/triangle_mesh
+    prtcl/geometry/sample_surface
+    prtcl/geometry/sample_volume
+    prtcl/geometry/pinhole_camera
+
     prtcl/log/level
     prtcl/log/logger
     prtcl/log/ostream_logger
@@ -55,6 +60,9 @@ prtcl_add_library_simple(
 
     prtcl/util/neighborhood
     prtcl/util/grouped_uniform_grid
+
+    prtcl/util/hcp_lattice_source
+    prtcl/util/integral_grid
 
     prtcl/util/save_vtk
 

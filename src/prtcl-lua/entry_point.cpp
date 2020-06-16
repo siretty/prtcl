@@ -1,7 +1,3 @@
-//
-// Created by daned on 6/12/20.
-//
-
 #include "entry_point.hpp"
 
 #include <prtcl/data/group.hpp>
@@ -377,6 +373,7 @@ static auto ModuleUtil(sol::state_view lua) {
     auto t = m.new_usertype<Neighborhood>(
         "neighborhood", sol::constructors<Neighborhood()>());
 
+    t["set_radius"] = &Neighborhood::SetRadius;
     t["load"] = &Neighborhood::Load;
     t["update"] = &Neighborhood::Update;
     t["permute"] = &Neighborhood::Permute;

@@ -22,9 +22,6 @@ a:add_varying_field("position", ttype.new("f32", { 3 }))
 a:add_uniform_field("u", the_ttype)
 a:resize(23)
 
-print("saving")
-a:save_vtk("test_a.vtk")
-
 local b = model:add_group("b", "type")
 print("group count: " .. model.group_count)
 
@@ -41,6 +38,10 @@ print("x", x.type, x.size, x:get_component(1, { 2 }))
 print(type(item), #item)
 
 print(b.group_name, b.group_type, b.group_index, b.uniform.field_count, b.varying.field_count, b.item_count)
+
+
+print("saving")
+a:save_vtk("test_a.vtk")
 
 
 local nhood = prtcl.util.neighborhood.new()

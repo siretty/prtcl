@@ -99,7 +99,7 @@ private:
   boost::container::flat_map<
       std::string, std::unique_ptr<CollectionOfMutableTensors>, std::less<>>
       fields_ = {};
-}; // namespace prtcl
+};
 
 } // namespace prtcl
 

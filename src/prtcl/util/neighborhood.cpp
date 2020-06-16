@@ -214,10 +214,10 @@ void Neighborhood::Update() { pimpl_->Update(); }
 
 void Neighborhood::Permute(Model &model) { pimpl_->Permute(model); }
 
-void Neighborhood::FindNeighbors(
+void Neighborhood::CopyNeighbors(
     size_t g_, size_t i_, std::vector<std::vector<size_t>> &neighbors) const {
   log::Debug(
-      "lib", "Neighborhood", "FindNeighbors(", g_, ", ", i_, ", ", &neighbors,
+      "lib", "Neighborhood", "CopyNeighbors(", g_, ", ", i_, ", ", &neighbors,
       ")");
 
   /*

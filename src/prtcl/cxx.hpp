@@ -41,6 +41,8 @@ struct overloaded : Ts... {
 template <class... Ts>
 overloaded(Ts...) -> overloaded<Ts...>;
 
+using count_t = std::make_signed_t<size_t>;
+
 } // namespace prtcl::cxx
 
 #endif // PRTCL_CXX_HPP
