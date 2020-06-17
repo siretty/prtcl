@@ -12,4 +12,14 @@
 
 #endif
 
-#endif //PRTCL_CONFIG_HPP
+#ifndef PRTCL_REAL_TYPE
+#define PRTCL_REAL_TYPE float
+#endif
+
+namespace prtcl {
+
+using Real = PRTCL_REAL_TYPE;
+
+} // namespace prtcl
+
+#endif // PRTCL_CONFIG_HPP

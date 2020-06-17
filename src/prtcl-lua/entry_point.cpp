@@ -5,6 +5,7 @@
 #include <prtcl/data/uniform_manager.hpp>
 #include <prtcl/data/varying_manager.hpp>
 
+#include <prtcl/util/hcp_lattice_source.hpp>
 #include <prtcl/util/neighborhood.hpp>
 #include <prtcl/util/save_vtk.hpp>
 #include <prtcl/util/scheduler.hpp>
@@ -312,6 +313,53 @@ static auto ModuleData(sol::state_view lua) {
 
   return m;
 }
+static auto ModuleMath(sol::state_view lua) {
+  auto m = lua.create_table();
+
+  using math::Index, math::Extent;
+
+  {
+    using RVec = math::DynamicTensor<double, 1>;
+    auto t = m.new_usertype<RVec>(
+        "rvec",
+        sol::factories(
+            [] { return RVec{}; }, [](Extent rows) { return RVec{rows}; }));
+
+    t.set_function(
+        "zeros", [](Extent rows) -> RVec { return RVec::Zero(rows); });
+
+    t.set_function(
+        "ones", [](Extent rows) -> RVec { return RVec::Ones(rows); });
+
+    t.set_function(
+        "resize", [](RVec &self, Extent rows) { self.resize(rows); });
+  }
+
+  {
+    using RMat = math::DynamicTensor<double, 2>;
+    auto t = m.new_usertype<RMat>(
+        "rmat",
+        sol::factories(
+            [] { return RMat{}; },
+            [](size_t rows, size_t cols) {
+              return RMat{static_cast<Extent>(rows), static_cast<Extent>(cols)};
+            }));
+
+    t.set_function("zeros", [](Extent rows, Extent cols) -> RMat {
+      return RMat::Zero(rows, cols);
+    });
+
+    t.set_function("ones", [](Extent rows, Extent cols) -> RMat {
+      return RMat::Ones(rows, cols);
+    });
+
+    t.set_function("resize", [](RMat &self, size_t rows, size_t cols) {
+      self.resize(static_cast<Index>(rows), static_cast<Extent>(cols));
+    });
+  }
+
+  return m;
+}
 
 static auto ModuleUtil(sol::state_view lua) {
   auto m = lua.create_table();
@@ -379,6 +427,14 @@ static auto ModuleUtil(sol::state_view lua) {
     t["permute"] = &Neighborhood::Permute;
   }
 
+  {
+    auto t = m.new_usertype<HCPLatticeSource>(
+        "hcp_lattice_source",
+        sol::constructors<HCPLatticeSource(
+            Model &, Group &, double, DynamicTensorT<double, 1>,
+            DynamicTensorT<double, 1>, cxx::count_t)>());
+  }
+
   return m;
 }
 
@@ -386,6 +442,7 @@ static auto ModuleEntryPoint(sol::state_view lua) {
   auto m = lua.create_table();
   m["log"] = ModuleLog(lua);
   m["data"] = ModuleData(lua);
+  m["math"] = ModuleMath(lua);
   m["util"] = ModuleUtil(lua);
   return m;
 }

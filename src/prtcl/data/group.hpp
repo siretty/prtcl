@@ -1,6 +1,7 @@
 #ifndef PRTCL_GROUP_HPP
 #define PRTCL_GROUP_HPP
 
+#include "../cxx/set.hpp"
 #include "../errors/field_of_different_kind_already_exists_error.hpp"
 #include "collection_of_mutable_tensors.hpp"
 #include "uniform_manager.hpp"
@@ -131,7 +132,7 @@ private:
 
   VaryingManager varying_ = {};
   UniformManager uniform_ = {};
-}; // namespace prtcl
+};
 
 } // namespace prtcl
 

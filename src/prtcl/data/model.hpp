@@ -1,6 +1,8 @@
 #ifndef PRTCL_MODEL_HPP
 #define PRTCL_MODEL_HPP
 
+#include "../cxx/map.hpp"
+#include "../cxx/set.hpp"
 #include "group.hpp"
 #include "prtcl/util/is_valid_identifier.hpp"
 
@@ -10,8 +12,6 @@
 #include <string_view>
 #include <unordered_map>
 #include <vector>
-
-#include <boost/container/flat_map.hpp>
 
 #include <boost/range/adaptor/map.hpp>
 #include <boost/range/adaptor/transformed.hpp>
@@ -96,8 +96,7 @@ public:
 private:
   UniformManager global_;
 
-  boost::container::flat_map<std::string, std::unique_ptr<Group>, std::less<>>
-      groups_ = {};
+  cxx::het_flat_map<std::string, std::unique_ptr<Group>> groups_;
   std::vector<Group *> groups_by_index_;
 };
 

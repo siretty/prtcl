@@ -112,6 +112,89 @@ public:
     items_[index] = std::forward<Arg>(arg);
   }
 
+  ItemType &operator[](size_t index) const { return items_[index]; }
+
+  // --------------------------------------------
+  //  Experimental Accessor Methods
+
+public:
+#define PRTCL_DEFINE_ITEM_FROM_S(TYPE_)                                        \
+  virtual void ItemFrom(size_t index, TYPE_ const &item) const {               \
+    if constexpr (sizeof...(N) == 0) {                                         \
+      if constexpr (std::is_same_v<T, TYPE_>)                                  \
+        (*this)[index] = item;                                                 \
+      else                                                                     \
+        (*this)[index] = static_cast<T>(item);                                 \
+    } else                                                                     \
+      throw NotImplementedError{};                                             \
+  }
+
+#define PRTCL_DEFINE_ITEM_FROM_R(TYPE_, RANK_)                                 \
+  virtual void ItemFrom(                                                       \
+      size_t index, DynamicTensorT<TYPE_, RANK_> const &item) const {          \
+    if constexpr (sizeof...(N) == RANK_) {                                     \
+      if constexpr (std::is_same_v<T, TYPE_>)                                  \
+        (*this)[index] = item;                                                 \
+      else                                                                     \
+        (*this)[index] = item.cast<T>();                                       \
+    } else                                                                     \
+      throw NotImplementedError{};                                             \
+  }
+
+#define PRTCL_DEFINE_ITEM_FROM(TYPE_)                                          \
+  PRTCL_DEFINE_ITEM_FROM_S(TYPE_)                                              \
+  PRTCL_DEFINE_ITEM_FROM_R(TYPE_, 1)                                           \
+  PRTCL_DEFINE_ITEM_FROM_R(TYPE_, 2)
+
+  PRTCL_DEFINE_ITEM_FROM(bool)
+  PRTCL_DEFINE_ITEM_FROM(int32_t)
+  PRTCL_DEFINE_ITEM_FROM(int64_t)
+  PRTCL_DEFINE_ITEM_FROM(float)
+  PRTCL_DEFINE_ITEM_FROM(double)
+
+#undef PRTCL_DEFINE_ITEM_FROM_S
+#undef PRTCL_DEFINE_ITEM_FROM_R
+#undef PRTCL_DEFINE_ITEM_FROM
+
+public:
+#define PRTCL_DEFINE_ITEM_INTO_S(TYPE_)                                        \
+  virtual void ItemInto(size_t index, TYPE_ &item) const {                     \
+    if constexpr (sizeof...(N) == 0) {                                         \
+      if constexpr (std::is_same_v<T, TYPE_>)                                  \
+        item = (*this)[index];                                                 \
+      else                                                                     \
+        item = static_cast<TYPE_>((*this)[index]);                             \
+    } else                                                                     \
+      throw NotImplementedError{};                                             \
+  }
+
+#define PRTCL_DEFINE_ITEM_INTO_R(TYPE_, RANK_)                                 \
+  virtual void ItemInto(size_t index, DynamicTensorT<TYPE_, RANK_> &item)      \
+      const {                                                                  \
+    if constexpr (sizeof...(N) == RANK_) {                                     \
+      if constexpr (std::is_same_v<T, TYPE_>)                                  \
+        item = (*this)[index];                                                 \
+      else                                                                     \
+        item = (*this)[index].template cast<TYPE_>();                          \
+    } else                                                                     \
+      throw NotImplementedError{};                                             \
+  }
+
+#define PRTCL_DEFINE_ITEM_INTO(TYPE_)                                          \
+  PRTCL_DEFINE_ITEM_INTO_S(TYPE_)                                              \
+  PRTCL_DEFINE_ITEM_INTO_R(TYPE_, 1)                                           \
+  PRTCL_DEFINE_ITEM_INTO_R(TYPE_, 2)
+
+  PRTCL_DEFINE_ITEM_INTO(bool)
+  PRTCL_DEFINE_ITEM_INTO(int32_t)
+  PRTCL_DEFINE_ITEM_INTO(int64_t)
+  PRTCL_DEFINE_ITEM_INTO(float)
+  PRTCL_DEFINE_ITEM_INTO(double)
+
+#undef PRTCL_DEFINE_ITEM_INTO_S
+#undef PRTCL_DEFINE_ITEM_INTO_R
+#undef PRTCL_DEFINE_ITEM_INTO
+
 public:
   friend bool operator==(
       AccessToVectorOfTensors const &lhs, AccessToVectorOfTensors const &rhs) {

@@ -1,7 +1,7 @@
 #ifndef PRTCL_MATH_EIGEN_HPP
 #define PRTCL_MATH_EIGEN_HPP
 
-#include <prtcl/cxx.hpp>
+#include "../cxx.hpp"
 
 #include <Eigen/Eigen>
 
@@ -80,6 +80,7 @@ template <typename T, size_t R>
 using DynamicTensor = typename detail::SelectDynamicTensor<T, R>::Type;
 
 using Index = Eigen::Index;
+using Extent = Eigen::Index;
 
 namespace detail {
 
@@ -371,6 +372,66 @@ std::string ToString(T const &t) {
     return ss.str();
   }
 }
+
+/*
+template <typename T, size_t... N>
+class sot_span {
+  constexpr static size_t component_count = (1 * ... * N);
+
+public:
+  class reference {
+    using MapType = Eigen::Map<Tensor<T, N...>>;
+
+  public:
+    template <typename Derived>
+    reference &operator=(Eigen::MatrixBase<Derived> obj) {
+      map_ = obj;
+    }
+
+    template <typename Derived>
+    reference &operator=(Eigen::ArrayBase<Derived> obj) {
+      map_ = obj.array();
+    }
+
+  public:
+    operator MapType() { return map_; }
+
+  public:
+    reference() = delete;
+
+    explicit reference(T *ptr) : map_{ptr} {}
+
+  private:
+    MapType map_;
+  };
+
+public:
+  reference operator[](size_t item) const {
+    return reference{data_.data() + item * component_count};
+  }
+
+public:
+  sot_span(cxx::span<T> span) : data_{span} {}
+
+private:
+  cxx::span<T> data_;
+};
+
+template <typename T>
+class sot_span<T> {
+public:
+  using reference = T &;
+
+public:
+  reference operator[](size_t item) const { return data_[item]; }
+
+public:
+  sot_span(cxx::span<T> span) : data_{span} {}
+
+private:
+  cxx::span<T> data_;
+};
+ */
 
 } // namespace prtcl::math
 

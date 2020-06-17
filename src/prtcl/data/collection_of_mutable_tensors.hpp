@@ -4,6 +4,7 @@
 #include "tensor_type.hpp"
 
 #include "../cxx.hpp"
+#include "../math.hpp"
 
 #include <any>
 #include <typeindex>
@@ -55,6 +56,42 @@ public:
   virtual void SetComponentVariant(
       size_t item, cxx::span<size_t const> cidx,
       ComponentVariant value) const = 0;
+
+  // --------------------------------------------
+  //  Experimental Accessor Methods
+
+public:
+#define PRTCL_DECLARE_ITEM_FROM(TYPE_)                                         \
+  virtual void ItemFrom(size_t index, DynamicTensorT<TYPE_, 0> const &item)    \
+      const = 0;                                                               \
+  virtual void ItemFrom(size_t index, DynamicTensorT<TYPE_, 1> const &item)    \
+      const = 0;                                                               \
+  virtual void ItemFrom(size_t index, DynamicTensorT<TYPE_, 2> const &item)    \
+      const = 0;
+
+  PRTCL_DECLARE_ITEM_FROM(bool)
+  PRTCL_DECLARE_ITEM_FROM(int32_t)
+  PRTCL_DECLARE_ITEM_FROM(int64_t)
+  PRTCL_DECLARE_ITEM_FROM(float)
+  PRTCL_DECLARE_ITEM_FROM(double)
+
+#undef PRTCL_DECLARE_ITEM_FROM
+
+public:
+#define PRTCL_DECLARE_ITEM_INTO(TYPE_)                                         \
+  virtual void ItemInto(size_t index, DynamicTensorT<TYPE_, 0> &item)          \
+      const = 0;                                                               \
+  virtual void ItemInto(size_t index, DynamicTensorT<TYPE_, 1> &item)          \
+      const = 0;                                                               \
+  virtual void ItemInto(size_t index, DynamicTensorT<TYPE_, 2> &item) const = 0;
+
+  PRTCL_DECLARE_ITEM_INTO(bool)
+  PRTCL_DECLARE_ITEM_INTO(int32_t)
+  PRTCL_DECLARE_ITEM_INTO(int64_t)
+  PRTCL_DECLARE_ITEM_INTO(float)
+  PRTCL_DECLARE_ITEM_INTO(double)
+
+#undef PRTCL_DECLARE_ITEM_INTO
 
   // --------------------------------------------
   //  Helper Methods

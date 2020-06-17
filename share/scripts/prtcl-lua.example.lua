@@ -1,5 +1,6 @@
 local prtcl = require 'prtcl'
 local ttype = prtcl.data.ttype
+local rvec, rmat = prtcl.math.rvec, prtcl.math.rmat
 
 print(prtcl.data.ctype.new(), prtcl.data.ctype.new("b"))
 print(prtcl.data.shape.new {}, prtcl.data.shape.new { 1, 2 })
@@ -9,6 +10,9 @@ print(the_ttype)
 
 local model = prtcl.data.model.new()
 print("group count: " .. model.group_count)
+
+model:add_global_field("smoothing_scale", ttype.new("f32", {}))
+
 
 local a = model:add_group("a", "type")
 a:add_tag("first_tag")
@@ -48,6 +52,11 @@ local nhood = prtcl.util.neighborhood.new()
 nhood:load(model)
 nhood:update()
 nhood:permute(model)
+
+
+local center = rvec.zeros(3)
+local velocity = rvec.ones(3)
+local source = prtcl.util.hcp_lattice_source.new(model, a, 1, center, velocity, 1000)
 
 
 local schedule = prtcl.util.virtual_scheduler.new()

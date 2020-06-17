@@ -1,6 +1,7 @@
 #ifndef PRTCL_DATA_VARYING_FIELD_MANAGER_HPP
 #define PRTCL_DATA_VARYING_FIELD_MANAGER_HPP
 
+#include "../cxx/map.hpp"
 #include "../errors/field_does_not_exist.hpp"
 #include "../errors/field_of_different_type_already_exists_error.hpp"
 #include "../errors/invalid_identifier_error.hpp"
@@ -56,7 +57,7 @@ public:
 
   template <typename T, size_t... N>
   ColT<T, N...> const *TryGetFieldImpl(std::string_view name) const {
-    if (auto const *field = TryGetField(name))
+    if (auto *field = TryGetField(name))
       if (field->GetType() == GetTensorTypeCRef<T, N...>())
         return static_cast<ColT<T, N...> const *>(field);
       else
@@ -70,6 +71,13 @@ public:
       return it->second.get();
     else
       return nullptr;
+  }
+
+  AccessToMutableTensors const &AccessField(std::string_view name) const {
+    auto *field = TryGetField(name);
+    if (field == nullptr)
+      throw FieldDoesNotExist{};
+    return field->GetAccess();
   }
 
   void RemoveField(std::string_view name) {
@@ -174,8 +182,7 @@ private:
   size_t size_ = 0;
   bool dirty_ = false;
 
-  boost::container::flat_map<
-      std::string, std::unique_ptr<CollectionOfMutableTensors>, std::less<>>
+  cxx::het_flat_map<std::string, std::unique_ptr<CollectionOfMutableTensors>>
       fields_ = {};
 };
 

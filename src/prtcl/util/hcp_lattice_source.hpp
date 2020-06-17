@@ -27,17 +27,12 @@ public:
       Model &model, Group &group, double radius,
       DynamicTensorT<double, 1> center, DynamicTensorT<double, 1> velocity,
       cxx::count_t remaining)
-      : model_{&model}, group_{&group}, radius_{radius}, center_{center_},
+      : model_{&model}, group_{&group}, radius_{radius}, center_{center},
         velocity_{velocity}, remaining_{remaining} {
     auto &global = model_->GetGlobal();
 
     // fetch the smoothing scale
-    if (auto *field = global.TryGetFieldImpl<float>("smoothing_scale"))
-      smoothing_scale_ = field->GetAccessImpl().GetItem(0);
-    else if (auto *field = global.TryGetFieldImpl<double>("smoothing_scale"))
-      smoothing_scale_ = field->GetAccessImpl().GetItem(0);
-    else
-      throw NotImplementedError{};
+    global.AccessField("smoothing_scale").ItemInto(0, smoothing_scale_);
 
     // compute the height of the layers
     double const height = SQRT_6() * smoothing_scale_ / 3;
@@ -125,26 +120,25 @@ public:
     auto indices = group_->CreateItems(position_.size());
     // TODO: initialize_particles(*model_, *group_, indices);
 
-    /* TODO: !!!! IMPLEMENT THIS !!!!
     // fetch target group fields
-    auto rho0 =
-        _target_group->template get_uniform<dtype::real>("rest_density")[0];
-    auto x = _target_group->template get_varying<dtype::real, N>("position");
-    auto v = _target_group->template get_varying<dtype::real, N>("velocity");
-    auto m = _target_group->template get_varying<dtype::real>("mass");
-    auto t_b =
-        _target_group->template get_varying<dtype::real>("time_of_birth");
+    auto &u_rho0 = group_->GetUniform().AccessField("rest_density");
+    auto &x = group_->GetVarying().AccessField("position");
+    auto &v = group_->GetVarying().AccessField("velocity");
+    auto &m = group_->GetVarying().AccessField("mass");
+    auto &t_b = group_->GetVarying().AccessField("time_of_birth");
+
+    double rho0;
+    u_rho0.ItemInto(0, rho0);
 
     // initialize created particles
     for (size_t i = 0; i < position_.size(); ++i) {
       using difference_type = typename decltype(indices)::difference_type;
       auto const j = indices[static_cast<difference_type>(i)];
-      x[j] = position_[i];
-      v[j] = velocity_;
-      m[j] = constpow(h, 3) * rho0;
-      t_b[j] = scheduler.GetClock().now().time_since_epoch().count();
+      x.ItemFrom(j, position_[i]);
+      v.ItemFrom(j, velocity_);
+      m.ItemFrom(j, constpow(h, 3) * rho0);
+      t_b.ItemFrom(j, scheduler.GetClock().now().time_since_epoch().count());
     }
-    */
 
     // adjust the remaining particle count
     remaining_ -= static_cast<ssize_t>(position_.size());

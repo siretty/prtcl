@@ -1,6 +1,7 @@
 #ifndef PRTCL_SRC_PRTCL_DATA_UNIFORM_MANAGER_HPP
 #define PRTCL_SRC_PRTCL_DATA_UNIFORM_MANAGER_HPP
 
+#include "../cxx/map.hpp"
 #include "../errors/field_does_not_exist.hpp"
 #include "../errors/field_of_different_type_already_exists_error.hpp"
 #include "../errors/invalid_identifier_error.hpp"
@@ -49,14 +50,13 @@ public:
   AddField(std::string_view name, TensorType type);
 
   template <typename T, size_t... N>
-  ColT<T, N...> const *TryGetFieldImpl(std::string name) const {
-    if (auto it = fields_.find(name); it != fields_.end()) {
-      if (auto *field = it->second.get();
-          field->GetType() == GetTensorTypeCRef<T, N...>())
-        return static_cast<ColT<T, N...> *>(it->second.get());
+  ColT<T, N...> const *TryGetFieldImpl(std::string_view name) const {
+    if (auto *field = TryGetField(name))
+      if (field->GetType() == GetTensorTypeCRef<T, N...>())
+        return static_cast<ColT<T, N...> const *>(field);
       else
-        throw FieldOfDifferentTypeAlreadyExistsError{};
-    } else
+        return nullptr;
+    else
       return nullptr;
   }
 
@@ -65,6 +65,13 @@ public:
       return it->second.get();
     else
       return nullptr;
+  }
+
+  AccessToMutableTensors const &AccessField(std::string_view name) const {
+    auto *field = TryGetField(name);
+    if (field == nullptr)
+      throw FieldDoesNotExist{};
+    return field->GetAccess();
   }
 
   void RemoveField(std::string_view name) {
@@ -89,15 +96,16 @@ public:
            });
   }
 
-  auto GetFieldNames() const { return GetNamedFields() | boost::adaptors::map_keys; }
+  auto GetFieldNames() const {
+    return GetNamedFields() | boost::adaptors::map_keys;
+  }
 
   auto GetFields() const {
     return GetNamedFields() | boost::adaptors::map_values;
   }
 
 private:
-  boost::container::flat_map<
-      std::string, std::unique_ptr<CollectionOfMutableTensors>, std::less<>>
+  cxx::het_flat_map<std::string, std::unique_ptr<CollectionOfMutableTensors>>
       fields_ = {};
 };
 

@@ -15,6 +15,8 @@ prtcl_add_library_simple(
     prtcl/config
 
     prtcl/cxx # c++ compatibility
+    prtcl/cxx/map
+    prtcl/cxx/set
 
     prtcl/data/component_type
     prtcl/data/shape
@@ -110,7 +112,7 @@ set_target_properties(
 add_library(
     prtcl-idecollector STATIC
     ${S}/prtcl/config.cpp
-    )
+    prtcl/cxx/set.cpp prtcl/cxx/set.cpp prtcl/cxx/set.hpp prtcl/data/voa_container.cpp prtcl/data/voa_container.hpp prtcl/data/varying_field.cpp prtcl/data/varying_field.hpp)
 target_link_libraries(
     prtcl-idecollector
     prtcl prtcl_lua
