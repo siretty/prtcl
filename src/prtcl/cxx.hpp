@@ -7,8 +7,7 @@
 
 #include <cstddef>
 
-#define TCB_SPAN_NAMESPACE_NAME prtcl::cxx
-#include "cxx/span.inc"
+#include "cxx/span.hpp"
 
 // export / import from https://stackoverflow.com/a/2164853/9686644
 #if defined(_MSC_VER)
