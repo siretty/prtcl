@@ -60,23 +60,6 @@ local v_m = rmat.new({ { 1, 2, 3 }, { 4, 5, 6 } }) * rmat.identity(3, 3)
 print(v_m)
 
 
---[[
-print(a.group_name, a.group_type, a.group_index, a.uniform.field_count, a.varying.field_count, a.item_count)
-local x = a.varying:get_field("position"):get_access()
-x:set_component(1, { 1 }, 123)
-x:set_component(1, { 2 }, 321)
-print("x", x.type, x.size, x:get_component(1, { 1 }))
-
-local item = x:get_item(1)
-item[2] = 456;
-x:set_item(1, item)
-print("x", x.type, x.size, x:get_component(1, { 2 }))
-print(type(item), #item)
-
-print(b.group_name, b.group_type, b.group_index, b.uniform.field_count, b.varying.field_count, b.item_count)
---]]
-
-
 local nhood = prtcl.util.neighborhood.new()
 nhood:load(model)
 nhood:update()

@@ -83,6 +83,9 @@ prtcl_add_library_simple(
 
     PHYSICAL_COMPONENTS
     prtcl-lua/entry_point
+    prtcl-lua/module_data
+    prtcl-lua/module_math
+    prtcl-lua/module_util
 
     LINK_LIBRARIES
     PUBLIC prtcl ${LUA_LIBRARIES} sol2
@@ -98,7 +101,7 @@ target_compile_definitions(
 add_executable(
     prtcl-lua
     prtcl-lua/main
-)
+    )
 target_link_libraries(
     prtcl-lua
     PUBLIC prtcl_lua
