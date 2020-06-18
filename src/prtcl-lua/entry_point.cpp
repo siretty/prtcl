@@ -16,6 +16,8 @@
 #include <prtcl/log.hpp>
 
 #include <fstream>
+#include <iomanip>
+#include <sstream>
 #include <vector>
 
 #include <sol/sol.hpp>
@@ -201,7 +203,7 @@ static auto ModuleData(sol::state_view lua) {
     auto t =
         m.new_usertype<UniformManager>("uniform_manager", sol::no_constructor);
     t["field_count"] = sol::property(&UniformManager::GetFieldCount);
-    t["get_field"] = &UniformManager::TryGetField;
+    t["get_field"] = &UniformManager::GetField;
     t["has_field"] = &UniformManager::HasField;
     t["field_names"] = &UniformManager::GetFieldNames;
   }
@@ -211,11 +213,92 @@ static auto ModuleData(sol::state_view lua) {
         m.new_usertype<VaryingManager>("varying_manager", sol::no_constructor);
     t["field_count"] = sol::property(&VaryingManager::GetFieldCount);
     t["item_count"] = sol::property(&VaryingManager::GetItemCount);
-    //t["get_field"] = &VaryingManager::TryGetField;
+    t["get_field"] = &VaryingManager::GetField;
     t["has_field"] = &VaryingManager::HasField;
     t["field_names"] = &VaryingManager::GetFieldNames;
   }
 
+  {
+    auto t = m.new_usertype<UniformField>("uniform_field", sol::no_constructor);
+    t.set_function("get", [](UniformField const &self) -> ValueVariant {
+      auto const ttype = self.GetType();
+      auto const ctype = ttype.GetComponentType();
+      if (RepresentsReal(ctype)) {
+        switch (ttype.GetShape().GetRank()) {
+        case 0: {
+          RealScalar result;
+          self.Get(result);
+          return result;
+        } break;
+        case 1: {
+          RealVector result;
+          self.Get(result);
+          return result;
+        } break;
+        case 2: {
+          RealMatrix result;
+          self.Get(result);
+          return result;
+        } break;
+        default:
+          throw NotImplementedError{};
+        };
+      } else
+        throw NotImplementedError{};
+    });
+    t.set_function(
+        "set", sol::overload(
+                   [](UniformField &self, RealScalar const &value) {
+                     self.Set(value);
+                   },
+                   [](UniformField &self, RealVector const &value) {
+                     self.Set(value);
+                   },
+                   [](UniformField &self, RealMatrix const &value) {
+                     self.Set(value);
+                   }));
+  }
+
+  {
+    auto t = m.new_usertype<VaryingField>("varying_field", sol::no_constructor);
+    t.set_function(
+        "get", [](VaryingField const &self, size_t index) -> ValueVariant {
+          auto const ttype = self.GetType();
+          auto const ctype = ttype.GetComponentType();
+          if (RepresentsReal(ctype)) {
+            switch (ttype.GetShape().GetRank()) {
+            case 0: {
+              RealScalar result;
+              self.Get(index, result);
+              return result;
+            } break;
+            case 1: {
+              RealVector result;
+              self.Get(index, result);
+              return result;
+            } break;
+            case 2: {
+              RealMatrix result;
+              self.Get(index, result);
+              return result;
+            } break;
+            default:
+              throw NotImplementedError{};
+            };
+          } else
+            throw NotImplementedError{};
+        });
+    t.set_function(
+        "set", sol::overload(
+                   [](VaryingField &self, size_t index,
+                      RealScalar const &value) { self.Set(index, value); },
+                   [](VaryingField &self, size_t index,
+                      RealVector const &value) { self.Set(index, value); },
+                   [](VaryingField &self, size_t index,
+                      RealMatrix const &value) { self.Set(index, value); }));
+  }
+
+  /*
   {
     auto t = m.new_usertype<CollectionOfMutableTensors>(
         "collection_of_mutable_tensors", sol::no_constructor);
@@ -310,53 +393,132 @@ static auto ModuleData(sol::state_view lua) {
         throw NotImplementedError{};
     };
   }
+   */
 
   return m;
 }
+
 static auto ModuleMath(sol::state_view lua) {
   auto m = lua.create_table();
 
   using math::Index, math::Extent;
+  using RSca = RealScalar;
+  using RVec = RealVector;
+  using RMat = RealMatrix;
 
-  {
-    using RVec = math::DynamicTensor<double, 1>;
-    auto t = m.new_usertype<RVec>(
-        "rvec",
-        sol::factories(
-            [] { return RVec{}; }, [](Extent rows) { return RVec{rows}; }));
+  // Vector
 
-    t.set_function(
-        "zeros", [](Extent rows) -> RVec { return RVec::Zero(rows); });
+  auto rvec = m.new_usertype<RVec>(
+      "rvec", sol::factories(
+                  [] { return RVec{}; }, [](Extent rows) { return RVec{rows}; },
+                  [](sol::as_table_t<std::vector<double>> tbl) {
+                    auto const &vec = tbl.value();
+                    RVec result(vec.size());
+                    for (Index i = 0; i < static_cast<Index>(vec.size()); ++i)
+                      result[i] = vec[static_cast<size_t>(i)];
+                    return result;
+                  }));
 
-    t.set_function(
-        "ones", [](Extent rows) -> RVec { return RVec::Ones(rows); });
+  rvec.set_function(
+      "resize", [](RVec &self, Extent rows) { self.resize(rows); });
 
-    t.set_function(
-        "resize", [](RVec &self, Extent rows) { self.resize(rows); });
-  }
+  rvec.set_function(sol::meta_function::to_string, [](RVec const &lhs) {
+    return math::ToString(lhs);
+  });
+  // vec @ vec
+  rvec.set_function(
+      sol::meta_function::addition,
+      [](RVec const &lhs, RVec const &rhs) -> RVec { return lhs + rhs; });
+  rvec.set_function(
+      sol::meta_function::subtraction,
+      [](RVec const &lhs, RVec const &rhs) -> RVec { return lhs - rhs; });
+  rvec.set_function(
+      sol::meta_function::multiplication,
+      sol::overload(
+          // sca * vec, vec * sca
+          [](RSca const &lhs, RVec const &rhs) -> RVec { return lhs * rhs; },
+          [](RVec const &lhs, RSca const &rhs) -> RVec { return lhs * rhs; }));
+  rvec.set_function(
+      sol::meta_function::division,
+      [](RVec const &lhs, RSca const &rhs) -> RVec { return lhs / rhs; });
 
-  {
-    using RMat = math::DynamicTensor<double, 2>;
-    auto t = m.new_usertype<RMat>(
-        "rmat",
-        sol::factories(
-            [] { return RMat{}; },
-            [](size_t rows, size_t cols) {
-              return RMat{static_cast<Extent>(rows), static_cast<Extent>(cols)};
-            }));
+  rvec.set_function(
+      "zeros", [](Extent rows) -> RVec { return RVec::Zero(rows); });
+  rvec.set_function(
+      "ones", [](Extent rows) -> RVec { return RVec::Ones(rows); });
+  rvec.set_function(
+      "unit", sol::overload(
+                  [](Extent rows) -> RVec { return RVec::Unit(rows, 0); },
+                  [](Extent rows, Index index) -> RVec {
+                    return RVec::Unit(rows, index);
+                  }));
 
-    t.set_function("zeros", [](Extent rows, Extent cols) -> RMat {
-      return RMat::Zero(rows, cols);
-    });
+  // Matrix
 
-    t.set_function("ones", [](Extent rows, Extent cols) -> RMat {
-      return RMat::Ones(rows, cols);
-    });
+  auto rmat = m.new_usertype<RMat>(
+      "rmat",
+      sol::factories(
+          [] { return RMat{}; },
+          [](size_t rows, size_t cols) {
+            return RMat{static_cast<Extent>(rows), static_cast<Extent>(cols)};
+          },
+          [](sol::nested<std::vector<std::vector<double>>> tbl) {
+            auto const &rows = tbl.value();
+            auto const row_count = static_cast<Index>(rows.size());
+            if (row_count == 0)
+              throw "row count must be greater than zero";
+            auto const col_count = static_cast<Index>(rows[0].size());
+            if (col_count == 0)
+              throw "column count must be greater than zero";
+            RMat result(rows.size(), rows[0].size());
+            for (Index row_i = 0; row_i < row_count; ++row_i) {
+              auto const &row = rows[static_cast<size_t>(row_i)];
+              if (col_count != static_cast<Index>(row.size()))
+                throw "inconsistent column count";
+              for (Index col_i = 0; col_i < col_count; ++col_i) {
+                result(row_i, col_i) = row[static_cast<size_t>(col_i)];
+              }
+            }
+            return result;
+          }));
 
-    t.set_function("resize", [](RMat &self, size_t rows, size_t cols) {
-      self.resize(static_cast<Index>(rows), static_cast<Extent>(cols));
-    });
-  }
+  rmat.set_function("resize", [](RMat &self, size_t rows, size_t cols) {
+    self.resize(static_cast<Index>(rows), static_cast<Extent>(cols));
+  });
+
+  rmat.set_function(sol::meta_function::to_string, [](RMat const &lhs) {
+    // TODO: thanks to Eigen this _will_ format N×1 matrices as vectors
+    return math::ToString(lhs);
+  });
+  rmat.set_function(
+      sol::meta_function::addition,
+      [](RMat const &lhs, RMat const &rhs) -> RMat { return lhs + rhs; });
+  rmat.set_function(
+      sol::meta_function::subtraction,
+      [](RMat const &lhs, RMat const &rhs) -> RMat { return lhs - rhs; });
+  rmat.set_function(
+      sol::meta_function::multiplication,
+      sol::overload(
+          // sca * mat, mat * sca
+          [](RSca const &lhs, RMat const &rhs) -> RMat { return lhs * rhs; },
+          [](RMat const &lhs, RSca const &rhs) -> RMat { return lhs * rhs; },
+          // mat * vec
+          [](RMat const &lhs, RVec const &rhs) -> RVec { return lhs * rhs; },
+          // mat * mat
+          [](RMat const &lhs, RMat const &rhs) -> RMat { return lhs * rhs; }));
+  rmat.set_function(
+      sol::meta_function::division,
+      [](RMat const &lhs, RSca const &rhs) -> RMat { return lhs / rhs; });
+
+  rmat.set_function("zeros", [](Extent rows, Extent cols) -> RMat {
+    return RMat::Zero(rows, cols);
+  });
+  rmat.set_function("ones", [](Extent rows, Extent cols) -> RMat {
+    return RMat::Ones(rows, cols);
+  });
+  rmat.set_function("identity", [](Extent rows, Extent cols) -> RMat {
+    return RMat::Identity(rows, cols);
+  });
 
   return m;
 }
@@ -394,27 +556,74 @@ static auto ModuleUtil(sol::state_view lua) {
       return self.RescheduleAfter(after);
     };
 
-    t["schedule_at"] = [](VirtualScheduler &self, double when,
-                          sol::protected_function callback) {
-      VirtualScheduler::TimePoint when_tp{VirtualScheduler::Duration{when}};
-      self.ScheduleAt(
-          when_tp,
-          [callback](VirtualScheduler &self, auto delay)
-              -> VirtualScheduler::CallbackReturnType {
-            return callback(self, delay.count());
-          });
-    };
+    t.set_function(
+        "schedule_at",
+        [](VirtualScheduler &self, double when,
+           std::function<typename VirtualScheduler::CallbackSignature>
+               callback) {
+          VirtualScheduler::TimePoint when_tp{VirtualScheduler::Duration{when}};
+          self.ScheduleAt(when_tp, callback);
+        });
 
-    t["schedule_after"] = [](VirtualScheduler &self, double after,
-                             sol::protected_function callback) {
-      VirtualScheduler::Duration after_dur{after};
-      self.ScheduleAfter(
-          after_dur,
-          [callback](VirtualScheduler &self, auto delay)
-              -> VirtualScheduler::CallbackReturnType {
-            return callback(self, delay.count());
-          });
-    };
+    t.set_function(
+        "schedule_after",
+        [](VirtualScheduler &self, double after,
+           std::function<typename VirtualScheduler::CallbackSignature>
+               callback) {
+          VirtualScheduler::Duration after_dur{after};
+          self.ScheduleAfter(after_dur, callback);
+        });
+  }
+
+  {
+    using VirtualDuration = typename VirtualScheduler::Duration;
+    auto t = m.new_usertype<VirtualDuration>(
+        "virtual_duration",
+        sol::constructors<VirtualDuration(), VirtualDuration(double)>());
+
+    t["seconds"] = sol::property(&VirtualDuration::count);
+
+    t.set_function(
+        sol::meta_function::to_string, [](VirtualDuration const &self) {
+          std::ostringstream ss;
+          ss << self.count() << "s";
+          return ss.str();
+        });
+  }
+
+  {
+    using VirtualDuration = typename VirtualScheduler::Duration;
+    using VirtualTimePoint = typename VirtualScheduler::TimePoint;
+    auto t = m.new_usertype<VirtualTimePoint>(
+        "virtual_time_point", "new",
+        sol::factories(
+            [] { return VirtualTimePoint{}; },
+            [](double seconds) {
+              return VirtualTimePoint{VirtualDuration{seconds}};
+            },
+            [](VirtualDuration duration) {
+              return VirtualTimePoint{duration};
+            }));
+
+    t["since_epoch"] = sol::property(&VirtualTimePoint::time_since_epoch);
+
+    t.set_function(
+        sol::meta_function::to_string, [](VirtualTimePoint const &self) {
+          std::ostringstream ss;
+
+          auto total_seconds = self.time_since_epoch().count();
+          auto total_minutes = static_cast<int>(std::floor(total_seconds / 60));
+          auto hours = static_cast<int>(std::floor(total_minutes / 60));
+          auto minutes =
+              static_cast<int>(std::floor(total_minutes - hours * 60));
+          auto seconds =
+              static_cast<int>(std::floor(total_seconds - total_minutes * 60));
+
+          ss << std::setfill('0') << std::setw(2) << hours;
+          ss << ':' << std::setfill('0') << std::setw(2) << minutes;
+          ss << ':' << std::setfill('0') << std::setw(2) << seconds;
+          return ss.str();
+        });
   }
 
   {
@@ -433,6 +642,9 @@ static auto ModuleUtil(sol::state_view lua) {
         sol::constructors<HCPLatticeSource(
             Model &, Group &, double, DynamicTensorT<double, 1>,
             DynamicTensorT<double, 1>, cxx::count_t)>());
+
+    t["regular_spawn_interval"] =
+        sol::property(&HCPLatticeSource::GetRegularSpawnInterval);
   }
 
   return m;

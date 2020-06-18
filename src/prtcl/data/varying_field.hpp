@@ -129,6 +129,20 @@ public:
   virtual void Resize(size_t new_size) = 0;
 
   virtual void ConsumePermutation(cxx::span<size_t> mut_perm) = 0;
+
+public:
+  virtual void GetScalar(size_t index, RealScalar &scalar) const = 0;
+
+  virtual void GetVector(size_t index, RealVector &vector) const = 0;
+
+  virtual void GetMatrix(size_t index, RealMatrix &matrix) const = 0;
+
+public:
+  virtual void SetScalar(size_t index, RealScalar const &scalar) = 0;
+
+  virtual void SetVector(size_t index, RealVector const &vector) = 0;
+
+  virtual void SetMatrix(size_t index, RealMatrix const &matrix) = 0;
 };
 
 template <typename T, size_t... N>
@@ -148,6 +162,56 @@ public:
 
   void ConsumePermutation(cxx::span<size_t> mut_perm) final {
     boost::algorithm::apply_permutation(data_, mut_perm);
+  }
+
+private:
+  template <size_t Rank, typename OutComp, typename OutItem>
+  void GetImpl(size_t index, OutItem &out) const {
+    if constexpr (Rank == sizeof...(N)) {
+      if constexpr (IsComponentConvertible<T, OutComp>())
+        out = math::ComponentCast<OutComp>(data_[index]);
+      else
+        throw "INVALID TYPE";
+    } else
+      throw "INVALID SHAPE";
+  }
+
+public:
+  void GetScalar(size_t index, RealScalar &scalar) const final {
+    GetImpl<0, RealScalar>(index, scalar);
+  }
+
+  void GetVector(size_t index, RealVector &vector) const final {
+    GetImpl<1, RealScalar>(index, vector);
+  }
+
+  void GetMatrix(size_t index, RealMatrix &matrix) const final {
+    GetImpl<2, RealScalar>(index, matrix);
+  }
+
+private:
+  template <size_t Rank, typename InpComp, typename InpItem>
+  void SetImpl(size_t index, InpItem const &inp) {
+    if constexpr (Rank == sizeof...(N)) {
+      if constexpr (IsComponentConvertible<InpComp, T>())
+        data_[index] = math::ComponentCast<T>(inp);
+      else
+        throw "INVALID TYPE";
+    } else
+      throw "INVALID SHAPE";
+  }
+
+public:
+  void SetScalar(size_t index, RealScalar const &scalar) final {
+    SetImpl<0, RealScalar>(index, scalar);
+  }
+
+  void SetVector(size_t index, RealVector const &vector) final {
+    SetImpl<1, RealScalar>(index, vector);
+  }
+
+  void SetMatrix(size_t index, RealMatrix const &matrix) final {
+    SetImpl<2, RealScalar>(index, matrix);
   }
 
 public:
@@ -184,23 +248,7 @@ private:
   boost::container::small_vector<ItemType, 0> data_;
 };
 
-namespace detail {
-
-template <typename T, typename... U>
-constexpr auto kTypeMapping = boost::hana::make_pair(
-    boost::hana::type_c<T>, boost::hana::make_tuple(boost::hana::type_c<U>...));
-
-constexpr auto kComponentConvertibleFrom = boost::hana::make_map(
-    kTypeMapping<bool, bool>, kTypeMapping<int32_t, int32_t, int64_t>,
-    kTypeMapping<int64_t, int64_t, int32_t>, kTypeMapping<float, float, double>,
-    kTypeMapping<double, double, float>);
-
-} // namespace detail
-
 class VaryingField;
-
-template <typename T, size_t... N>
-VaryingField *NewVaryingField();
 
 template <typename T, size_t... N>
 VaryingField MakeVaryingField();
@@ -230,8 +278,34 @@ public:
   }
 
 public:
+  void Get(size_t index, RealScalar &scalar) const {
+    data_->GetScalar(index, scalar);
+  }
+
+  void Get(size_t index, RealVector &vector) const {
+    data_->GetVector(index, vector);
+  }
+
+  void Get(size_t index, RealMatrix &matrix) const {
+    data_->GetMatrix(index, matrix);
+  }
+
+public:
+  void Set(size_t index, RealScalar const &scalar) const {
+    data_->SetScalar(index, scalar);
+  }
+
+  void Set(size_t index, RealVector const &vector) const {
+    data_->SetVector(index, vector);
+  }
+
+  void Set(size_t index, RealMatrix const &matrix) const {
+    data_->SetMatrix(index, matrix);
+  }
+
+public:
   template <typename T, size_t... N>
-  VaryingFieldSpan<T, N...> Span() {
+  VaryingFieldSpan<T, N...> Span() const {
     if (auto *ptr = DataAsPtr<T, N...>())
       return ptr->Span();
     else
@@ -239,7 +313,7 @@ public:
   }
 
   template <typename U, size_t... N>
-  VaryingFieldWrap<U, N...> Wrap() {
+  VaryingFieldWrap<U, N...> Wrap() const {
     namespace hana = boost::hana;
 
     constexpr auto ctypes =
@@ -263,22 +337,21 @@ public:
 
 public:
   template <typename T, size_t... N>
-  friend VaryingField *NewVaryingField();
-
-  template <typename T, size_t... N>
   friend VaryingField MakeVaryingField();
+
+public:
+  VaryingField() = delete;
+  VaryingField(VaryingField const &) = default;
+  VaryingField &operator=(VaryingField const &) = default;
+  VaryingField(VaryingField &&) = default;
+  VaryingField &operator=(VaryingField &&) = default;
 
 private:
   VaryingField(VaryingFieldBase *data) : data_{data} {}
 
 private:
-  std::unique_ptr<VaryingFieldBase> data_;
+  std::shared_ptr<VaryingFieldBase> data_;
 };
-
-template <typename T, size_t... N>
-VaryingField *NewVaryingField() {
-  return new VaryingField{new VaryingFieldData<T, N...>};
-}
 
 template <typename T, size_t... N>
 VaryingField MakeVaryingField() {

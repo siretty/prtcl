@@ -28,6 +28,7 @@ prtcl_add_library_simple(
     prtcl/data/vector_of_tensors
 
     prtcl/data/uniform_manager
+    prtcl/data/uniform_field
     prtcl/data/varying_manager
     prtcl/data/varying_field
 

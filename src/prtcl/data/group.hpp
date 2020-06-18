@@ -68,14 +68,14 @@ public:
   UniformManager const &GetUniform() const { return uniform_; }
 
   template <typename T, size_t... N>
-  auto const &AddUniformFieldImpl(std::string_view name) {
+  UniformFieldSpan<T, N...> AddUniformFieldImpl(std::string_view name) {
     if (not varying_.HasField(std::string{name}))
       return uniform_.AddFieldImpl<T, N...>(name);
     else
       throw FieldOfDifferentKindAlreadyExistsError{};
   }
 
-  auto const &AddUniformField(std::string_view name, TensorType type) {
+  UniformField AddUniformField(std::string_view name, TensorType type) {
     if (not varying_.HasField(std::string{name}))
       return uniform_.AddField(name, type);
     else
@@ -86,7 +86,6 @@ public:
   VaryingManager const &GetVarying() const { return varying_; }
 
   template <typename T, size_t... N>
-  // auto const &AddVaryingFieldImpl(std::string_view name) {
   VaryingFieldSpan<T, N...> AddVaryingFieldImpl(std::string_view name) {
     if (not uniform_.HasField(name))
       return varying_.AddFieldImpl<T, N...>(std::string{name});
@@ -94,15 +93,15 @@ public:
       throw FieldOfDifferentKindAlreadyExistsError{};
   }
 
-  // auto const &AddVaryingField(std::string_view name, TensorType type) {
-  void AddVaryingField(std::string_view name, TensorType type) {
+  VaryingField AddVaryingField(std::string_view name, TensorType type) {
     log::Debug(
         "lib", "Group::AddVaryingField",
         "ttype.rank=", type.GetShape().GetRank(),
         " ctype=", type.GetComponentType().ToStringView());
-    if (not uniform_.HasField(name))
-      return varying_.AddField(name, type);
-    else
+    if (not uniform_.HasField(name)) {
+      auto field = varying_.AddField(name, type);
+      return field;
+    } else
       throw FieldOfDifferentKindAlreadyExistsError{};
   }
 

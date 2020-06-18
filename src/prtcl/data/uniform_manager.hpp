@@ -7,6 +7,7 @@
 #include "../errors/invalid_identifier_error.hpp"
 #include "../errors/not_implemented_error.hpp"
 #include "prtcl/util/is_valid_identifier.hpp"
+#include "uniform_field.hpp"
 #include "vector_of_tensors.hpp"
 
 #include <memory>
@@ -24,54 +25,36 @@ namespace prtcl {
 class UniformManager {
 public:
   template <typename T, size_t... N>
-  using ColT = VectorOfTensors<T, N...>;
-
-  template <typename T, size_t... N>
-  using SeqT = AccessToVectorOfTensors<T, N...>;
-
-public:
-  template <typename T, size_t... N>
-  ColT<T, N...> const &AddFieldImpl(std::string_view name) {
+  UniformFieldSpan<T, N...> AddFieldImpl(std::string_view name) {
     if (not IsValidIdentifier(name))
       throw InvalidIdentifierError{};
 
-    auto [it, inserted] = fields_.emplace(std::string{name}, nullptr);
-    if (inserted)
-      it->second.reset(new ColT<T, N...>);
-    else if (it->second.get()->GetType() != GetTensorTypeCRef<T, N...>())
+    auto [it, inserted] =
+        fields_.emplace(std::string{name}, MakeUniformField<T, N...>());
+    if (not inserted and it->second.GetType() != GetTensorTypeCRef<T, N...>())
       throw FieldOfDifferentTypeAlreadyExistsError{};
 
-    auto *col = static_cast<ColT<T, N...> *>(it->second.get());
-    col->Resize(1);
-    return *col;
+    return it->second.template Span<T, N...>();
   }
 
-  CollectionOfMutableTensors const &
-  AddField(std::string_view name, TensorType type);
+  UniformField AddField(std::string_view name, TensorType type);
+
+  UniformField GetField(std::string_view name);
 
   template <typename T, size_t... N>
-  ColT<T, N...> const *TryGetFieldImpl(std::string_view name) const {
-    if (auto *field = TryGetField(name))
-      if (field->GetType() == GetTensorTypeCRef<T, N...>())
-        return static_cast<ColT<T, N...> const *>(field);
-      else
-        return nullptr;
-    else
-      return nullptr;
-  }
-
-  CollectionOfMutableTensors const *TryGetField(std::string_view name) const {
-    if (auto it = fields_.find(name); it != fields_.end())
-      return it->second.get();
-    else
-      return nullptr;
-  }
-
-  AccessToMutableTensors const &AccessField(std::string_view name) const {
-    auto *field = TryGetField(name);
-    if (field == nullptr)
+  UniformFieldSpan<T, N...> FieldSpan(std::string_view name) const {
+    if (auto it = fields_.find(name); it != fields_.end()) {
+      return it->second.Span<T, N...>();
+    } else
       throw FieldDoesNotExist{};
-    return field->GetAccess();
+  }
+
+  template <typename U, size_t... N>
+  UniformFieldWrap<U, N...> FieldWrap(std::string_view name) const {
+    if (auto it = fields_.find(name); it != fields_.end()) {
+      return it->second.Wrap<U, N...>();
+    } else
+      throw FieldDoesNotExist{};
   }
 
   void RemoveField(std::string_view name) {
@@ -90,9 +73,8 @@ public:
   auto GetNamedFields() const {
     return boost::make_iterator_range(fields_) |
            boost::adaptors::transformed([](auto const &entry) {
-             return std::pair<
-                 std::string const &, CollectionOfMutableTensors const &>{
-                 entry.first, *entry.second.get()};
+             return std::pair<std::string const &, UniformField const &>{
+                 entry.first, entry.second};
            });
   }
 
@@ -105,8 +87,7 @@ public:
   }
 
 private:
-  cxx::het_flat_map<std::string, std::unique_ptr<CollectionOfMutableTensors>>
-      fields_ = {};
+  cxx::het_flat_map<std::string, UniformField> fields_ = {};
 };
 
 } // namespace prtcl

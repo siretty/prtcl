@@ -9,55 +9,6 @@ namespace prtcl {
 
 namespace {
 
-/*
-template <typename T>
-void WriteVOT(std::ostream &o, VectorOfTensors<T> const &v) {
-  auto a = v.GetAccessImpl();
-
-  for (size_t item_i = 0; item_i < a.GetSize(); ++item_i) {
-    o << std::fixed << a.GetItem(item_i) << '\n';
-  }
-}
-
-template <typename T, size_t N>
-void WriteVOT(std::ostream &o, VectorOfTensors<T, N> const &v) {
-  auto a = v.GetAccessImpl();
-  auto const comp_n = static_cast<math::Index>(N);
-
-  for (size_t item_i = 0; item_i < a.GetSize(); ++item_i) {
-    auto item = a.GetItem(item_i);
-    for (math::Index comp_i = 0; comp_i < comp_n; ++comp_i) {
-      if (comp_i > 0)
-        o << ' ';
-      o << std::fixed << item[comp_i];
-    }
-    o << '\n';
-  }
-}
-
-void WriteField(
-    std::ostream &o, VaryingManager const &varying, std::string_view name) {
-  if (auto *field = varying.TryGetFieldImpl<float>(name))
-    return WriteVOT(o, *field);
-  if (auto *field = varying.TryGetFieldImpl<float, 1>(name))
-    return WriteVOT(o, *field);
-  if (auto *field = varying.TryGetFieldImpl<float, 2>(name))
-    return WriteVOT(o, *field);
-  if (auto *field = varying.TryGetFieldImpl<float, 3>(name))
-    return WriteVOT(o, *field);
-  if (auto *field = varying.TryGetFieldImpl<double>(name))
-    return WriteVOT(o, *field);
-  if (auto *field = varying.TryGetFieldImpl<double, 1>(name))
-    return WriteVOT(o, *field);
-  if (auto *field = varying.TryGetFieldImpl<double, 2>(name))
-    return WriteVOT(o, *field);
-  if (auto *field = varying.TryGetFieldImpl<double, 3>(name))
-    return WriteVOT(o, *field);
-
-  throw NotImplementedError{};
-}
-*/
-
 template <typename T>
 void WriteVFS(std::ostream &o, VaryingFieldSpan<T> const &v) {
   for (size_t item_i = 0; item_i < v.GetSize(); ++item_i) {
@@ -156,6 +107,12 @@ void SaveVTK(std::ostream &o, Group const &group) {
     o << "SCALARS pressure float 1\n";
     o << "LOOKUP_TABLE default\n";
     WriteField(o, varying, "pressure");
+  }
+
+  if (varying.HasField("time_of_birth")) {
+    o << "SCALARS time_of_birth float 1\n";
+    o << "LOOKUP_TABLE default\n";
+    WriteField(o, varying, "time_of_birth");
   }
 
   o.flags(o_flags);

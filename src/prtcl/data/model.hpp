@@ -83,11 +83,11 @@ public:
   UniformManager const &GetGlobal() const { return global_; }
 
   template <typename T, size_t... N>
-  auto const &AddGlobalFieldImpl(std::string_view name) {
+  UniformFieldSpan<T, N...> AddGlobalFieldImpl(std::string_view name) {
     return global_.AddFieldImpl<T, N...>(name);
   }
 
-  auto const &AddGlobalField(std::string_view name, TensorType type) {
+  UniformField AddGlobalField(std::string_view name, TensorType type) {
     return global_.AddField(name, type);
   }
 
