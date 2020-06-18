@@ -12,7 +12,7 @@ set( _INC ${_PRJ}/include )
 set( _INC_PC ${_INC}/prtcl/core )
 
 
-add_library( prtcl-core INTERFACE )
+add_library( prtcl-core INTERFACE)
 target_sources(
   prtcl-core
   INTERFACE

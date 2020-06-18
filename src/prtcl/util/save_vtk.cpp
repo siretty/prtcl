@@ -9,6 +9,7 @@ namespace prtcl {
 
 namespace {
 
+/*
 template <typename T>
 void WriteVOT(std::ostream &o, VectorOfTensors<T> const &v) {
   auto a = v.GetAccessImpl();
@@ -52,6 +53,51 @@ void WriteField(
     return WriteVOT(o, *field);
   if (auto *field = varying.TryGetFieldImpl<double, 3>(name))
     return WriteVOT(o, *field);
+
+  throw NotImplementedError{};
+}
+*/
+
+template <typename T>
+void WriteVFS(std::ostream &o, VaryingFieldSpan<T> const &v) {
+  for (size_t item_i = 0; item_i < v.GetSize(); ++item_i) {
+    o << std::fixed << v[item_i] << '\n';
+  }
+}
+
+template <typename T, size_t N>
+void WriteVFS(std::ostream &o, VaryingFieldSpan<T, N> const &v) {
+  auto const comp_n = static_cast<math::Index>(N);
+
+  for (size_t item_i = 0; item_i < v.GetSize(); ++item_i) {
+    auto item = v[item_i];
+    for (math::Index comp_i = 0; comp_i < comp_n; ++comp_i) {
+      if (comp_i > 0)
+        o << ' ';
+      o << std::fixed << item[comp_i];
+    }
+    o << '\n';
+  }
+}
+
+void WriteField(
+    std::ostream &o, VaryingManager const &varying, std::string_view name) {
+  if (auto field = varying.FieldSpan<float>(name))
+    return WriteVFS(o, field);
+  if (auto field = varying.FieldSpan<float, 1>(name))
+    return WriteVFS(o, field);
+  if (auto field = varying.FieldSpan<float, 2>(name))
+    return WriteVFS(o, field);
+  if (auto field = varying.FieldSpan<float, 3>(name))
+    return WriteVFS(o, field);
+  if (auto field = varying.FieldSpan<double>(name))
+    return WriteVFS(o, field);
+  if (auto field = varying.FieldSpan<double, 1>(name))
+    return WriteVFS(o, field);
+  if (auto field = varying.FieldSpan<double, 2>(name))
+    return WriteVFS(o, field);
+  if (auto field = varying.FieldSpan<double, 3>(name))
+    return WriteVFS(o, field);
 
   throw NotImplementedError{};
 }

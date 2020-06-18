@@ -7,6 +7,7 @@
 #include "../errors/invalid_identifier_error.hpp"
 #include "collection_of_mutable_tensors.hpp"
 #include "prtcl/util/is_valid_identifier.hpp"
+#include "varying_field.hpp"
 #include "vector_of_tensors.hpp"
 
 #include "../log.hpp"
@@ -37,48 +38,74 @@ public:
 
 public:
   template <typename T, size_t... N>
-  ColT<T, N...> const &AddFieldImpl(std::string_view name) {
+  // ColT<T, N...> const &AddFieldImpl(std::string_view name) {
+  VaryingFieldSpan<T, N...> AddFieldImpl(std::string_view name) {
     if (not IsValidIdentifier(name))
       throw InvalidIdentifierError{};
 
     auto [it, inserted] = fields_.emplace(std::string{name}, nullptr);
     if (inserted)
-      it->second.reset(new ColT<T, N...>);
+      // it->second.reset(new ColT<T, N...>);
+      it->second.reset(NewVaryingField<T, N...>());
     else if (it->second.get()->GetType() != GetTensorTypeCRef<T, N...>())
       throw FieldOfDifferentTypeAlreadyExistsError{};
 
-    auto *col = static_cast<ColT<T, N...> *>(it->second.get());
-    col->Resize(GetItemCount());
-    return *col;
+    // auto *col = static_cast<ColT<T, N...> *>(it->second.get());
+    // col->Resize(GetItemCount());
+    // return *col;
+    it->second->Resize(GetItemCount());
+    return it->second->Span<T, N...>();
   }
 
-  CollectionOfMutableTensors const &
-  AddField(std::string_view name, TensorType type);
+  // CollectionOfMutableTensors const &
+  // AddField(std::string_view name, TensorType type);
+  void AddField(std::string_view name, TensorType type);
 
+  // <T, N...> VaryingField<T, N...> GetField(name)
   template <typename T, size_t... N>
-  ColT<T, N...> const *TryGetFieldImpl(std::string_view name) const {
-    if (auto *field = TryGetField(name))
-      if (field->GetType() == GetTensorTypeCRef<T, N...>())
-        return static_cast<ColT<T, N...> const *>(field);
-      else
-        return nullptr;
-    else
-      return nullptr;
-  }
-
-  CollectionOfMutableTensors const *TryGetField(std::string_view name) const {
-    if (auto it = fields_.find(name); it != fields_.end())
-      return it->second.get();
-    else
-      return nullptr;
-  }
-
-  AccessToMutableTensors const &AccessField(std::string_view name) const {
-    auto *field = TryGetField(name);
-    if (field == nullptr)
+  VaryingFieldSpan<T, N...> FieldSpan(std::string_view name) const {
+    if (auto it = fields_.find(name); it != fields_.end()) {
+      auto *type_erased_field = it->second.get();
+      return type_erased_field->Span<T, N...>();
+    } else
       throw FieldDoesNotExist{};
-    return field->GetAccess();
   }
+
+  // <T, N...> VaryingFieldAs<T, N...> GetFieldAs(name)
+  template <typename U, size_t... N>
+  VaryingFieldWrap<U, N...> FieldWrap(std::string_view name) const {
+    if (auto it = fields_.find(name); it != fields_.end()) {
+      auto *type_erased_field = it->second.get();
+      return type_erased_field->Wrap<U, N...>();
+    } else
+      throw FieldDoesNotExist{};
+  }
+
+  // template <typename T, size_t... N>
+  // ColT<T, N...> const *TryGetFieldImpl(std::string_view name) const {
+  //  if (auto *field = TryGetField(name))
+  //    if (field->GetType() == GetTensorTypeCRef<T, N...>())
+  //      return static_cast<ColT<T, N...> const *>(field);
+  //    else
+  //      return nullptr;
+  //  else
+  //    return nullptr;
+  //}
+
+  // CollectionOfMutableTensors const *TryGetField(std::string_view name) const
+  // {
+  //  if (auto it = fields_.find(name); it != fields_.end())
+  //    return it->second.get();
+  //  else
+  //    return nullptr;
+  //}
+
+  // AccessToMutableTensors const &AccessField(std::string_view name) const {
+  //  auto *field = TryGetField(name);
+  //  if (field == nullptr)
+  //    throw FieldDoesNotExist{};
+  //  return field->GetAccess();
+  //}
 
   void RemoveField(std::string_view name) {
     if (auto it = fields_.find(name); it != fields_.end())
@@ -107,7 +134,8 @@ public:
       assert(GetItemCount() == field->GetSize());
       work_perm.clear();
       boost::copy(input_perm, std::back_inserter(work_perm));
-      field->Permute(work_perm);
+      field->ConsumePermutation(work_perm);
+      // field->Permute(work_perm);
     }
 
     // set the dirty flag if particles were reordered
@@ -165,7 +193,8 @@ public:
     return boost::make_iterator_range(fields_) |
            boost::adaptors::transformed([](auto const &entry) {
              return std::pair<
-                 std::string const &, CollectionOfMutableTensors const &>{
+                 // std::string const &, CollectionOfMutableTensors const &>{
+                 std::string const &, VaryingField const &>{
                  entry.first, *entry.second.get()};
            });
   }
@@ -182,8 +211,9 @@ private:
   size_t size_ = 0;
   bool dirty_ = false;
 
-  cxx::het_flat_map<std::string, std::unique_ptr<CollectionOfMutableTensors>>
-      fields_ = {};
+  // cxx::het_flat_map<std::string, std::unique_ptr<CollectionOfMutableTensors>>
+  //    fields_ = {};
+  cxx::het_flat_map<std::string, std::unique_ptr<VaryingField>> fields_;
 };
 
 } // namespace prtcl

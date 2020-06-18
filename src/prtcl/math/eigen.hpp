@@ -373,6 +373,23 @@ std::string ToString(T const &t) {
   }
 }
 
+template <
+    typename ComponentType, typename Scalar,
+    typename = std::enable_if_t<IsScalar<Scalar>()>>
+auto ComponentCast(Scalar const &value) {
+  return static_cast<ComponentType>(value);
+}
+
+template <typename ComponentType, typename Derived>
+auto ComponentCast(Eigen::ArrayBase<Derived> const &value) {
+  return value.template cast<ComponentType>();
+}
+
+template <typename ComponentType, typename Derived>
+auto ComponentCast(Eigen::MatrixBase<Derived> const &value) {
+  return value.template cast<ComponentType>();
+}
+
 /*
 template <typename T, size_t... N>
 class sot_span {

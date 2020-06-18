@@ -18,7 +18,8 @@ template <typename T, size_t N>
 class NeighborhoodImpl {
   struct group_data_type {
     bool has_position;
-    AccessToVectorOfTensors<T, N> position;
+    // AccessToVectorOfTensors<T, N> position;
+    VaryingFieldSpan<T, N> position;
     boost::container::flat_set<std::string> tags;
 
     bool has_tag(std::string const &tag) const { return tags.contains(tag); }
@@ -29,7 +30,8 @@ class NeighborhoodImpl {
 
     friend decltype(auto)
     get_element_ref(group_data_type const &group_data, size_t item_index) {
-      return group_data.position.GetItem(item_index);
+      // return group_data.position.GetItem(item_index);
+      return group_data.position[item_index];
     }
 
     friend bool can_be_neighbor(group_data_type const &group_data) {
@@ -72,13 +74,21 @@ public:
       auto const group_index = static_cast<size_t>(group.GetGroupIndex());
       auto &group_data = _data.groups[group_index];
 
-      if (auto *field = group.GetVarying().TryGetFieldImpl<T, N>("position")) {
-        group_data.position = field->GetAccessImpl();
+      try {
+        group_data.position = group.GetVarying().FieldSpan<T, N>("position");
         group_data.has_position = true;
-      } else {
+      } catch (...) {
         group_data.position = {};
         group_data.has_position = false;
       }
+      // if (auto *field = group.GetVarying().TryGetFieldImpl<T, N>("position"))
+      // {
+      //  group_data.position = field->GetAccessImpl();
+      //  group_data.has_position = true;
+      //} else {
+      //  group_data.position = {};
+      //  group_data.has_position = false;
+      //}
 
       group_data.tags.clear();
       group_data.tags.insert(

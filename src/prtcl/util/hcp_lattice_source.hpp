@@ -122,10 +122,14 @@ public:
 
     // fetch target group fields
     auto &u_rho0 = group_->GetUniform().AccessField("rest_density");
-    auto &x = group_->GetVarying().AccessField("position");
-    auto &v = group_->GetVarying().AccessField("velocity");
-    auto &m = group_->GetVarying().AccessField("mass");
-    auto &t_b = group_->GetVarying().AccessField("time_of_birth");
+    // auto &x = group_->GetVarying().AccessField("position");
+    // auto &v = group_->GetVarying().AccessField("velocity");
+    // auto &m = group_->GetVarying().AccessField("mass");
+    // auto &t_b = group_->GetVarying().AccessField("time_of_birth");
+    auto x = group_->GetVarying().FieldWrap<double, 3>("position");
+    auto v = group_->GetVarying().FieldWrap<double, 3>("velocity");
+    auto m = group_->GetVarying().FieldWrap<double>("mass");
+    auto t_b = group_->GetVarying().FieldWrap<double>("time_of_birth");
 
     double rho0;
     u_rho0.ItemInto(0, rho0);
@@ -134,10 +138,14 @@ public:
     for (size_t i = 0; i < position_.size(); ++i) {
       using difference_type = typename decltype(indices)::difference_type;
       auto const j = indices[static_cast<difference_type>(i)];
-      x.ItemFrom(j, position_[i]);
-      v.ItemFrom(j, velocity_);
-      m.ItemFrom(j, constpow(h, 3) * rho0);
-      t_b.ItemFrom(j, scheduler.GetClock().now().time_since_epoch().count());
+      // x.ItemFrom(j, position_[i]);
+      // v.ItemFrom(j, velocity_);
+      // m.ItemFrom(j, constpow(h, 3) * rho0);
+      // t_b.ItemFrom(j, scheduler.GetClock().now().time_since_epoch().count());
+      x[j] = position_[i];
+      v[j] = velocity_;
+      m[j] = constpow(h, 3) * rho0;
+      t_b[j] = scheduler.GetClock().now().time_since_epoch().count();
     }
 
     // adjust the remaining particle count

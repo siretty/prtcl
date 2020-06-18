@@ -3,6 +3,7 @@
 
 #include "../cxx/set.hpp"
 #include "../errors/field_of_different_kind_already_exists_error.hpp"
+#include "../log.hpp"
 #include "collection_of_mutable_tensors.hpp"
 #include "uniform_manager.hpp"
 #include "varying_manager.hpp"
@@ -85,14 +86,20 @@ public:
   VaryingManager const &GetVarying() const { return varying_; }
 
   template <typename T, size_t... N>
-  auto const &AddVaryingFieldImpl(std::string_view name) {
+  // auto const &AddVaryingFieldImpl(std::string_view name) {
+  VaryingFieldSpan<T, N...> AddVaryingFieldImpl(std::string_view name) {
     if (not uniform_.HasField(name))
       return varying_.AddFieldImpl<T, N...>(std::string{name});
     else
       throw FieldOfDifferentKindAlreadyExistsError{};
   }
 
-  auto const &AddVaryingField(std::string_view name, TensorType type) {
+  // auto const &AddVaryingField(std::string_view name, TensorType type) {
+  void AddVaryingField(std::string_view name, TensorType type) {
+    log::Debug(
+        "lib", "Group::AddVaryingField",
+        "ttype.rank=", type.GetShape().GetRank(),
+        " ctype=", type.GetComponentType().ToStringView());
     if (not uniform_.HasField(name))
       return varying_.AddField(name, type);
     else

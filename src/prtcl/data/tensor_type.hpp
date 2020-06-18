@@ -2,6 +2,7 @@
 #define PRTCL_SRC_PRTCL_DATA_TENSOR_TYPE_HPP
 
 #include "../errors/not_implemented_error.hpp"
+#include "../log.hpp"
 #include "component_type.hpp"
 #include "shape.hpp"
 
@@ -92,9 +93,11 @@ TensorType const &MakeTensorType() {
 #define PRTCL_DISPATCH_TTYPE_IMPL_SHAPE(FUNCT_, ...)                           \
   switch (shape.GetRank()) {                                                   \
   case 0:                                                                      \
+    log::Debug("lib", "PRTCL_DISPATCH_TENSOR_TYPE", "matched rank=0");         \
     FUNCT_<T>(__VA_ARGS__);                                                    \
     break;                                                                     \
   case 1:                                                                      \
+    log::Debug("lib", "PRTCL_DISPATCH_TENSOR_TYPE", "matched rank=1");         \
     switch (shape[0]) {                                                        \
       PRTCL_DISPATCH_TTYPE_IMPL_SHAPE1_CASE(1, FUNCT_, __VA_ARGS__)            \
       PRTCL_DISPATCH_TTYPE_IMPL_SHAPE1_CASE(2, FUNCT_, __VA_ARGS__)            \
@@ -102,7 +105,9 @@ TensorType const &MakeTensorType() {
     default:                                                                   \
       throw NotImplementedError{};                                             \
     }                                                                          \
+    break;                                                                     \
   case 2:                                                                      \
+    log::Debug("lib", "PRTCL_DISPATCH_TENSOR_TYPE", "matched rank=2");         \
     if (false) {                                                               \
       /* dummy, just to get else if's for the cases */                         \
     }                                                                          \
@@ -118,6 +123,7 @@ TensorType const &MakeTensorType() {
     else {                                                                     \
       throw NotImplementedError{};                                             \
     }                                                                          \
+    break;                                                                     \
   default:                                                                     \
     throw NotImplementedError{};                                               \
   }
@@ -132,6 +138,9 @@ TensorType const &MakeTensorType() {
   {                                                                            \
     auto const ctype = (TTYPE_).GetComponentType();                            \
     auto const shape = (TTYPE_).GetShape();                                    \
+    log::Debug(                                                                \
+        "lib", "PRTCL_DISPATCH_TENSOR_TYPE", "ttype.rank=", shape.GetRank(),   \
+        " ctype=", ctype.ToStringView());                                      \
     if (ctype == ComponentType::kInvalid) {                                    \
       throw NotImplementedError{};                                             \
     }                                                                          \

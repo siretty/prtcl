@@ -23,12 +23,18 @@ for _, tag in ipairs(a.tags) do print(tag) end
 if a:has_tag("second_tag") then print("yup, second_tag is here") end
 
 a:add_varying_field("position", ttype.new("f32", { 3 }))
+print("position added")
+
 a:add_uniform_field("u", the_ttype)
+print("u added")
+
 a:resize(23)
+print("resized")
 
 local b = model:add_group("b", "type")
 print("group count: " .. model.group_count)
 
+--[[
 print(a.group_name, a.group_type, a.group_index, a.uniform.field_count, a.varying.field_count, a.item_count)
 local x = a.varying:get_field("position"):get_access()
 x:set_component(1, { 1 }, 123)
@@ -42,6 +48,7 @@ print("x", x.type, x.size, x:get_component(1, { 2 }))
 print(type(item), #item)
 
 print(b.group_name, b.group_type, b.group_index, b.uniform.field_count, b.varying.field_count, b.item_count)
+--]]
 
 
 print("saving")

@@ -211,7 +211,7 @@ static auto ModuleData(sol::state_view lua) {
         m.new_usertype<VaryingManager>("varying_manager", sol::no_constructor);
     t["field_count"] = sol::property(&VaryingManager::GetFieldCount);
     t["item_count"] = sol::property(&VaryingManager::GetItemCount);
-    t["get_field"] = &VaryingManager::TryGetField;
+    //t["get_field"] = &VaryingManager::TryGetField;
     t["has_field"] = &VaryingManager::HasField;
     t["field_names"] = &VaryingManager::GetFieldNames;
   }
