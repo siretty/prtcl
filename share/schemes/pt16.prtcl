@@ -18,6 +18,7 @@ scheme pt16 {
 
     varying field pt16_one = real pt16_normalizer;
     varying field pt16_rho = real pt16_density;
+    varying field pt16_same_rho = real pt16_same_density;
 
     varying field omega = real[] vorticity;
 
@@ -54,8 +55,14 @@ scheme pt16 {
   procedure setup {
     // smoothed density field (from SPlisHSPlasH / Viscosity / Peer16)
     foreach fluid particle f {
+      compute pt16_same_rho.f = 0;
+
+      foreach _ neighbor f_f {
+        compute pt16_same_rho.f += m.f_f * kernel_h(x.f - x.f_f, h);
+      }
+
       compute pt16_rho.f = 0;
-      
+
       foreach fluid neighbor f_f {
         compute pt16_rho.f += (m.f_f / rho.f_f) * kernel_h(x.f - x.f_f, h);
       }
@@ -74,13 +81,15 @@ scheme pt16 {
       // accumulate the velocity gradient only from particles of the same group
       foreach _ neighbor f_f {
         compute vg_f +=
-          (m.f_f / rho.f)
+          m.f_f
         *
           outer_product(
             v.f_f - v.f,
             kernel_gradient_h(x.f - x.f_f, h)
           );
       }
+
+      compute vg_f /= pt16_same_rho.f;
 
       // decompose the velocity gradient into spin, expansion and shear rate
       local divergence_f : real = trace(vg_f);
@@ -93,7 +102,7 @@ scheme pt16 {
 
       // partially compose the target velocity gradient (without spin rate)
       compute tvg.f =
-          V_f * unit_step_r(0, rho.f - rho0.f, divergence_f)
+          V_f * unit_step_r(0, rho.f - rho0.f, -divergence_f)
         +
           xi.f * S_f;
     }
@@ -127,26 +136,14 @@ scheme pt16 {
         }
 
         product preconditioner with iterate into result {
-          local rho_f : real = 0;
-        
-          foreach _ neighbor f_f {
-            compute rho_f += m.f_f * kernel_h(x.f - x.f_f, h);
-          }
-      
           compute result.f =
               iterate.f
             /
-              (rho_f - m.f * kernel_h(zeros<real[]>(), h));
+              (pt16_same_rho.f - m.f * kernel_h(zeros<real[]>(), h));
         }
 
         product system with iterate into result {
-          local rho_f : real = 0;
-          
-          foreach _ neighbor f_f {
-            compute rho_f += m.f_f * kernel_h(x.f - x.f_f, h);
-          }
-          
-          compute result.f = rho_f * iterate.f;
+          compute result.f = pt16_same_rho.f * iterate.f;
           
           foreach _ neighbor f_f {
             compute result.f -= m.f_f * kernel_h(x.f - x.f_f, h) * iterate.f_f;
@@ -195,11 +192,11 @@ scheme pt16 {
           compute result.f =
               iterate.f
             /
-              (pt16_rho.f - m.f * kernel_h(zeros<real[]>(), h));
+              (pt16_same_rho.f - m.f * kernel_h(zeros<real[]>(), h));
         }
 
         product system with iterate into result {
-          compute result.f = pt16_rho.f * iterate.f;
+          compute result.f = pt16_same_rho.f * iterate.f;
 
           foreach _ neighbor f_f {
             compute result.f -= m.f_f * kernel_h(x.f - x.f_f, h) * iterate.f_f;
@@ -210,12 +207,12 @@ scheme pt16 {
           // implement fade-in of particles by applying the resulting iterate
           // after the fade was completed and the previous velocity if the
           // particle is still fading in
-          //compute v.f[dim] =
-          //    iterate.f * unit_step_l(0, (t - t_birth.f) - dt_fade)
-          //  +
-          //    v.f[dim] * unit_step_r(0, dt_fade - (t - t_birth.f));
+          compute v.f[dim] =
+              iterate.f * unit_step_l(0, (t - t_birth.f) - dt_fade)
+            +
+              v.f[dim] * unit_step_r(0, dt_fade - (t - t_birth.f));
 
-          compute v.f[dim] = iterate.f;
+          //compute v.f[dim] = iterate.f;
           
           //compute v.f = iterate.f * unit_step_l(0, (t - t_birth.f) - dt_fade);
 

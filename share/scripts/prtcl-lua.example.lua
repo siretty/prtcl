@@ -4,6 +4,10 @@ local rvec, rmat = prtcl.math.rvec, prtcl.math.rmat
 
 
 local unitcube = prtcl.geometry.triangle_mesh.from_obj_file('share/models/unitcube.obj')
+local fluidsphere = prtcl.geometry.triangle_mesh.from_obj_file('share/models/unitsphere.obj')
+
+fluidsphere:scale(rvec.new { .25, .25, .25 })
+fluidsphere:translate(rvec.new { .5, .25, .5 })
 
 
 for _, scheme in ipairs(prtcl.schemes.get_scheme_names()) do
@@ -16,17 +20,22 @@ local function make_scheme(name)
 end
 
 local schemes = {
+  -- boundary handling
   boundary = make_scheme('aiast12'),
+
+  -- fluid handling
   density = make_scheme('density'),
   gravity = make_scheme('gravity'),
   iisph = make_scheme('iisph'),
   surface_tension = make_scheme('aat13'),
   advect = make_scheme('symplectic_euler'),
 
+  -- various viscosity implementations
   --viscosity = make_scheme('viscosity'),
-  implicit_viscosity = make_scheme('wkbb18'),
-  --implicit_viscosity = make_scheme('pt16'),
+  --implicit_viscosity = make_scheme('wkbb18'),
+  implicit_viscosity = make_scheme('pt16'),
 
+  -- rendering via particles
   horas = make_scheme('horas'),
 }
 
@@ -79,8 +88,9 @@ end
 
 -- for standard and wkbb18 viscosity
 if f.uniform:has_field("dynamic_viscosity") then
-  f.uniform:get_field("dynamic_viscosity"):set(1000)
+  --f.uniform:get_field("dynamic_viscosity"):set(1000)
   --f.uniform:get_field("dynamic_viscosity"):set(10)
+  f.uniform:get_field("dynamic_viscosity"):set(0)
 end
 
 -- for standard and wkbb18 viscosity
@@ -109,7 +119,8 @@ end
 
 -- for standard and wkbb18 viscosity
 if b.uniform:has_field("dynamic_viscosity") then
-  b.uniform:get_field("dynamic_viscosity"):set(100)
+  --b.uniform:get_field("dynamic_viscosity"):set(100)
+  b.uniform:get_field("dynamic_viscosity"):set(10)
 end
 
 
@@ -148,16 +159,17 @@ schedule:schedule_at(0, function(s, delay)
   print('FRAME #' .. current_frame .. ' (DELAYED ' .. tostring(delay) .. ')')
   save_frame(current_frame)
 
-  schemes.horas:run_procedure("reset", nhood)
-  for step = 1, 100 do
-    schemes.horas:run_procedure("step", nhood)
-  end
-  horasons:save_vtk('output/c.' .. current_frame .. '.vtk')
+  --schemes.horas:run_procedure("reset", nhood)
+  --for step = 1, 100 do
+  --  schemes.horas:run_procedure("step", nhood)
+  --end
+  --horasons:save_vtk('output/c.' .. (current_frame - 1) .. '.vtk')
 
   return s:reschedule_at(current_frame * seconds_per_frame)
 end)
 
 
+--[[
 local radius = 3 * model.global:get_field("smoothing_scale"):get()
 local center = rvec.new { 0.1, 0.1, 0.1 }
 local velocity = 3 * rvec.ones(3)
@@ -165,7 +177,19 @@ local source = prtcl.util.hcp_lattice_source.new(model, f, radius, center, veloc
 print("spawn interval: ", source.regular_spawn_interval)
 
 schedule:schedule_after(seconds_per_frame, source)
+--]]
 
+local function setup_fluid()
+  fluidsphere:sample_volume(f)
+  local h = model.global:get_field('smoothing_scale'):get()
+  local rho0 =f.uniform:get_field('rest_density'):get()
+  local m = f.varying:get_field('mass')
+  for i = 0, f.item_count - 1 do
+    m:set(i, h * h * h * rho0)
+  end
+end
+
+setup_fluid()
 
 for _, field_name in ipairs(model.global:field_names()) do
   local field = model.global:get_field(field_name)
@@ -218,7 +242,7 @@ while schedule.clock.seconds <= 2 do
   schemes.surface_tension:run_procedure('compute_particle_normal', nhood)
   schemes.surface_tension:run_procedure('accumulate_acceleration', nhood)
 
-  if not cfg.pt16.used and not cfg.wkbb18.used then
+  if schemes.viscosity ~= nil then
     schemes.viscosity:run_procedure('accumulate_acceleration', nhood)
   end
 
@@ -231,7 +255,7 @@ while schedule.clock.seconds <= 2 do
 
   if nprde:get() >= 1 then
     local relative_aprde, max_pressure_iteration = 0, 0
-    for pressure_iteration = 1, 20 do
+    for pressure_iteration = 1, 50 do
       max_pressure_iteration = pressure_iteration
 
       aprde:set(0)

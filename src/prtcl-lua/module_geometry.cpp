@@ -27,6 +27,15 @@ sol::table ModuleGeometry(sol::state_view lua) {
       return TriangleMesh::load_from_obj(file);
     });
 
+    t.set_function("scale", [](TriangleMesh &mesh, RealVector const &factors) {
+      mesh.Scale(RVec3{factors});
+    });
+
+    t.set_function(
+        "translate", [](TriangleMesh &mesh, RealVector const &shift) {
+          mesh.Translate(RVec3{shift});
+        });
+
     t.set_function(
         "sample_surface", [](TriangleMesh const &mesh, Group &group) {
           Model const &model = group.GetModel();
