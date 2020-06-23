@@ -112,6 +112,33 @@ sol::table ModuleData(sol::state_view lua) {
       std::fstream file{path, file.out};
       SaveVTK(file, self);
     };
+
+    t.set_function("translate", [](Group const &self, RealVector const &delta) {
+      if (auto x = self.GetVarying().FieldWrap<double, 3>("position")) {
+        for (size_t i = 0; i < x.size(); ++i) {
+          x.Set(i, x.Get(i) + delta);
+        }
+      }
+    });
+
+    t.set_function("scale", [](Group const &self, RealVector const &factors) {
+      if (auto x = self.GetVarying().FieldWrap<double, 3>("position")) {
+        for (size_t i = 0; i < x.size(); ++i) {
+          x.Set(i, math::cmul(factors, x.Get(i)));
+        }
+      }
+    });
+
+    t.set_function(
+        "rotate",
+        [](Group const &self, RealScalar angle, RealVector const &axis) {
+          auto R = math::RotationMatrixFromAngleAxis(angle, axis);
+          if (auto x = self.GetVarying().FieldWrap<double, 3>("position")) {
+            for (size_t i = 0; i < x.size(); ++i) {
+              x.Set(i, R * x.Get(i));
+            }
+          }
+        });
   }
 
   {

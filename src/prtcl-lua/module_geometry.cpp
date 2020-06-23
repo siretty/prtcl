@@ -37,6 +37,10 @@ sol::table ModuleGeometry(sol::state_view lua) {
         });
 
     t.set_function(
+        "rotate", [](TriangleMesh &mesh, RealScalar angle,
+                     RealVector const &axis) { mesh.Rotate(angle, RVec3{axis}); });
+
+    t.set_function(
         "sample_surface", [](TriangleMesh const &mesh, Group &group) {
           Model const &model = group.GetModel();
           std::vector<RVec3> samples;

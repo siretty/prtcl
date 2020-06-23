@@ -386,11 +386,6 @@ void iteration_pressure_acceleration(Neighborhood const &nhood) {
           // find all neighbors of (p, i)
           nhood.CopyNeighbors(p.index, i, neighbors);
 
-          //log::Debug(
-          //    "iisph", "iisph", "g=", p.index, " i=", i,
-          //    " #n=", neighbors.size(), " #n0=", neighbors[0].size(),
-          //    " #n1=", neighbors[1].size());
-
           // compute
           p.v_a[i] = o::template zeros<real, N>();
 

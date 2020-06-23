@@ -4,10 +4,22 @@ local rvec, rmat = prtcl.math.rvec, prtcl.math.rmat
 
 
 local unitcube = prtcl.geometry.triangle_mesh.from_obj_file('share/models/unitcube.obj')
-local fluidsphere = prtcl.geometry.triangle_mesh.from_obj_file('share/models/unitsphere.obj')
 
+local floor = prtcl.geometry.triangle_mesh.from_obj_file('share/models/unitslab.obj')
+floor:scale(rvec.new { 3, 0, 3 })
+
+local fluidsphere = prtcl.geometry.triangle_mesh.from_obj_file('share/models/unitsphere.obj')
 fluidsphere:scale(rvec.new { .25, .25, .25 })
 fluidsphere:translate(rvec.new { .5, .25, .5 })
+
+local fluidcube = prtcl.geometry.triangle_mesh.from_obj_file('share/models/unitcube.obj')
+--fluidcube:rotate(1.0, rvec.new{1, 0, 0})
+fluidcube:scale(rvec.new { .4, .4, .4 })
+--fluidcube:translate(rvec.new { .3, .4, .3 })
+
+local fluidcolumn = prtcl.geometry.triangle_mesh.from_obj_file('share/models/unitcube.obj')
+fluidcolumn:scale(rvec.new { 0.2, 2, 0.05 })
+fluidcolumn:translate(rvec.new { 0, 0.025, 0 })
 
 
 for _, scheme in ipairs(prtcl.schemes.get_scheme_names()) do
@@ -27,7 +39,7 @@ local schemes = {
   density = make_scheme('density'),
   gravity = make_scheme('gravity'),
   iisph = make_scheme('iisph'),
-  surface_tension = make_scheme('aat13'),
+  --surface_tension = make_scheme('aat13'),
   advect = make_scheme('symplectic_euler'),
 
   -- various viscosity implementations
@@ -74,11 +86,14 @@ model.global:get_field("time_step"):set(0.002)
 model.global:get_field("gravity"):set(rvec.new { 0, -9.81, 0 })
 model.global:get_field("fade_duration"):set(2 * seconds_per_frame)
 
-f.uniform:get_field("surface_tension"):set(1)
-f.uniform:get_field("rest_density"):set(1000)
-
 if model.global:has_field("iisph_relaxation") then
   model.global:get_field("iisph_relaxation"):set(0.5)
+end
+
+f.uniform:get_field("rest_density"):set(1000)
+
+if f.uniform:has_field("surface_tension") then
+  f.uniform:get_field("surface_tension"):set(1)
 end
 
 -- for sesph
@@ -104,11 +119,11 @@ end
 cfg.pt16 = { used = false }
 if f.uniform:has_field("pt16_maximum_error") then
   cfg.pt16.used = true
-  cfg.pt16.vorticity_diffusion_maximum_error = 1
+  cfg.pt16.vorticity_diffusion_maximum_error = 0.08
   cfg.pt16.vorticity_diffusion_maximum_iterations = 500
-  cfg.pt16.velocity_reconstruction_maximum_error = 1
+  cfg.pt16.velocity_reconstruction_maximum_error = .01
   cfg.pt16.velocity_reconstruction_maximum_iterations = 500
-  f.uniform:get_field("strain_rate_viscosity"):set(1.0)
+  f.uniform:get_field("strain_rate_viscosity") --[[ :set(.1) ]]:set(.99)
 end
 
 
@@ -124,7 +139,8 @@ if b.uniform:has_field("dynamic_viscosity") then
 end
 
 
-unitcube:sample_surface(b)
+--unitcube:sample_surface(b)
+floor:sample_surface(b)
 
 local camera = prtcl.geometry.pinhole_camera.new()
 camera.sensor_width, camera.sensor_height = 160, 120
@@ -180,9 +196,18 @@ schedule:schedule_after(seconds_per_frame, source)
 --]]
 
 local function setup_fluid()
-  fluidsphere:sample_volume(f)
+  --[[
+  fluidcube:sample_volume(f)
+  f:rotate(2 * math.pi / 6, rvec.new { 1, 0, 0 })
+  f:translate(rvec.new { .3, .4, .3 })
+  --]]
+
+  fluidcolumn:sample_volume(f)
+  f:scale(rvec.new { 0.9, 0.9, 0.9 })
+  f:rotate(2 * math.pi * 2 / 360, rvec.new { 1, 0, 0 })
+
   local h = model.global:get_field('smoothing_scale'):get()
-  local rho0 =f.uniform:get_field('rest_density'):get()
+  local rho0 = f.uniform:get_field('rest_density'):get()
   local m = f.varying:get_field('mass')
   for i = 0, f.item_count - 1 do
     m:set(i, h * h * h * rho0)
@@ -190,6 +215,7 @@ local function setup_fluid()
 end
 
 setup_fluid()
+
 
 for _, field_name in ipairs(model.global:field_names()) do
   local field = model.global:get_field(field_name)
@@ -239,8 +265,11 @@ while schedule.clock.seconds <= 2 do
   schemes.density:run_procedure('compute_density', nhood)
 
   schemes.gravity:run_procedure('initialize_acceleration', nhood)
-  schemes.surface_tension:run_procedure('compute_particle_normal', nhood)
-  schemes.surface_tension:run_procedure('accumulate_acceleration', nhood)
+
+  if schemes.surface_tension ~= nil then
+    schemes.surface_tension:run_procedure('compute_particle_normal', nhood)
+    schemes.surface_tension:run_procedure('accumulate_acceleration', nhood)
+  end
 
   if schemes.viscosity ~= nil then
     schemes.viscosity:run_procedure('accumulate_acceleration', nhood)

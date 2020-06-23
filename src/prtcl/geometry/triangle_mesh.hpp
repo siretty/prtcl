@@ -47,6 +47,13 @@ public:
     return *this;
   }
 
+  auto &Rotate(Real angle, RVec3 axis) {
+    auto R = math::RotationMatrixFromAngleAxis(angle, math::normalized(axis));
+    for (auto &v : vertices_)
+      v = R * v;
+    return *this;
+  }
+
 public:
   auto Vertices() const { return boost::make_iterator_range(vertices_); }
 

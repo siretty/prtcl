@@ -4,6 +4,7 @@
 #include "prtcl/cxx.hpp"
 
 #include <Eigen/Eigen>
+#include <Eigen/Geometry>
 
 #include <algorithm>
 #include <limits>
@@ -342,6 +343,13 @@ auto vector_from_cross_product_matrix(Arg const &arg) {
   using T = typename Arg::Scalar;
   // TODO: assert that arg is a 3x3 matrix
   return Tensor<T, 3>{arg(2, 1), arg(0, 2), arg(1, 0)};
+}
+
+template <typename Angle, typename Axis>
+auto RotationMatrixFromAngleAxis(Angle &&angle, Axis &&axis) {
+  return Eigen::AngleAxis<cxx::remove_cvref_t<Angle>>{
+      std::forward<Angle>(angle), std::forward<Axis>(axis)}
+      .toRotationMatrix();
 }
 
 // ============================================================================

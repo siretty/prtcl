@@ -262,7 +262,7 @@ public:
             for (auto const j : neighbors[n.index]) {
               // compute
               p.v_pt16_rho[i] +=
-                  ((n.v_m[j] / n.v_rho[j]) *
+                  ((n.v_m[j] / *n.u_rho0) *
                    o::kernel_h<kernel_type>((p.v_x[i] - n.v_x[j]), *g.g_h));
             }
           }
@@ -326,7 +326,7 @@ public:
         } // foreach @particle@ neighbor f_f
 
         // compute
-        l_vg_f /= p.v_pt16_same_rho[i];
+        l_vg_f /= p.v_rho[i];
 
         // local_def ...;
         Tensor<real> l_divergence_f = o::trace(l_vg_f);
@@ -352,7 +352,7 @@ public:
         p.v_tvg[i] =
             ((l_V_f * o::unit_step_r(
                           static_cast<T>(0), (p.v_rho[i] - *p.u_rho0),
-                          (-l_divergence_f))) +
+                          l_divergence_f)) +
              (*p.u_xi * l_S_f));
       }
     }
@@ -489,9 +489,13 @@ void solve_vorticity_diffusion(Neighborhood const &nhood) {
 
           // compute
           p.v_omega[i][i_dim] =
-              (p_with[i] * o::unit_step_l(
-                               static_cast<T>(0),
-                               ((*g.g_t - p.v_t_birth[i]) - *g.g_dt_fade)));
+              ((p_with[i] * o::unit_step_l(
+                                static_cast<T>(0),
+                                ((*g.g_t - p.v_t_birth[i]) - *g.g_dt_fade))) +
+               (p.v_omega[i][i_dim] *
+                o::unit_step_r(
+                    static_cast<T>(0),
+                    (*g.g_dt_fade - (*g.g_t - p.v_t_birth[i])))));
         };
 
         auto const iterations = solver.solve(
@@ -621,7 +625,7 @@ void solve_velocity_reconstruction(Neighborhood const &nhood) {
           nhood.CopyNeighbors(p.index, i, neighbors);
 
           // compute
-          p_into[i] = (p.v_pt16_same_rho[i] * p_with[i]);
+          p_into[i] = (p.v_pt16_rho[i] * p_with[i]);
 
           { // foreach @particle@ neighbor f_f
             auto &n = p;
