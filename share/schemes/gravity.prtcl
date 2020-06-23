@@ -1,7 +1,7 @@
 
 scheme gravity {
-  groups fluid {
-    select type fluid;
+  groups dynamic {
+    select tag dynamic;
 
     varying field a = real[] acceleration;
   }
@@ -11,13 +11,13 @@ scheme gravity {
   }
 
   procedure initialize_acceleration {
-    foreach fluid particle f {
+    foreach dynamic particle f {
       compute a.f = g;
     }
   }
 
   procedure accumulate_acceleration {
-    foreach fluid particle f {
+    foreach dynamic particle f {
       compute a.f += g;
     }
   }

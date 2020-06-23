@@ -5,7 +5,7 @@
 
 #if PRTCL_MATH_IMPL == PRTCL_MATH_IMPL_EIGEN
 
-#include "eigen.hpp"
+#include "prtcl/math/impl/eigen.hpp"
 
 #else
 #error "no math implementation selected"

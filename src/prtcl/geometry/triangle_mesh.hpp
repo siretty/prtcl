@@ -136,7 +136,8 @@ public:
         }
       }
 
-      // std::cerr << "ignoring invalid line in .obj file" << '\n';
+      // log::Debug("lib", "TriangleMesh", "ignoring invalid line in .obj
+      // file");
     }
 
     log::Debug(

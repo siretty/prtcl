@@ -1,7 +1,9 @@
 #include "entry_point.hpp"
 
 #include "module_data.hpp"
+#include "module_geometry.hpp"
 #include "module_math.hpp"
+#include "module_schemes.hpp"
 #include "module_util.hpp"
 
 #include <prtcl/log.hpp>
@@ -53,7 +55,9 @@ static auto ModuleEntryPoint(sol::state_view lua) {
   auto m = lua.create_table();
   m["log"] = ModuleLog(lua);
   m["data"] = ModuleData(lua);
+  m["geometry"] = ModuleGeometry(lua);
   m["math"] = ModuleMath(lua);
+  m["schemes"] = ModuleSchemes(lua);
   m["util"] = ModuleUtil(lua);
   return m;
 }

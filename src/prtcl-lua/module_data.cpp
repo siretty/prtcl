@@ -1,6 +1,5 @@
 #include "module_data.hpp"
 
-
 #include <prtcl/data/component_type.hpp>
 #include <prtcl/data/group.hpp>
 #include <prtcl/data/model.hpp>
@@ -159,6 +158,26 @@ sol::table ModuleData(sol::state_view lua) {
         default:
           throw NotImplementedError{};
         };
+      } else if (RepresentsInteger(ctype)) {
+        switch (ttype.GetShape().GetRank()) {
+        case 0: {
+          IntegerScalar result;
+          self.Get(result);
+          return result;
+        } break;
+        case 1: {
+          IntegerVector result;
+          self.Get(result);
+          return result;
+        } break;
+        case 2: {
+          IntegerMatrix result;
+          self.Get(result);
+          return result;
+        } break;
+        default:
+          throw NotImplementedError{};
+        };
       } else
         throw NotImplementedError{};
     });
@@ -171,6 +190,15 @@ sol::table ModuleData(sol::state_view lua) {
                      self.Set(value);
                    },
                    [](UniformField &self, RealMatrix const &value) {
+                     self.Set(value);
+                   },
+                   [](UniformField &self, IntegerScalar const &value) {
+                     self.Set(value);
+                   },
+                   [](UniformField &self, IntegerVector const &value) {
+                     self.Set(value);
+                   },
+                   [](UniformField &self, IntegerMatrix const &value) {
                      self.Set(value);
                    }));
   }

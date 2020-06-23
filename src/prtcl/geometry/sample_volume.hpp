@@ -4,6 +4,7 @@
 //#include <prtcl/core/remove_cvref.hpp>
 //#include <prtcl/rt/geometry/axis_aligned_box.hpp>
 #include "../cxx.hpp"
+#include "../log.hpp"
 #include "../util/integral_grid.hpp"
 #include "triangle_mesh.hpp"
 
@@ -23,7 +24,7 @@
 
 namespace prtcl {
 
-struct sample_volume_parameters {
+struct SampleVolumeParameters {
   double maximum_sample_distance;
 };
 
@@ -90,10 +91,9 @@ void sample_volume(
 //  }
 //}
 
-template <typename OutputIt_> //, typename Transform_ = core::identity_fn>
-void sample_volume(
-    TriangleMesh const &mesh, OutputIt_ it_, sample_volume_parameters const &p_
-    /*, Transform_ transform = {}*/) {
+template <typename OutputIt_>
+void SampleVolume(
+    TriangleMesh const &mesh, OutputIt_ it_, SampleVolumeParameters const &p_) {
   static constexpr size_t N = 3;
 
   using Real = double;
@@ -104,10 +104,8 @@ void sample_volume(
   RVec x_lo = math::positive_infinity<Real, N>(),
        x_hi = math::negative_infinity<Real, N>();
   for (auto const &x : mesh.Vertices()) {
-    for (int n = 0; n < static_cast<int>(N); ++n) {
-      x_lo[n] = std::min(x_lo[n], x[n]);
-      x_hi[n] = std::max(x_hi[n], x[n]);
-    }
+    x_lo = math::cmin(x_lo, x);
+    x_hi = math::cmax(x_hi, x);
   }
 
   // create a grid over the meshes aabb
@@ -120,9 +118,9 @@ void sample_volume(
     grid.extents[n] =
         static_cast<size_t>(std::round(delta[d] / p_.maximum_sample_distance));
     step[d] = delta[d] / static_cast<Real>(grid.extents[n]);
-    std::cerr << "DEBUG: EXTENT " << n << " " << delta[d] << " "
-              << p_.maximum_sample_distance << " " << grid.extents[n] << " "
-              << step[d] << std::endl;
+    log::Debug(
+        "lib", "SampleVolume", "extent=", n, " ", delta[d], " ",
+        p_.maximum_sample_distance, " ", grid.extents[n], " ", step[d]);
   }
 
   auto make_direction = []() {
@@ -138,8 +136,9 @@ void sample_volume(
     // }}}
   };
 
-  std::cerr << "DEBUG: eps " << std::sqrt(std::numeric_limits<Real>::epsilon())
-            << std::endl;
+  log::Debug(
+      "lib", "SampleVolume",
+      "eps=", std::sqrt(std::numeric_limits<Real>::epsilon()));
 
   auto intersect = [&mesh](
                        auto const &base_, auto const &dvec_,

@@ -17,8 +17,8 @@ std::ostream &operator<<(std::ostream &o, GroupIndex group_index) {
   }
 }
 
-Group::Group(std::string_view name, std::string_view type, GroupIndex index)
-    : name_{name}, type_{type}, index_{index} {
+Group::Group(Model &model, std::string_view name, std::string_view type, GroupIndex index)
+    : model_{&model}, name_{name}, type_{type}, index_{index} {
   LogDebug(this, "Group(\"", name, "\", \"", type, "\", ", index, ")");
   if (not IsValidIdentifier(name_))
     throw InvalidIdentifierError{};

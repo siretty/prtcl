@@ -1,0 +1,54 @@
+#!/usr/bin/env lua
+
+-- ..............
+
+-- adjust the package path such that the modules are found
+script_path = arg[0]:gsub('/[^/]*$', '/?.lua', 1)
+package.path = script_path .. ';' .. package.path
+
+function main(generate_module, source, output, scheme_name, ...)
+  local src_to_pst = require 'prtcl.src_to_pst'
+  local pst_to_ast = require 'prtcl.pst_to_ast'
+  local generate = require('prtcl.generate.' .. generate_module)
+
+  pst = src_to_pst(source)
+  if pst == nil then print('error in src_to_pst', file) end
+
+  ast = pst_to_ast(pst)
+  if ast == nil then print('error in pst_to_ast', file) end
+
+  generate.generate(ast, output, {...}, scheme_name)
+end
+
+-- unpack the cli arguments
+generate_module = arg[1]
+input_file = arg[2] or '-'
+output_file = arg[3] or '-'
+scheme_name = arg[4]
+namespaces = { unpack(arg, 5) }
+
+assert(generate_module ~= nil)
+
+local source = nil
+if input_file == '-' then
+  -- read from stdin
+  source = io.stdin:read('*a')
+else
+  -- read from the file
+  local f = io.open(input_file, 'r')
+  source = f:read('*a')
+  f:close()
+end
+
+local output = nil
+if output_file == '-' then
+  -- output to stdout
+  output = require("prtcl.printer.file"):new()
+else
+  -- output to the file
+  local f = io.open(output_file, 'w')
+  output = require("prtcl.printer.file"):new { file = f }
+end
+
+main(generate_module, source, output, scheme_name, unpack(namespaces))
+

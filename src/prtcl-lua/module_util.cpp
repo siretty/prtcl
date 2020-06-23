@@ -17,6 +17,9 @@ sol::table ModuleUtil(sol::state_view lua) {
     t["now"] = [](VirtualClock const &self) {
       return self.now().time_since_epoch().count();
     };
+    t["seconds"] = sol::property([](VirtualClock const &self) {
+      return self.now().time_since_epoch().count();
+    });
 
     t["reset"] = &VirtualClock::reset;
 
@@ -30,17 +33,26 @@ sol::table ModuleUtil(sol::state_view lua) {
   }
 
   {
+    using VirtualDuration = typename VirtualScheduler::Duration;
+
     auto t = m.new_usertype<VirtualScheduler>(
         "virtual_scheduler", sol::constructors<VirtualScheduler()>());
     t["get_clock"] = &VirtualScheduler::GetClockPtr;
+    t["clock"] = sol::property(&VirtualScheduler::GetClockPtr);
 
     t["tick"] = &VirtualScheduler::Tick;
     t["clear"] = &VirtualScheduler::Clear;
 
-    t["do_nothing"] = &VirtualScheduler::DoNothing;
-    t["reschedule_after"] = [](VirtualScheduler const &self, double after) {
-      return self.RescheduleAfter(after);
-    };
+    // reschedule functions
+    t.set_function("do_nothing", &VirtualScheduler::DoNothing);
+    t.set_function(
+        "reschedule_after", [](VirtualScheduler const &self, double after) {
+          return self.RescheduleAfter(after);
+        });
+    t.set_function(
+        "reschedule_at", [](VirtualScheduler const &self, double when) {
+          return self.RescheduleAt(VirtualDuration{when});
+        });
 
     t.set_function(
         "schedule_at",

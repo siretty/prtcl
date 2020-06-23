@@ -68,6 +68,10 @@ constexpr bool RepresentsReal(ComponentType const &ctype) {
   return ctype == ComponentType::kFloat32 or ctype == ComponentType::kFloat64;
 }
 
+constexpr bool RepresentsInteger(ComponentType const &ctype) {
+  return ctype == ComponentType::kSInt32 or ctype == ComponentType::kSInt64;
+}
+
 template <typename T>
 ComponentType MakeComponentType() {
   if constexpr (std::is_integral_v<T>) {
@@ -101,9 +105,11 @@ constexpr auto kTypeMapping = boost::hana::make_pair(
     boost::hana::type_c<T>, boost::hana::make_tuple(boost::hana::type_c<U>...));
 
 constexpr auto kComponentConvertibleFrom = boost::hana::make_map(
-    kTypeMapping<bool, bool>, kTypeMapping<int32_t, int32_t, int64_t>,
-    kTypeMapping<int64_t, int64_t, int32_t>, kTypeMapping<float, float, double>,
-    kTypeMapping<double, double, float>);
+    kTypeMapping<bool, bool>,
+    kTypeMapping<int32_t, int32_t, int64_t, float, double>,
+    kTypeMapping<int64_t, int64_t, int32_t, float, double>,
+    kTypeMapping<float, float, double, int32_t, int64_t>,
+    kTypeMapping<double, double, float, int32_t, int64_t>);
 
 } // namespace detail
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../cxx.hpp"
+#include "../log.hpp"
 #include "../math.hpp"
 #include "triangle_mesh.hpp"
 
@@ -16,17 +17,17 @@
 
 namespace prtcl {
 
-struct sample_surface_parameters {
+struct SampleSurfaceParameters {
   double maximum_sample_distance;
   bool sample_vertices = true;
   bool sample_edges = true;
   bool sample_faces = true;
 };
 
-template <typename ModelPolicy_, typename OutputIt_>
-void sample_surface(
+template <typename OutputIt_>
+void SampleSurface(
     TriangleMesh const &mesh, OutputIt_ it_,
-    sample_surface_parameters const &p_) {
+    SampleSurfaceParameters const &p_) {
   using Real = double;
 
   using RVec = TensorT<Real, 3>;
@@ -84,7 +85,8 @@ void sample_surface(
     } else if (a2 >= a0 and a2 >= a1) {
       return std::make_tuple(true, v2, v0, v1);
     } else {
-      std::cerr << "WARNING: encountered face with invalid angles" << '\n';
+      log::Warning(
+          "lib", "SampleSurface", "encountered face with invalid angles");
       return std::make_tuple(false, v0, v1, v2);
     }
     // }}}
@@ -128,17 +130,17 @@ void sample_surface(
   }
 
   if (p_.sample_vertices) {
-    std::cerr << "sampling vertices ..." << '\n';
+    log::Debug("lib", "SampleSurface", "sampling vertices ...");
 
     // one sample per vertex
     for (RVec const &v : mesh.Vertices())
       *(it_++) = v;
 
-    std::cerr << "... done" << '\n';
+    log::Debug("lib", "SampleSurface", "sampling vertices ... done");
   }
 
   if (p_.sample_edges) {
-    std::cerr << "sampling edges ..." << '\n';
+    log::Debug("lib", "SampleSurface", "sampling edges ...");
 
     // multiple samples per edge
     for (auto const &e : edges) {
@@ -150,11 +152,11 @@ void sample_surface(
         *(it_++) = t;
     }
 
-    std::cerr << "... done" << '\n';
+    log::Debug("lib", "SampleSurface", "sampling edges ... done");
   }
 
   if (p_.sample_faces) {
-    std::cerr << "sampling faces ..." << '\n';
+    log::Debug("lib", "SampleSurface", "sampling faces ...");
 
     // multiple samples per face
     for (auto const &f : mesh.Faces()) {
@@ -196,7 +198,7 @@ void sample_surface(
       }
     }
 
-    std::cerr << "... done" << '\n';
+    log::Debug("lib", "SampleSurface", "sampling faces ... done");
   }
 }
 

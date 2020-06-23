@@ -1,7 +1,7 @@
 #ifndef PRTCL_MATH_EIGEN_HPP
 #define PRTCL_MATH_EIGEN_HPP
 
-#include "../cxx.hpp"
+#include "prtcl/cxx.hpp"
 
 #include <Eigen/Eigen>
 
@@ -101,7 +101,7 @@ constexpr bool kIsScalar =
 
 template <typename T, typename... U>
 constexpr bool IsScalar() {
-  return (detail::kIsScalar<T> and ... and detail::kIsScalar<U>());
+  return (detail::kIsScalar<T> and ... and detail::kIsScalar<U>);
 }
 
 // template <typename T, size_t... N>
@@ -166,7 +166,11 @@ decltype(auto) norm(Arg &&arg) {
 
 template <typename Arg>
 decltype(auto) norm_squared(Arg &&arg) {
-  return std::forward<Arg>(arg).squaredNorm();
+  if constexpr (IsScalar<Arg>()) {
+    auto value = std::forward<Arg>(arg);
+    return value * value;
+  } else
+    return std::forward<Arg>(arg).squaredNorm();
 }
 
 template <typename Arg>
@@ -177,45 +181,93 @@ decltype(auto) normalized(Arg &&arg) {
 
 template <typename LHS, typename RHS>
 decltype(auto) cmul(LHS &&lhs, RHS &&rhs) {
-  return (std::forward<LHS>(lhs).array() * std::forward<RHS>(rhs).array())
-      .matrix();
+  if constexpr (IsScalar<LHS>() or IsScalar<RHS>())
+    return std::forward<LHS>(lhs) * std::forward<RHS>(rhs);
+  else
+    return (std::forward<LHS>(lhs).array() * std::forward<RHS>(rhs).array())
+        .matrix();
 }
 
 template <typename LHS, typename RHS>
 decltype(auto) cdiv(LHS &&lhs, RHS &&rhs) {
-  return (std::forward<LHS>(lhs).array() * std::forward<RHS>(rhs).array())
-      .matrix();
+  if constexpr (IsScalar<LHS>() or IsScalar<RHS>())
+    return std::forward<LHS>(lhs) / std::forward<RHS>(rhs);
+  else
+    return (std::forward<LHS>(lhs).array() / std::forward<RHS>(rhs).array())
+        .matrix();
+}
+
+template <typename Arg>
+decltype(auto) cabs(Arg &&arg) {
+  if constexpr (IsScalar<Arg>())
+    return std::abs(std::forward<Arg>(arg));
+  else
+    return std::forward<Arg>(arg).abs();
+}
+
+template <typename LHS, typename RHS>
+decltype(auto) cmin(LHS &&lhs, RHS &&rhs) {
+  if constexpr (IsScalar<LHS, RHS>())
+    return std::min(std::forward<LHS>(lhs), std::forward<RHS>(rhs));
+  else
+    return std::forward<LHS>(lhs).cwiseMin(std::forward<RHS>(rhs));
+}
+
+template <typename LHS, typename RHS>
+decltype(auto) cmax(LHS &&lhs, RHS &&rhs) {
+  if constexpr (IsScalar<LHS, RHS>())
+    return std::max(std::forward<LHS>(lhs), std::forward<RHS>(rhs));
+  else
+    return std::forward<LHS>(lhs).cwiseMax(std::forward<RHS>(rhs));
 }
 
 template <typename Arg>
 decltype(auto) maximum_component(Arg &&arg) {
-  return std::forward<Arg>(arg).maxCoeff();
+  if constexpr (IsScalar<Arg>())
+    return std::forward<Arg>(arg);
+  else
+    return std::forward<Arg>(arg).maxCoeff();
 }
 
 template <typename Arg>
 decltype(auto) minimum_component(Arg &&arg) {
-  return std::forward<Arg>(arg).minCoeff();
+  if constexpr (IsScalar<Arg>())
+    return std::forward<Arg>(arg);
+  else
+    return std::forward<Arg>(arg).minCoeff();
 }
 
 template <typename Arg>
 decltype(auto) sum(Arg &&arg) {
-  return std::forward<Arg>(arg).sum();
+  if constexpr (IsScalar<Arg>())
+    return std::forward<Arg>(arg);
+  else
+    return std::forward<Arg>(arg).sum();
 }
 
 template <typename Arg>
 decltype(auto) product(Arg &&arg) {
-  return std::forward<Arg>(arg).prod();
+  if constexpr (IsScalar<Arg>())
+    return std::forward<Arg>(arg);
+  else
+    return std::forward<Arg>(arg).prod();
 }
 
 /// Compute the inverse.
 template <typename Arg>
-decltype(auto) invert(Arg &&a_) {
-  return std::forward<Arg>(a_).inverse();
+decltype(auto) invert(Arg &&arg) {
+  if constexpr (IsScalar<Arg>())
+    return 1 / std::forward<Arg>(arg);
+  else
+    return std::forward<Arg>(arg).inverse();
 }
 
 /// Compute the Penrose-Moore pseudo inverse.
 template <typename Arg>
 decltype(auto) invert_pm(Arg &&a_) {
+  static_assert(
+      not IsScalar<Arg>(), "Penrose-Moorde pseudo-inverse currently not "
+                           "implemented for scalars");
   return std::forward<Arg>(a_)
       .completeOrthogonalDecomposition()
       .pseudoInverse()
@@ -246,16 +298,15 @@ auto reciprocal_or_zero(Arg &&arg, Eps &&eps) {
     return type{0};
 }
 
-/*
-
 /// Unit Step / Heaviside Step function (left-continuous variant).
 ///   x \mapsto
 ///       1   if x > eps
 ///       0   otherwise
-template<typename Eps_, typename... Arg_>
-static real unit_step_l(Eps_ &&eps_, Arg_ &&... arg) {
-  real const eps = static_cast<real>(std::forward<Eps_>(eps_));
-  if (((eps < static_cast<real>(std::forward<Arg_>(arg))) or ...))
+template <typename Eps, typename... Arg>
+auto unit_step_l(Eps &&eps, Arg &&... arg) {
+  static_assert((IsScalar<Eps>() and ... and IsScalar<Arg>()), "");
+  using real = cxx::remove_cvref_t<Eps>;
+  if (((std::forward<Eps>(eps) < std::forward<Arg>(arg)) or ...))
     return real{1};
   else
     return real{0};
@@ -265,32 +316,33 @@ static real unit_step_l(Eps_ &&eps_, Arg_ &&... arg) {
 ///   x \mapsto
 ///       1   if x >= eps
 ///       0   otherwise
-template<typename Eps_, typename... Arg_>
-static real unit_step_r(Eps_ &&eps_, Arg_ &&... arg) {
-  real const eps = static_cast<real>(std::forward<Eps_>(eps_));
-  if (((eps <= static_cast<real>(std::forward<Arg_>(arg))) or ...))
+template <typename Eps, typename... Arg>
+auto unit_step_r(Eps &&eps, Arg &&... arg) {
+  static_assert((IsScalar<Eps>() and ... and IsScalar<Arg>()), "");
+  using real = cxx::remove_cvref_t<Eps>;
+  if (((std::forward<Eps>(eps) <= std::forward<Arg>(arg)) or ...))
     return real{1};
   else
     return real{0};
 }
 
-template<typename Arg_>
-static ndtype_t<dtype::real, 3, 3>
-cross_product_matrix_from_vector(Arg_ const &arg) {
-  real const zero = 0;
-  return narray<dtype::real, 3, 3>(
-      {{{zero, -arg[2], arg[1]}, {arg[2], zero, -arg[0]}, {-arg[1], arg[0],
-zero},}});
+template <typename Arg>
+auto cross_product_matrix_from_vector(Arg const &arg) {
+  using T = typename Arg::Scalar;
+  auto const zero = static_cast<T>(0);
+  Tensor<T, 3, 3> result;
+  result << zero, -arg[2], arg[1], //
+      arg[2], zero, -arg[0],       //
+      -arg[1], arg[0], zero;
+  return result;
 }
 
-template<typename Arg_>
-static ndtype_t<dtype::real, 3>
-vector_from_cross_product_matrix(Arg_ const &arg) {
+template <typename Arg>
+auto vector_from_cross_product_matrix(Arg const &arg) {
+  using T = typename Arg::Scalar;
   // TODO: assert that arg is a 3x3 matrix
-  return {arg(2, 1), arg(0, 2), arg(1, 0)};
+  return Tensor<T, 3>{arg(2, 1), arg(0, 2), arg(1, 0)};
 }
-
-*/
 
 // ============================================================================
 // Constants
@@ -377,17 +429,31 @@ template <
     typename ComponentType, typename Scalar,
     typename = std::enable_if_t<IsScalar<Scalar>()>>
 auto ComponentCast(Scalar const &value) {
-  return static_cast<ComponentType>(value);
+  if constexpr (
+      std::is_integral_v<ComponentType> and std::is_floating_point_v<Scalar>)
+    return static_cast<ComponentType>(std::floor(value));
+  else
+    return static_cast<ComponentType>(value);
 }
 
 template <typename ComponentType, typename Derived>
 auto ComponentCast(Eigen::ArrayBase<Derived> const &value) {
-  return value.template cast<ComponentType>();
+  using Scalar = typename cxx::remove_cvref_t<decltype(value)>::Scalar;
+  if constexpr (
+      std::is_integral_v<ComponentType> and std::is_floating_point_v<Scalar>)
+    return Eigen::floor(value).template cast<ComponentType>();
+  else
+    return value.template cast<ComponentType>();
 }
 
 template <typename ComponentType, typename Derived>
 auto ComponentCast(Eigen::MatrixBase<Derived> const &value) {
-  return value.template cast<ComponentType>();
+  using Scalar = typename cxx::remove_cvref_t<decltype(value)>::Scalar;
+  if constexpr (
+      std::is_integral_v<ComponentType> and std::is_floating_point_v<Scalar>)
+    return Eigen::floor(value.array()).matrix().template cast<ComponentType>();
+  else
+    return value.template cast<ComponentType>();
 }
 
 } // namespace prtcl::math

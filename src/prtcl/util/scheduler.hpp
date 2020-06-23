@@ -26,13 +26,23 @@ public:
     Duration after;
   };
 
-  using CallbackReturnType = std::variant<DoNothingType, RescheduleAfterType>;
+  struct RescheduleAtType {
+    TimePoint when;
+  };
+
+  using CallbackReturnType =
+      std::variant<DoNothingType, RescheduleAfterType, RescheduleAtType>;
 
   CallbackReturnType DoNothing() const { return DoNothingType{}; }
 
   template <typename Arg_>
   CallbackReturnType RescheduleAfter(Arg_ &&arg_) const {
     return RescheduleAfterType{Duration{std::forward<Arg_>(arg_)}};
+  }
+
+  template <typename Arg_>
+  CallbackReturnType RescheduleAt(Arg_ &&arg_) const {
+    return RescheduleAtType{TimePoint{std::forward<Arg_>(arg_)}};
   }
 
 public:
@@ -99,9 +109,12 @@ public:
       if (auto *noop = std::get_if<DoNothingType>(&result))
         // ... do nothing
         continue;
-      else if (auto *ra = std::get_if<RescheduleAfterType>(&result))
+      else if (auto *raf = std::get_if<RescheduleAfterType>(&result))
         // ... reschedule after the specified amount of time
-        next_schedule_.emplace(now + ra->after, callback);
+        next_schedule_.emplace(now + raf->after, callback);
+      else if (auto *rat = std::get_if<RescheduleAtType>(&result))
+        // ... reschedule at the specified time point
+        next_schedule_.emplace(rat->when, callback);
       else
         throw "internal error: callback return type not implemented";
     }

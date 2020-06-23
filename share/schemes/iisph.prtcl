@@ -11,9 +11,7 @@ scheme iisph {
     varying field p   = real pressure;
     varying field m   = real mass;
 
-    uniform field kappa = real compressibility;
-    uniform field rho0  = real rest_density;
-    uniform field nu    = real viscosity;
+    uniform field rho0 = real rest_density;
 
     // IISPH
     varying field c  = real[] iisph_helper_c;
@@ -28,8 +26,6 @@ scheme iisph {
     varying field x = real[] position;
 
     varying field V = real volume;
-
-    uniform field nu = real viscosity;
   }
 
   global {

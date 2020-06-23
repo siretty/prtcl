@@ -29,7 +29,7 @@ public:
 
 public:
   template <typename PerRay>
-  void cast(PerRay per_ray) const {
+  void Cast(PerRay per_ray) const {
     // vertical, principal and horizontal directions of the camera
     RVec const v = math::normalized(camera.up);
     RVec const p = math::normalized(camera.principal);

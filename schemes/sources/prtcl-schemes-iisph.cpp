@@ -167,7 +167,7 @@ using model_policy = prtcl::rt::basic_model_policy<
     prtcl::rt::mixed_math_policy<
         prtcl::rt::eigen_math_policy,
         // SPH kernel function
-        prtcl::rt::kernel_math_policy_mixin<prtcl::rt::cubic_spline_kernel>,
+        prtcl::rt::kernel<prtcl::rt::cubic_spline_kernel>,
         // [AAT13] functions
         prtcl::rt::aat13_math_policy_mixin //
         >::template policy,

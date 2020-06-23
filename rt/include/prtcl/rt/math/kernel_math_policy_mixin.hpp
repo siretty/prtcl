@@ -5,7 +5,7 @@
 namespace prtcl::rt {
 
 template <template <typename> typename Kernel_>
-struct kernel_math_policy_mixin {
+struct kernel {
   template <typename BaseMathPolicy_> struct mixin {
     using kernel_type = Kernel_<BaseMathPolicy_>;
 

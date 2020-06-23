@@ -34,6 +34,9 @@ public:
   operator ItemType() { return (*item_ptr_); }
 
 public:
+  ItemType &operator*() const { return *item_ptr_; }
+
+public:
   ItemType Get() const { return (*item_ptr_); }
 
   void Set(ItemType const &value) const { (*item_ptr_) = value; }
@@ -101,12 +104,36 @@ public:
 
   virtual void GetMatrix(RealMatrix &matrix) const = 0;
 
+  virtual void GetScalar(IntegerScalar &scalar) const = 0;
+
+  virtual void GetVector(IntegerVector &vector) const = 0;
+
+  virtual void GetMatrix(IntegerMatrix &matrix) const = 0;
+
+  virtual void GetScalar(BooleanScalar &scalar) const = 0;
+
+  virtual void GetVector(BooleanVector &vector) const = 0;
+
+  virtual void GetMatrix(BooleanMatrix &matrix) const = 0;
+
 public:
   virtual void SetScalar(RealScalar const &scalar) = 0;
 
   virtual void SetVector(RealVector const &vector) = 0;
 
   virtual void SetMatrix(RealMatrix const &matrix) = 0;
+
+  virtual void SetScalar(IntegerScalar const &scalar) = 0;
+
+  virtual void SetVector(IntegerVector const &vector) = 0;
+
+  virtual void SetMatrix(IntegerMatrix const &matrix) = 0;
+
+  virtual void SetScalar(BooleanScalar const &scalar) = 0;
+
+  virtual void SetVector(BooleanVector const &vector) = 0;
+
+  virtual void SetMatrix(BooleanMatrix const &matrix) = 0;
 };
 
 template <typename T, size_t... N>
@@ -142,6 +169,30 @@ public:
     GetImpl<2, RealScalar>(matrix);
   }
 
+  void GetScalar(IntegerScalar &scalar) const final {
+    GetImpl<0, IntegerScalar>(scalar);
+  }
+
+  void GetVector(IntegerVector &vector) const final {
+    GetImpl<1, IntegerScalar>(vector);
+  }
+
+  void GetMatrix(IntegerMatrix &matrix) const final {
+    GetImpl<2, IntegerScalar>(matrix);
+  }
+
+  void GetScalar(BooleanScalar &scalar) const final {
+    GetImpl<0, BooleanScalar>(scalar);
+  }
+
+  void GetVector(BooleanVector &vector) const final {
+    GetImpl<1, BooleanScalar>(vector);
+  }
+
+  void GetMatrix(BooleanMatrix &matrix) const final {
+    GetImpl<2, BooleanScalar>(matrix);
+  }
+
 private:
   template <size_t Rank, typename InpComp, typename InpItem>
   void SetImpl(InpItem const &inp) {
@@ -167,28 +218,51 @@ public:
     SetImpl<2, RealScalar>(matrix);
   }
 
+  void SetScalar(IntegerScalar const &scalar) final {
+    SetImpl<0, IntegerScalar>(scalar);
+  }
+
+  void SetVector(IntegerVector const &vector) final {
+    SetImpl<1, IntegerScalar>(vector);
+  }
+
+  void SetMatrix(IntegerMatrix const &matrix) final {
+    SetImpl<2, IntegerScalar>(matrix);
+  }
+
+  void SetScalar(BooleanScalar const &scalar) final {
+    SetImpl<0, BooleanScalar>(scalar);
+  }
+
+  void SetVector(BooleanVector const &vector) final {
+    SetImpl<1, BooleanScalar>(vector);
+  }
+
+  void SetMatrix(BooleanMatrix const &matrix) final {
+    SetImpl<2, BooleanScalar>(matrix);
+  }
+
 public:
   UniformFieldSpan<T, N...> Span() { return {&data_}; }
 
   template <typename U>
   UniformFieldWrap<U, N...> Wrap() {
     namespace hana = boost::hana;
-    auto span = Span();
     if constexpr (hana::type_c<T> == hana::type_c<U>) {
       return {
           // getter
-          [span]() -> ItemType { return span; },
+          [this]() -> ItemType { return data_; },
           // setter
-          [span](ItemType const &value) mutable { span = value; },
+          [this](ItemType const &value) mutable { data_ = value; },
       };
     } else {
       using WrapItemType = typename UniformFieldWrap<U, N...>::ItemType;
       return {
           // getter
-          [span]() -> WrapItemType { return math::ComponentCast<U>(span); },
+          [this]() -> WrapItemType { return math::ComponentCast<U>(data_); },
           // setter
-          [span](WrapItemType const &value) mutable {
-            span = math::ComponentCast<T>(value);
+          [this](WrapItemType const &value) mutable {
+            data_ = math::ComponentCast<T>(value);
           },
       };
     }
@@ -225,12 +299,36 @@ public:
 
   void Get(RealMatrix &matrix) const { data_->GetMatrix(matrix); }
 
+  void Get(IntegerScalar &scalar) const { data_->GetScalar(scalar); }
+
+  void Get(IntegerVector &vector) const { data_->GetVector(vector); }
+
+  void Get(IntegerMatrix &matrix) const { data_->GetMatrix(matrix); }
+
+  void Get(BooleanScalar &scalar) const { data_->GetScalar(scalar); }
+
+  void Get(BooleanVector &vector) const { data_->GetVector(vector); }
+
+  void Get(BooleanMatrix &matrix) const { data_->GetMatrix(matrix); }
+
 public:
   void Set(RealScalar const &scalar) const { data_->SetScalar(scalar); }
 
   void Set(RealVector const &vector) const { data_->SetVector(vector); }
 
   void Set(RealMatrix const &matrix) const { data_->SetMatrix(matrix); }
+
+  void Set(IntegerScalar const &scalar) const { data_->SetScalar(scalar); }
+
+  void Set(IntegerVector const &vector) const { data_->SetVector(vector); }
+
+  void Set(IntegerMatrix const &matrix) const { data_->SetMatrix(matrix); }
+
+  void Set(BooleanScalar const &scalar) const { data_->SetScalar(scalar); }
+
+  void Set(BooleanVector const &vector) const { data_->SetVector(vector); }
+
+  void Set(BooleanMatrix const &matrix) const { data_->SetMatrix(matrix); }
 
 public:
   template <typename T, size_t... N>

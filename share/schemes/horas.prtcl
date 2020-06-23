@@ -9,6 +9,8 @@ scheme horas {
   groups horason {
     select type horason;
 
+    varying field s = integer[2] sensor_position;
+
     varying field x = real[] position;
     varying field x0 = real[] initial_position;
 

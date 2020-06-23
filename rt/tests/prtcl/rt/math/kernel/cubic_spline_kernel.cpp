@@ -21,7 +21,7 @@ TEST_CASE("prtcl/rt/math/kernel/cubic_spline_kernel", "[prtcl][rt]") {
   using type_policy = prtcl::rt::fib_type_policy;
   using math_policy = typename prtcl::rt::mixed_math_policy<
       prtcl::rt::eigen_math_policy,
-      prtcl::rt::kernel_math_policy_mixin<prtcl::rt::cubic_spline_kernel>>::
+      prtcl::rt::kernel<prtcl::rt::cubic_spline_kernel>>::
       template policy<type_policy>;
   using kernel_type = prtcl::rt::cubic_spline_kernel<math_policy>;
 

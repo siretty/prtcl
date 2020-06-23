@@ -26,6 +26,8 @@
 
 namespace prtcl {
 
+class Model;
+
 enum class GroupIndex : size_t {
   kNoIndex = std::numeric_limits<size_t>::max()
 };
@@ -40,8 +42,11 @@ public:
   Group &operator=(Group &&) = default;
 
   Group(
-      std::string_view name, std::string_view type,
+      Model &model, std::string_view name, std::string_view type,
       GroupIndex index = GroupIndex::kNoIndex);
+
+public:
+  Model const &GetModel() const { return *model_; }
 
 public:
   std::string_view GetGroupName() const { return name_; }
@@ -49,6 +54,8 @@ public:
   std::string_view GetGroupType() const { return type_; }
 
   GroupIndex GetGroupIndex() const { return index_; }
+
+  void SetGroupIndex(GroupIndex value) { index_ = value; }
 
 public:
   size_t GetItemCount() const { return varying_.GetItemCount(); }
@@ -130,6 +137,8 @@ public:
   }
 
 private:
+  Model *model_;
+
   std::string name_;
   std::string type_;
   GroupIndex index_ = GroupIndex::kNoIndex;

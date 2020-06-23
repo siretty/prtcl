@@ -29,10 +29,9 @@ public:
       cxx::count_t remaining)
       : model_{&model}, group_{&group}, radius_{radius}, center_{center},
         velocity_{velocity}, remaining_{remaining} {
-    auto &global = model_->GetGlobal();
-
     // fetch the smoothing scale
-    smoothing_scale_ = global.FieldWrap<double>("smoothing_scale");
+    smoothing_scale_ = model_->GetGlobal().FieldWrap<float>("smoothing_scale");
+    log::Debug("lib", "HCPLatticeSource", "smoothing_scale=", smoothing_scale_);
 
     // compute the height of the layers
     double const height = SQRT_6() * smoothing_scale_ / 3;
@@ -105,6 +104,9 @@ public:
     }
 
     int const half_extent = static_cast<int>(std::floor(radius_ / h)) + 1;
+    log::Debug(
+        "lib", "HCPLatticeSource", "half_extent=", half_extent, " h=", h,
+        " r=", radius_);
     for (int i1 = -half_extent; i1 <= half_extent; ++i1) {
       for (int i2 = -half_extent; i2 <= half_extent; ++i2) {
         // sample a regular planar grid
@@ -139,6 +141,9 @@ public:
       m[j] = constpow(h, 3) * rho0;
       t_b[j] = scheduler.GetClock().now().time_since_epoch().count();
     }
+
+    log::Debug(
+        "lib", "HCPLatticeSource", "created ", position_.size(), " particles");
 
     // adjust the remaining particle count
     remaining_ -= static_cast<ssize_t>(position_.size());

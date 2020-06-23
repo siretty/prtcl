@@ -59,7 +59,11 @@ class NeighborhoodImpl {
   }
 
 public:
-  void SetRadius(double radius) { _grid.set_radius(radius); }
+  void SetRadius(double radius) {
+    log::Debug("lib", "Neighborhood", "SetRadius(", radius, ")");
+
+    _grid.set_radius(radius);
+  }
 
   void Load(Model const &model_) {
     log::Debug("lib", "Neighborhood", "Load(", &model_, ")");
@@ -81,14 +85,6 @@ public:
         group_data.position = {};
         group_data.has_position = false;
       }
-      // if (auto *field = group.GetVarying().TryGetFieldImpl<T, N>("position"))
-      // {
-      //  group_data.position = field->GetAccessImpl();
-      //  group_data.has_position = true;
-      //} else {
-      //  group_data.position = {};
-      //  group_data.has_position = false;
-      //}
 
       group_data.tags.clear();
       group_data.tags.insert(
@@ -152,6 +148,29 @@ public:
     Update();
   }
 
+  void CopyNeighbors(
+      size_t g_, size_t i_, std::vector<std::vector<size_t>> &neighbors) const {
+    // log::Debug(
+    //    "lib", "Neighborhood", "CopyNeighbors(", g_, ", ", i_, ", ",
+    //    &neighbors,
+    //    ")");
+
+    if (_data.groups[g_].has_position) {
+      _grid.neighbors(g_, i_, _data, [&neighbors](size_t ng, size_t ni) {
+        neighbors[ng].push_back(ni);
+      });
+    }
+
+    /*
+    #ifdef PRTCL_RT_NEIGHBORHOOD_DEBUG_SEARCH
+    PRTCL_RT_LOG_TRACE_SCOPED("neighbor search", "g=", g_, " i=", i_);
+    #endif
+     */
+
+    // if (_data.groups[g_].has_position)
+    //  _grid.neighbors(g_, i_, _data, std::forward<Fn>(fn));
+  }
+
 private:
   grouped_uniform_grid<N> _grid;
   model_data_type _data;
@@ -163,6 +182,13 @@ private:
 } // namespace
 
 class NeighborhoodPImpl {
+public:
+  ~NeighborhoodPImpl() {
+    std::visit(
+        cxx::overloaded{[](std::monostate) {}, [](auto *impl) { delete impl; }},
+        impl_);
+  }
+
 public:
   void SetRadius(double radius) {
     std::visit(
@@ -201,6 +227,17 @@ public:
         impl_);
   }
 
+  void CopyNeighbors(
+      size_t g_, size_t i_, std::vector<std::vector<size_t>> &neighbors) const {
+    std::visit(
+        cxx::overloaded{
+            [](std::monostate) { throw NotImplementedError{}; },
+            [g_, i_, &neighbors](auto *impl) {
+              impl->CopyNeighbors(g_, i_, neighbors);
+            }},
+        impl_);
+  }
+
 private:
   std::variant<
       std::monostate, NeighborhoodImpl<float, 1> *,
@@ -208,7 +245,7 @@ private:
       NeighborhoodImpl<double, 1> *, NeighborhoodImpl<double, 2> *,
       NeighborhoodImpl<double, 3> *>
       impl_ = {};
-};
+}; // namespace prtcl
 
 void NeighborhoodPImplDeleter::operator()(NeighborhoodPImpl *ptr) {
   delete ptr;
@@ -226,18 +263,7 @@ void Neighborhood::Permute(Model &model) { pimpl_->Permute(model); }
 
 void Neighborhood::CopyNeighbors(
     size_t g_, size_t i_, std::vector<std::vector<size_t>> &neighbors) const {
-  log::Debug(
-      "lib", "Neighborhood", "CopyNeighbors(", g_, ", ", i_, ", ", &neighbors,
-      ")");
-
-  /*
-  #ifdef PRTCL_RT_NEIGHBORHOOD_DEBUG_SEARCH
-  PRTCL_RT_LOG_TRACE_SCOPED("neighbor search", "g=", g_, " i=", i_);
-  #endif
-   */
-
-  // if (_data.groups[g_].has_position)
-  //  _grid.neighbors(g_, i_, _data, std::forward<Fn>(fn));
+  pimpl_->CopyNeighbors(g_, i_, neighbors);
 }
 
 } // namespace prtcl

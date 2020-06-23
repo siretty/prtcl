@@ -86,8 +86,11 @@ public:
   void PermuteItems(cxx::span<size_t const> input_perm) {
     thread_local std::vector<size_t> work_perm;
     work_perm.reserve(GetItemCount());
+
+    using fidx_t = typename decltype(fields_)::difference_type;
 #pragma omp for schedule(dynamic)
-    for (auto &[name, field] : fields_) {
+    for (fidx_t fidx = 0; fidx < static_cast<fidx_t>(fields_.size()); ++fidx) {
+      auto &field = fields_.begin()[fidx].second;
       assert(GetItemCount() == field.GetSize());
       work_perm.clear();
       boost::copy(input_perm, std::back_inserter(work_perm));

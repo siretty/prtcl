@@ -17,10 +17,17 @@ Group &Model::AddGroup(std::string_view name, std::string_view type) {
   auto [it, inserted] = groups_.emplace(std::string{name}, nullptr);
   if (inserted) {
     auto group_index = static_cast<GroupIndex>(groups_by_index_.size());
-    it->second.reset(new Group{name, type, group_index});
+    it->second.reset(new Group{*this, name, type});
     groups_by_index_.emplace_back(it->second.get());
   } else if (it->second->GetGroupType() != type) {
     throw GroupOfDifferentTypeAlreadyExists{};
+  }
+
+  // HACK: fix the GroupIndex field of every group
+  for (size_t gi = 0; gi < groups_.size(); ++gi) {
+    auto *group = groups_.begin()[gi].second.get();
+    group->SetGroupIndex(static_cast<GroupIndex>(gi));
+    groups_by_index_[gi] = group;
   }
 
   return *it->second.get();
