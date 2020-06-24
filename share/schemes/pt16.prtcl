@@ -103,7 +103,7 @@ scheme pt16 {
 
       // partially compose the target velocity gradient (without spin rate)
       compute tvg.f =
-          V_f * unit_step_r(0, rho.f - rho0.f, divergence_f)
+          V_f * unit_step_r(0, rho.f - rho0.f, -divergence_f)
           // TODO: is divergence_f >= 0 or -divergence_f >= 0 correct?
         +
           xi.f * S_f;

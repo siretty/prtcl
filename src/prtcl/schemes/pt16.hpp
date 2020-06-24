@@ -352,7 +352,7 @@ public:
         p.v_tvg[i] =
             ((l_V_f * o::unit_step_r(
                           static_cast<T>(0), (p.v_rho[i] - *p.u_rho0),
-                          l_divergence_f)) +
+                          (-l_divergence_f))) +
              (*p.u_xi * l_S_f));
       }
     }

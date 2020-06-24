@@ -48,6 +48,12 @@ sol::table ModuleMath(sol::state_view lua) {
       sol::meta_function::division,
       [](RVec const &lhs, RSca const &rhs) -> RVec { return lhs / rhs; });
 
+  rvec.set_function("norm", [](RVec const &vec) { return math::norm(vec); });
+
+  rvec.set_function("cross", [](RVec const &a, RVec const &b) -> RVec {
+    return math::cross(math::Tensor<double, 3>{a}, math::Tensor<double, 3>{b});
+  });
+
   rvec.set_function(
       "zeros", [](Extent rows) -> RVec { return RVec::Zero(rows); });
   rvec.set_function(

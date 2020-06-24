@@ -20,10 +20,9 @@ fluidsphere:translate(rvec.new { .5, .25, .5 })
 local fluidcube = prtcl.geometry.triangle_mesh.from_obj_file('share/models/unitcube.obj')
 --fluidcube:rotate(1.0, rvec.new{1, 0, 0})
 fluidcube:scale(rvec.new { .4, .4, .4 })
-fluidcube:translate(rvec.new { -.2, -.2, -.2 })
 --fluidcube:translate(rvec.new { .3, .4, .3 })
 
---[[ buckling
+-- [[ buckling
 local scene = 'buckling'
 local fluidcolumn = prtcl.geometry.triangle_mesh.from_obj_file('share/models/unitcube.obj')
 fluidcolumn:scale(rvec.new { 0.3, 4, 0.05 })
@@ -33,7 +32,7 @@ fluidcolumn:translate(rvec.new { 0, 0.025, 0 })
 --[[ coiling
 local scene = 'coiling'
 local fluidcolumn = prtcl.geometry.triangle_mesh.from_obj_file('share/models/unitcube.obj')
-fluidcolumn:scale(rvec.new { 0.05, 6, 0.05 })
+fluidcolumn:scale(rvec.new { 0.05, 4, 0.05 })
 fluidcolumn:translate(rvec.new { 0, 0.025, 0 })
 -- ]]
 
@@ -101,8 +100,8 @@ model.global:get_field("smoothing_scale"):set(0.025)
 model.global:get_field("time_step"):set(0.001) -- :set(0.002)
 model.global:get_field("fade_duration"):set(2 * seconds_per_frame)
 
-model.global:get_field("gravity"):set(rvec.new { 0, 0, 0 })
---model.global:get_field("gravity"):set(rvec.new { 0, -9.81, 0.1 })
+--model.global:get_field("gravity"):set(rvec.new { 0, -9.81, 0 })
+model.global:get_field("gravity"):set(rvec.new { 0, -9.81, 0.1 })
 --model.global:get_field("gravity"):set(rvec.new { -1, -9.81, 0 })
 --model.global:get_field("gravity"):set(rvec.new { -1, -9.81, -1 })
 
@@ -123,9 +122,9 @@ end
 
 -- for standard and wkbb18 viscosity
 if f.uniform:has_field("dynamic_viscosity") then
-  f.uniform:get_field("dynamic_viscosity"):set(1000)
+  --f.uniform:get_field("dynamic_viscosity"):set(1000)
   --f.uniform:get_field("dynamic_viscosity"):set(10)
-  --f.uniform:get_field("dynamic_viscosity"):set(0)
+  f.uniform:get_field("dynamic_viscosity"):set(0)
 end
 
 -- for standard and wkbb18 viscosity
@@ -139,13 +138,13 @@ end
 cfg.pt16 = { used = false }
 if f.uniform:has_field("pt16_maximum_error") then
   cfg.pt16.used = true
-  cfg.pt16.vorticity_diffusion_maximum_error = .001
+  cfg.pt16.vorticity_diffusion_maximum_error = .01
   cfg.pt16.vorticity_diffusion_maximum_iterations = 500
-  cfg.pt16.velocity_reconstruction_maximum_error = .001
+  cfg.pt16.velocity_reconstruction_maximum_error = .01
   cfg.pt16.velocity_reconstruction_maximum_iterations = 500
   -- [[ buckling -- ]] f.uniform:get_field("strain_rate_viscosity"):set(.99)
   -- [[ coiling  -- ]] f.uniform:get_field("strain_rate_viscosity"):set(.85)
-  --[[ trying   - ]] f.uniform:get_field("strain_rate_viscosity"):set(0)
+  --[[ trying   - ]] f.uniform:get_field("strain_rate_viscosity"):set(.95)
 end
 
 
@@ -162,7 +161,7 @@ end
 
 
 --unitcube:sample_surface(b)
---floor:sample_surface(b)
+floor:sample_surface(b)
 --wall:translate(rvec.new { -0.05, 0, 0 })
 --wall:sample_surface(b)
 --wall:translate(rvec.new { 0.05 + 0.325, 0, 0 })
@@ -233,13 +232,13 @@ schedule:schedule_after(seconds_per_frame, source)
 --]]
 
 local function setup_fluid()
-  -- [[
+  --[[
   fluidcube:sample_volume(f)
-  --f:rotate(2 * math.pi / 6, rvec.new { 1, 0, 0 })
-  --f:translate(rvec.new { .3, .4, .3 })
+  f:rotate(2 * math.pi / 6, rvec.new { 1, 0, 0 })
+  f:translate(rvec.new { .3, .4, .3 })
   --]]
 
-  --[[ buckling
+  -- [[ buckling
   fluidcolumn:sample_volume(f)
   f:scale(rvec.new { 1, 1, 1 })
   f:rotate(2 * math.pi * 0 / 360, rvec.new { 1, 0, 0 })
@@ -287,30 +286,12 @@ schemes.boundary:run_procedure('compute_volume', nhood)
 b:save_vtk('output/b.vtk')
 save_frame(0)
 
---local g_base = model.global:get_field('gravity'):get()
---local g_angle, g_angle_vel = 0, 0.5 * 2 * math.pi
-
-
-local axis = rvec.new{1, 0, 0}
-local x = f.varying:get_field('position')
-local v = f.varying:get_field('velocity')
-for i = 0, f.item_count - 1 do
-  local position = x:get(i)
-  local velocity = axis:cross(position)
-  v:set(i, velocity)
-end
-
-
 local current_step, steps_since_permute = 0, 0
 while schedule.clock.seconds <= 10 do
   current_step = current_step + 1
   steps_since_permute = steps_since_permute + 1
 
-  local t = model.global:get_field("current_time")
-  t:set(schedule.clock.seconds)
-
-  --g_angle = g_angle_vel * t:get()
-  --model.global:get_field('gravity'):set(g_base + rvec.new { math.cos(g_angle), 0, math.sin(g_angle) })
+  model.global:get_field("current_time"):set(schedule.clock.seconds)
 
   if model.dirty then
     nhood:load(model)
@@ -384,17 +365,6 @@ while schedule.clock.seconds <= 10 do
   end
 
   schemes.advect:run_procedure('integrate_position', nhood)
-
-  --[[
-  local axis = rvec.new{1, 0, 0}
-  local x = f.varying:get_field('position')
-  local v = f.varying:get_field('velocity')
-  for i = 0, f.item_count - 1 do
-    local position = x:get(i)
-    local velocity = axis:cross(position)
-    v:set(i, velocity)
-  end
-  --]]
 
   schedule:get_clock():advance(model.global:get_field("time_step"):get())
   schedule:tick()
