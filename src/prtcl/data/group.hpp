@@ -4,10 +4,8 @@
 #include "../cxx/set.hpp"
 #include "../errors/field_of_different_kind_already_exists_error.hpp"
 #include "../log.hpp"
-#include "collection_of_mutable_tensors.hpp"
 #include "uniform_manager.hpp"
 #include "varying_manager.hpp"
-#include "vector_of_tensors.hpp"
 
 #include <iterator>
 #include <limits>

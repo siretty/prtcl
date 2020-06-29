@@ -1,6 +1,5 @@
 #include "neighborhood.hpp"
 
-#include "../data/vector_of_tensors.hpp"
 #include "../errors/not_implemented_error.hpp"
 #include "grouped_uniform_grid.hpp"
 

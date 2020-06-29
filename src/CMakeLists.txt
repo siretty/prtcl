@@ -96,10 +96,6 @@ prtcl_add_library_simple(
     prtcl/data/shape
     prtcl/data/tensor_type
 
-    prtcl/data/collection_of_mutable_tensors
-    prtcl/data/collection_of_mutable_tensors_impl
-    prtcl/data/vector_of_tensors
-
     prtcl/data/uniform_manager
     prtcl/data/uniform_field
     prtcl/data/varying_manager

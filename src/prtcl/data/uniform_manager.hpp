@@ -8,7 +8,6 @@
 #include "../errors/not_implemented_error.hpp"
 #include "prtcl/util/is_valid_identifier.hpp"
 #include "uniform_field.hpp"
-#include "vector_of_tensors.hpp"
 
 #include <memory>
 #include <unordered_map>

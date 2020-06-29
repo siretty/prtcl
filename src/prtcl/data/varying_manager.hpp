@@ -5,10 +5,8 @@
 #include "../errors/field_does_not_exist.hpp"
 #include "../errors/field_of_different_type_already_exists_error.hpp"
 #include "../errors/invalid_identifier_error.hpp"
-#include "collection_of_mutable_tensors.hpp"
 #include "prtcl/util/is_valid_identifier.hpp"
 #include "varying_field.hpp"
-#include "vector_of_tensors.hpp"
 
 #include "../log.hpp"
 
@@ -21,6 +19,7 @@
 
 #include <boost/range/adaptor/map.hpp>
 #include <boost/range/adaptor/transformed.hpp>
+#include <boost/range/algorithm/copy.hpp>
 #include <boost/range/algorithm/copy_backward.hpp>
 #include <boost/range/algorithm/set_algorithm.hpp>
 #include <boost/range/irange.hpp>

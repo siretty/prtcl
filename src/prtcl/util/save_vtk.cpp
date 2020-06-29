@@ -1,6 +1,5 @@
 #include "save_vtk.hpp"
 
-#include "../data/vector_of_tensors.hpp"
 #include "../errors/not_implemented_error.hpp"
 
 #include <ostream>
