@@ -358,7 +358,9 @@ function fmt_math_expr:slice(o, n)
     raise_error('must have exactly one subject', n)
   end
 
+  o:put('(')
   self:dispatch(o, n.subject[1])
+  o:put(')')
   o:put('[') -- TODO: support multiple indices
   self:dispatch(o, n.indices[1])
   o:put(']')
@@ -416,11 +418,11 @@ function fmt_stmt:reduce(o, n)
   local lhs = nil
 
   local target_ref = n.target[1]
-  if object:isinstance(target_ref, ast.global_ref) then
+  if object:isinstance(target_ref, ast.global_ref) or object:isinstance(target_ref, ast.local_ref) then
     local target_def = target_ref._ref_name
     lhs = 'r_' .. field_name(target_def)
   else
-    raise_error('cannot reduce into anything but global fields', r)
+    raise_error('cannot reduce into anything but local or global fields', r)
   end
 
   o:iput(lhs)
@@ -476,8 +478,8 @@ function fmt_stmt:foreach_particle(o, n)
   ast.dfs(n, function(n)
     if object:isinstance(n, ast.reduce) then
       -- TODO: maybe handle reduction into slice
-      if not object:isinstance(n.target[1], ast.global_ref) then
-        raise_error('cannot reduce into anything but gobal fields', n)
+      if not (object:isinstance(n.target[1], ast.local_ref) or object:isinstance(n.target[1], ast.global_ref)) then
+        raise_error('cannot reduce into anything but local or gobal fields', n)
       end
       table.insert(reductions, n)
     end
@@ -499,7 +501,7 @@ function fmt_stmt:foreach_particle(o, n)
 
       local tr = r.target[1] -- target reference
 
-      if object:isinstance(tr, ast.global_ref) then
+      if object:isinstance(tr, ast.global_ref) or object:isinstance(tr, ast.local_ref) then
         local td = tr._ref_name -- target definition
 
         local name = 'r_' .. field_name(td)
@@ -521,7 +523,7 @@ function fmt_stmt:foreach_particle(o, n)
 
         omp_parallel_extra = omp_parallel_extra .. ' ' .. omp
       else
-        raise_error('cannot reduce into anything but global fields', r)
+        raise_error('cannot reduce into anything but local or global fields', r)
       end
     end
     o:nl()
@@ -608,7 +610,7 @@ function fmt_stmt:foreach_particle(o, n)
 
       local tr = r.target[1] -- target reference
 
-      if object:isinstance(tr, ast.global_ref) then
+      if object:isinstance(tr, ast.global_ref) or object:isinstance(tr, ast.local_ref) then
         local td = tr._ref_name -- target definition
         local name = 'r_' .. field_name(td)
 
@@ -616,7 +618,7 @@ function fmt_stmt:foreach_particle(o, n)
         the_fmt_math_expr:dispatch(o, tr)
         o:put(' = ' .. name .. ';'):nl()
       else
-        raise_error('cannot reduce into anything but global fields', r)
+        raise_error('cannot reduce into anything but local or global fields', r)
       end
     end
     o:nl()

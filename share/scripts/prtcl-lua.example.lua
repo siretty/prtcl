@@ -169,12 +169,11 @@ end
 --wall:sample_surface(b)
 
 local camera = prtcl.geometry.pinhole_camera.new()
-camera.sensor_width, camera.sensor_height = 160, 120
+camera.sensor_width, camera.sensor_height = 800, 600
 camera.focal_length = 1
 camera.origin = rvec.new { -1, 0.4, 0.5 }
 camera.principal = rvec.new { 1, 0, 0 }
 camera.up = rvec.new { 0, 1, 0 }
-camera:sample(horasons)
 
 
 local nhood = prtcl.util.neighborhood.new()
@@ -201,11 +200,17 @@ schedule:schedule_at(0, function(s, delay)
   print('FRAME #' .. current_frame .. ' (DELAYED ' .. tostring(delay) .. ')')
   save_frame(current_frame)
 
-  --schemes.horas:run_procedure("reset", nhood)
-  --for step = 1, 100 do
-  --  schemes.horas:run_procedure("step", nhood)
-  --end
-  --horasons:save_vtk('output/c.' .. (current_frame - 1) .. '.vtk')
+  schemes.horas:run_procedure("update_visible_aabb", nhood)
+
+  horasons:resize(0)
+  camera:sample(horasons)
+  schemes.horas:load(model)
+
+  schemes.horas:run_procedure("reset", nhood)
+  for step = 1, 100 do
+    schemes.horas:run_procedure("step_fluid", nhood)
+  end
+  horasons:save_vtk('output/c.' .. (current_frame - 1) .. '.vtk')
 
   return s:reschedule_at(current_frame * seconds_per_frame)
 end)
@@ -291,7 +296,7 @@ save_frame(0)
 --local g_angle, g_angle_vel = 0, 0.5 * 2 * math.pi
 
 
-local axis = rvec.new{1, 0, 0}
+local axis = rvec.new { 1, 0, 0 }
 local x = f.varying:get_field('position')
 local v = f.varying:get_field('velocity')
 for i = 0, f.item_count - 1 do

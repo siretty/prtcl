@@ -6,6 +6,17 @@ scheme horas {
     varying field x = real[] position;
   }
 
+  groups fluid {
+    select type fluid and tag visible;
+
+    varying field x = real[] position;
+
+    varying field rho = real density;
+    varying field m   = real mass;
+
+    uniform field rho0 = real rest_density;
+  }
+
   groups horason {
     select type horason;
 
@@ -15,24 +26,71 @@ scheme horas {
     varying field x0 = real[] initial_position;
 
     varying field d = real[] direction;
+
+    varying field t0 = real initial_parameter;
     varying field t = real parameter;
     
     varying field phi = real implicit_function;
+    varying field grad_phi = real[] implicit_function_gradient;
   }
 
   global {
     field h = real smoothing_scale;
+
+    field x_min = real[] position_aabb_min;
+    field x_max = real[] position_aabb_max;
+  }
+
+  procedure update_visible_aabb {
+    foreach dimension index dim {
+      local x_min_dim : real = positive_infinity<real>();
+      local x_max_dim : real = negative_infinity<real>();
+
+      foreach visible particle i {
+        reduce x_min_dim min= x.i[dim];
+        reduce x_max_dim max= x.i[dim];
+      }
+
+      compute x_min[dim] = x_min_dim - h;
+      compute x_max[dim] = x_max_dim + h;
+    }
   }
 
   procedure reset {
     foreach horason particle i {
       compute x.i = x0.i;
-      compute t.i = 0;
+      compute t.i = t0.i;
+    }
+  }
+
+  procedure step_fluid {
+    // The 'relative' level of the implicit surface we want to find.
+    local W : real = 0.8;
+    // An upper bound to the Lipschitz constant of the implicit function.
+    local L : real = 1.1;
+
+    foreach horason particle i {
+      // The implicit function is constant one interpolated using SPH.
+      compute phi.i = zeros<real>();
+      compute grad_phi.i = zeros<real[]>();
+      foreach fluid neighbor f_i {
+        compute phi.i += m.f_i / rho.f_i * kernel_h(x.i - x.f_i, h);
+        compute grad_phi.i += m.f_i / rho.f_i * kernel_gradient_h(x.i - x.f_i, h);
+      }
+      // Since this vanishes 'outside' of the fluid, we subtract it from the level
+      // and scale it by the smoothing scale to force it's Lipschitz constant
+      // to be bounded by one (as for the unscaled function it is the reciprocal
+      // of the smoothing scale).
+      compute phi.i = (W - phi.i) * h;
+      compute grad_phi.i *= h;
+
+      compute t.i += phi.i / L;
+      compute x.i = x0.i + t.i * d.i;
     }
   }
 
   procedure step {
-    local R : real = 2 * kernel_support_radius(h);
+    local R : real = 2 * h;
     local W : real = h / 2;
     local O : real = h;
     local L : real = 1.1;

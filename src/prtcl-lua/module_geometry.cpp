@@ -37,8 +37,10 @@ sol::table ModuleGeometry(sol::state_view lua) {
         });
 
     t.set_function(
-        "rotate", [](TriangleMesh &mesh, RealScalar angle,
-                     RealVector const &axis) { mesh.Rotate(angle, RVec3{axis}); });
+        "rotate",
+        [](TriangleMesh &mesh, RealScalar angle, RealVector const &axis) {
+          mesh.Rotate(angle, RVec3{axis});
+        });
 
     t.set_function(
         "sample_surface", [](TriangleMesh const &mesh, Group &group) {
@@ -108,24 +110,63 @@ sol::table ModuleGeometry(sol::state_view lua) {
         });
 
     t.set_function("sample", [](PinholeCamera const &camera, Group &group) {
+      auto const &model = group.GetModel();
+      auto const &global = model.GetGlobal();
+      auto aabb_min = global.FieldWrap<double, 3>("position_aabb_min").Get();
+      auto aabb_max = global.FieldWrap<double, 3>("position_aabb_max").Get();
+
+      auto aabb_ray_intersect = [](RVec3 const &aabb_min, RVec3 const &aabb_max,
+                                   RVec3 const &ray_x, RVec3 const &ray_d,
+                                   double &ray_t) -> bool {
+        // based on the simple intersection implementation from
+        // https://tavianator.com/fast-branchless-raybounding-box-intersections/
+
+        double tmin = math::negative_infinity<double>(),
+               tmax = math::positive_infinity<double>();
+
+        for (size_t dim = 0; dim < 3; ++dim) {
+          if (ray_d[dim] != 0.0) {
+            double t1 = (aabb_min[dim] - ray_x[dim]) / ray_d[dim];
+            double t2 = (aabb_max[dim] - ray_x[dim]) / ray_d[dim];
+
+            tmin = math::cmax(tmin, math::cmin(t1, t2));
+            tmax = math::cmin(tmax, math::cmax(t1, t2));
+          }
+        }
+
+        if (tmax >= tmin)
+          ray_t = tmin;
+
+        return tmax >= tmin;
+      };
+
       std::vector<SVec2> samples_s;
       std::vector<RVec3> samples_x, samples_d;
-      camera.Cast([&samples_s, &samples_x, &samples_d](
+      std::vector<double> samples_t;
+      camera.Cast([&samples_s, &samples_x, &samples_d, &samples_t,
+                   &aabb_ray_intersect, aabb_min, aabb_max](
                       size_t ix, size_t iy, auto const &x, auto const &d) {
-        samples_s.emplace_back(
-            static_cast<int64_t>(ix), static_cast<int64_t>(iy));
-        samples_x.emplace_back(x);
-        samples_d.emplace_back(d);
+        double t;
+        if (aabb_ray_intersect(aabb_min, aabb_max, x, d, t)) {
+          samples_s.emplace_back(
+              static_cast<int64_t>(ix), static_cast<int64_t>(iy));
+          samples_x.emplace_back(x);
+          samples_d.emplace_back(d);
+          samples_t.emplace_back(t);
+        }
       });
+
       auto indices = group.CreateItems(samples_x.size());
       auto s = group.GetVarying().FieldWrap<int64_t, 2>("sensor_position");
       auto x = group.GetVarying().FieldWrap<double, 3>("position");
       auto o = group.GetVarying().FieldWrap<double, 3>("initial_position");
+      auto t = group.GetVarying().FieldWrap<double>("initial_parameter");
       auto d = group.GetVarying().FieldWrap<double, 3>("direction");
       for (size_t i = 0; i < indices.size(); ++i) {
         s[indices[i]] = samples_s[i];
         x[indices[i]] = samples_x[i];
         o[indices[i]] = samples_x[i];
+        t[indices[i]] = samples_t[i];
         d[indices[i]] = samples_d[i];
       }
     });

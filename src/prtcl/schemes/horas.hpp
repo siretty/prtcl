@@ -50,6 +50,8 @@ public:
 private:
   struct global_data {
     UniformFieldSpan<real> g_h;
+    UniformFieldSpan<real, N> g_x_min;
+    UniformFieldSpan<real, N> g_x_max;
   };
 
 private:
@@ -68,6 +70,24 @@ private:
   };
 
 private:
+  struct groups_fluid_data {
+    size_t _count;
+    size_t index;
+
+    // uniform fields
+    UniformFieldSpan<real> u_rho0;
+
+    // varying fields
+    VaryingFieldSpan<real, N> v_x;
+    VaryingFieldSpan<real> v_rho;
+    VaryingFieldSpan<real> v_m;
+
+    static bool selects(Group const &group) {
+      return ((group.GetGroupType() == "fluid") and (group.HasTag("visible")));
+    }
+  };
+
+private:
   struct groups_horason_data {
     size_t _count;
     size_t index;
@@ -79,8 +99,10 @@ private:
     VaryingFieldSpan<real, N> v_x;
     VaryingFieldSpan<real, N> v_x0;
     VaryingFieldSpan<real, N> v_d;
+    VaryingFieldSpan<real> v_t0;
     VaryingFieldSpan<real> v_t;
     VaryingFieldSpan<real> v_phi;
+    VaryingFieldSpan<real, N> v_grad_phi;
 
     static bool selects(Group const &group) {
       return (group.GetGroupType() == "horason");
@@ -93,6 +115,7 @@ private:
 
     struct {
       std::vector<groups_visible_data> visible;
+      std::vector<groups_fluid_data> fluid;
       std::vector<groups_horason_data> horason;
     } groups;
 
@@ -108,7 +131,9 @@ private:
 
 public:
   horas() {
+    this->RegisterProcedure("update_visible_aabb", &horas::update_visible_aabb);
     this->RegisterProcedure("reset", &horas::reset);
+    this->RegisterProcedure("step_fluid", &horas::step_fluid);
     this->RegisterProcedure("step", &horas::step);
   }
 
@@ -119,11 +144,16 @@ public:
   void Load(Model &model) final {
     // global fields
     _data.global.g_h = model.AddGlobalFieldImpl<real>("smoothing_scale");
+    _data.global.g_x_min =
+        model.AddGlobalFieldImpl<real, N>("position_aabb_min");
+    _data.global.g_x_max =
+        model.AddGlobalFieldImpl<real, N>("position_aabb_max");
 
     auto group_count = model.GetGroupCount();
     _data.group_count = group_count;
 
     _data.groups.visible.clear();
+    _data.groups.fluid.clear();
     _data.groups.horason.clear();
 
     for (size_t group_index = 0; group_index < group_count; ++group_index) {
@@ -139,6 +169,21 @@ public:
         data.v_x = group.AddVaryingFieldImpl<real, N>("position");
       }
 
+      if (groups_fluid_data::selects(group)) {
+        auto &data = _data.groups.fluid.emplace_back();
+
+        data._count = group.GetItemCount();
+        data.index = group_index;
+
+        // uniform fields
+        data.u_rho0 = group.AddUniformFieldImpl<real>("rest_density");
+
+        // varying fields
+        data.v_x = group.AddVaryingFieldImpl<real, N>("position");
+        data.v_rho = group.AddVaryingFieldImpl<real>("density");
+        data.v_m = group.AddVaryingFieldImpl<real>("mass");
+      }
+
       if (groups_horason_data::selects(group)) {
         auto &data = _data.groups.horason.emplace_back();
 
@@ -150,10 +195,71 @@ public:
         data.v_x = group.AddVaryingFieldImpl<real, N>("position");
         data.v_x0 = group.AddVaryingFieldImpl<real, N>("initial_position");
         data.v_d = group.AddVaryingFieldImpl<real, N>("direction");
+        data.v_t0 = group.AddVaryingFieldImpl<real>("initial_parameter");
         data.v_t = group.AddVaryingFieldImpl<real>("parameter");
         data.v_phi = group.AddVaryingFieldImpl<real>("implicit_function");
+        data.v_grad_phi =
+            group.AddVaryingFieldImpl<real, N>("implicit_function_gradient");
       }
     }
+  }
+
+public:
+  void update_visible_aabb(Neighborhood const &nhood) {
+    auto &g = _data.global;
+
+    // mathematical operations
+    namespace o = ::prtcl::math;
+
+    // resize per-thread storage
+    _per_thread.resize(omp_get_max_threads());
+
+    // foreach dimension index dim
+    for (size_t i_dim = 0; i_dim < N; ++i_dim) {
+      // local_def ...;
+      Tensor<real> l_x_min_dim = o::template positive_infinity<real>();
+
+      // local_def ...;
+      Tensor<real> l_x_max_dim = o::template negative_infinity<real>();
+
+      { // foreach visible particle i
+
+        // initialize reductions
+        Tensor<real> r_l_x_min_dim = l_x_min_dim;
+        Tensor<real> r_l_x_max_dim = l_x_max_dim;
+
+#pragma omp parallel reduction(min                                             \
+                               : r_l_x_min_dim) reduction(max                  \
+                                                          : r_l_x_max_dim)
+        {
+          PRTCL_RT_LOG_TRACE_SCOPED("foreach_particle", "p=visible");
+
+          auto &t = _per_thread[omp_get_thread_num()];
+
+          for (auto &p : _data.groups.visible) {
+#pragma omp for schedule(static)
+            for (size_t i = 0; i < p._count; ++i) {
+              // reduce
+              r_l_x_min_dim = o::min(r_l_x_min_dim, (p.v_x[i])[i_dim]);
+
+              // reduce
+              r_l_x_max_dim = o::max(r_l_x_max_dim, (p.v_x[i])[i_dim]);
+            }
+          }
+        } // omp parallel region
+
+        // finalize reductions
+        l_x_min_dim = r_l_x_min_dim;
+        l_x_max_dim = r_l_x_max_dim;
+
+      } // foreach visible particle i
+
+      // compute
+      (*g.g_x_min)[i_dim] = (l_x_min_dim - *g.g_h);
+
+      // compute
+      (*g.g_x_max)[i_dim] = (l_x_max_dim + *g.g_h);
+    } // foreach dimension index dim
   }
 
 public:
@@ -180,7 +286,86 @@ public:
             p.v_x[i] = p.v_x0[i];
 
             // compute
-            p.v_t[i] = static_cast<T>(0);
+            p.v_t[i] = p.v_t0[i];
+          }
+        }
+      } // omp parallel region
+    }   // foreach horason particle i
+  }
+
+public:
+  void step_fluid(Neighborhood const &nhood) {
+    auto &g = _data.global;
+
+    // mathematical operations
+    namespace o = ::prtcl::math;
+
+    // resize per-thread storage
+    _per_thread.resize(omp_get_max_threads());
+
+    // local_def ...;
+    Tensor<real> l_W = static_cast<T>(0.8);
+
+    // local_def ...;
+    Tensor<real> l_L = static_cast<T>(1.1);
+
+    { // foreach horason particle i
+#pragma omp parallel
+      {
+        PRTCL_RT_LOG_TRACE_SCOPED("foreach_particle", "p=horason");
+
+        auto &t = _per_thread[omp_get_thread_num()];
+
+        // select, resize and reserve neighbor storage
+        auto &neighbors = t.neighbors;
+        neighbors.resize(_data.group_count);
+        for (auto &pgn : neighbors)
+          pgn.reserve(100);
+
+        for (auto &p : _data.groups.horason) {
+#pragma omp for
+          for (size_t i = 0; i < p._count; ++i) {
+            // cleanup neighbor storage
+            for (auto &pgn : neighbors)
+              pgn.clear();
+
+            // find all neighbors of (p, i)
+            nhood.CopyNeighbors(p.index, i, neighbors);
+
+            // compute
+            p.v_phi[i] = o::template zeros<real>();
+
+            // compute
+            p.v_grad_phi[i] = o::template zeros<real, N>();
+
+            { // foreach fluid neighbor f_i
+              for (auto &n : _data.groups.fluid) {
+                for (auto const j : neighbors[n.index]) {
+                  // compute
+                  p.v_phi[i] +=
+                      ((n.v_m[j] / n.v_rho[j]) *
+                       o::kernel_h<kernel_type>((p.v_x[i] - n.v_x[j]), *g.g_h));
+
+                  // compute
+                  p.v_grad_phi[i] +=
+                      ((n.v_m[j] / n.v_rho[j]) *
+                       o::kernel_gradient_h<kernel_type>(
+                           (p.v_x[i] - n.v_x[j]), *g.g_h));
+                }
+              }
+            } // foreach fluid neighbor f_i
+
+            // compute
+            p.v_phi[i] = ((l_W - p.v_phi[i]) * *g.g_h);
+
+            // compute
+            p.v_grad_phi[i] *= *g.g_h;
+
+            // compute
+            p.v_t[i] += (p.v_phi[i] / l_L);
+
+            // compute
+            p.v_x[i] = (p.v_x0[i] + (p.v_t[i] * p.v_d[i]));
           }
         }
       } // omp parallel region
@@ -198,8 +383,7 @@ public:
     _per_thread.resize(omp_get_max_threads());
 
     // local_def ...;
-    Tensor<real> l_R =
-        (static_cast<T>(2) * o::kernel_support_radius<kernel_type>(*g.g_h));
+    Tensor<real> l_R = (static_cast<T>(2) * *g.g_h);
 
     // local_def ...;
     Tensor<real> l_W = (*g.g_h / static_cast<T>(2));

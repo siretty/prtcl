@@ -114,6 +114,17 @@ void SaveVTK(std::ostream &o, Group const &group) {
     WriteField(o, varying, "time_of_birth");
   }
 
+  if (varying.HasField("implicit_function")) {
+    o << "SCALARS implicit_function float 1\n";
+    o << "LOOKUP_TABLE default\n";
+    WriteField(o, varying, "implicit_function");
+  }
+
+  if (varying.HasField("implicit_function_gradient")) {
+    o << "VECTORS implicit_function_gradient float\n";
+    WriteField(o, varying, "implicit_function_gradient");
+  }
+
   o.flags(o_flags);
 }
 
