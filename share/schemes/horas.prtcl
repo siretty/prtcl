@@ -82,7 +82,7 @@ scheme horas {
       // to be bounded by one (as for the unscaled function it is the reciprocal
       // of the smoothing scale).
       compute phi.i = (W - phi.i) * h;
-      compute grad_phi.i *= h;
+      compute grad_phi.i *= -h;
 
       compute t.i += phi.i / L;
       compute x.i = x0.i + t.i * d.i;

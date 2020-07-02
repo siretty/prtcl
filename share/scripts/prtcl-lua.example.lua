@@ -200,6 +200,8 @@ schedule:schedule_at(0, function(s, delay)
   print('FRAME #' .. current_frame .. ' (DELAYED ' .. tostring(delay) .. ')')
   save_frame(current_frame)
 
+  nhood:update(model)
+
   schemes.horas:run_procedure("update_visible_aabb", nhood)
 
   horasons:resize(0)
@@ -210,7 +212,7 @@ schedule:schedule_at(0, function(s, delay)
   for step = 1, 100 do
     schemes.horas:run_procedure("step_fluid", nhood)
   end
-  horasons:save_vtk('output/c.' .. (current_frame - 1) .. '.vtk')
+  horasons:save_vtk('output/c.' .. current_frame .. '.vtk')
 
   return s:reschedule_at(current_frame * seconds_per_frame)
 end)
@@ -326,6 +328,7 @@ while schedule.clock.seconds <= 10 do
     nhood:update(model)
     if steps_since_permute >= 8 then
       nhood:permute(model)
+      model.dirty = false
       steps_since_permute = 0
     end
   end
