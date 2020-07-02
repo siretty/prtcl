@@ -177,7 +177,7 @@ prtcl_add_library_simple(
 
 
 prtcl_add_library_simple(
-    prtcl_lua TYPE SHARED
+    prtcl_lua TYPE STATIC
 
     PHYSICAL_COMPONENTS
     prtcl-lua/entry_point
