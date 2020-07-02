@@ -434,14 +434,14 @@ void solve_vorticity_diffusion(Neighborhood const &nhood) {
           // solve_setup
 
           // compute
-          p_into[i] = p.v_omega_rhs[i][i_dim];
+          p_into[i] = (p.v_omega_rhs[i])[i_dim];
         };
 
         auto setup_g = [&](auto &p, size_t i, auto &p_into) {
           // solve_setup
 
           // compute
-          p_into[i] = p.v_omega[i][i_dim];
+          p_into[i] = (p.v_omega[i])[i_dim];
         };
 
         auto product_s = [&](auto &p, size_t i, auto &p_into, auto &p_with) {
@@ -488,11 +488,11 @@ void solve_vorticity_diffusion(Neighborhood const &nhood) {
           // solve_apply
 
           // compute
-          p.v_omega[i][i_dim] =
+          (p.v_omega[i])[i_dim] =
               ((p_with[i] * o::unit_step_l(
                                 static_cast<T>(0),
                                 ((*g.g_t - p.v_t_birth[i]) - *g.g_dt_fade))) +
-               (p.v_omega[i][i_dim] *
+               ((p.v_omega[i])[i_dim] *
                 o::unit_step_r(
                     static_cast<T>(0),
                     (*g.g_dt_fade - (*g.g_t - p.v_t_birth[i])))));
@@ -601,14 +601,14 @@ void solve_velocity_reconstruction(Neighborhood const &nhood) {
           // solve_setup
 
           // compute
-          p_into[i] = p.v_v_rec_rhs[i][i_dim];
+          p_into[i] = (p.v_v_rec_rhs[i])[i_dim];
         };
 
         auto setup_g = [&](auto &p, size_t i, auto &p_into) {
           // solve_setup
 
           // compute
-          p_into[i] = p.v_v[i][i_dim];
+          p_into[i] = (p.v_v[i])[i_dim];
         };
 
         auto product_s = [&](auto &p, size_t i, auto &p_into, auto &p_with) {
@@ -655,11 +655,11 @@ void solve_velocity_reconstruction(Neighborhood const &nhood) {
           // solve_apply
 
           // compute
-          p.v_v[i][i_dim] =
+          (p.v_v[i])[i_dim] =
               ((p_with[i] * o::unit_step_l(
                                 static_cast<T>(0),
                                 ((*g.g_t - p.v_t_birth[i]) - *g.g_dt_fade))) +
-               (p.v_v[i][i_dim] *
+               ((p.v_v[i])[i_dim] *
                 o::unit_step_r(
                     static_cast<T>(0),
                     (*g.g_dt_fade - (*g.g_t - p.v_t_birth[i])))));

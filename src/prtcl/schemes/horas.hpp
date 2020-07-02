@@ -359,7 +359,7 @@ public:
             p.v_phi[i] = ((l_W - p.v_phi[i]) * *g.g_h);
 
             // compute
-            p.v_grad_phi[i] *= *g.g_h;
+            p.v_grad_phi[i] *= (-*g.g_h);
 
             // compute
             p.v_t[i] += (p.v_phi[i] / l_L);
