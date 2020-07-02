@@ -38,7 +38,7 @@ endfunction(prtcl_add_library)
 
 function(prtcl_add_library_simple NAME_)
   # parse remaining function arguments
-  set(l_options POSITION_INDEPENDENT_CODE)
+  set(l_options POSITION_INDEPENDENT_CODE NO_TESTS)
   set(l_ov_kwargs TYPE OUTPUT_NAME)
   set(l_mv_kwargs
       SOURCES_DIR HEADERS_DIR
@@ -144,24 +144,30 @@ function(prtcl_add_library_simple NAME_)
     )
   endif ()
 
-  set(TEST_NAME_ "${NAME_}_test")
+  set(targets "${NAME_}")
 
-  message(STATUS "Adding test executable for ${NAME_}: ${TEST_NAME_}")
+  if (NOT l_arg_NO_TESTS)
+    set(TEST_NAME_ "${NAME_}_test")
 
-  add_executable(
-      ${TEST_NAME_}
-      ${CMAKE_CURRENT_SOURCE_DIR}/${NAME_}-run-tests.cpp
-      ${test_sources}
-  )
+    message(STATUS "Adding test executable for ${NAME_}: ${TEST_NAME_}")
 
-  target_link_libraries(
-      ${TEST_NAME_}
-      ${NAME_}
-      gtest_main
-  )
+    add_executable(
+        ${TEST_NAME_}
+        ${CMAKE_CURRENT_SOURCE_DIR}/${NAME_}-run-tests.cpp
+        ${test_sources}
+    )
+
+    target_link_libraries(
+        ${TEST_NAME_}
+        ${NAME_}
+        gtest_main
+    )
+
+    list(APPEND targets "${TEST_NAME_}")
+  endif()
 
   set_target_properties(
-      "${NAME_}" "${TEST_NAME_}"
+      ${targets}
 
       PROPERTIES
       CXX_STANDARD 17
