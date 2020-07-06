@@ -64,8 +64,14 @@ local schemes = {
   implicit_viscosity = make_scheme('pt16'),
 
   -- rendering via particles
-  horas = make_scheme('horas'),
+  --horas = make_scheme('horas'),
 }
+
+for name, scheme in pairs(schemes) do
+  local f = io.open('output/' .. name .. '.prtcl', 'w')
+  f:write(scheme:get_prtcl_source_code())
+  io.close(f)
+end
 
 -- load all schemes, this will create all global / uniform / varying fields
 local function load_schemes(model)
@@ -103,8 +109,8 @@ f:add_tag("visible")
 
 local b = model:add_group("b", "boundary")
 
-local horasons = model:add_group("horasons", "horason")
-horasons:add_tag("cannot_be_neighbor")
+--local horasons = model:add_group("horasons", "horason")
+--horasons:add_tag("cannot_be_neighbor")
 
 
 load_schemes(model)
@@ -217,6 +223,7 @@ schedule:schedule_at(0, function(s, delay)
   print('FRAME #' .. current_frame .. ' (DELAYED ' .. tostring(delay) .. ')')
   save_frame(current_frame)
 
+  --[[
   horasons:resize(0)
   camera:sample(horasons)
 
@@ -231,6 +238,7 @@ schedule:schedule_at(0, function(s, delay)
     schemes.horas:run_procedure("step_fluid", nhood)
   end
   horasons:save_vtk('output/c.' .. current_frame .. '.vtk')
+  --]]
 
   return s:reschedule_at(current_frame * seconds_per_frame)
 end)
