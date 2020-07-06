@@ -1,6 +1,8 @@
 #ifndef PRTCL_SRC_PRTCL_DATA_COMPONENT_TYPE_HPP
 #define PRTCL_SRC_PRTCL_DATA_COMPONENT_TYPE_HPP
 
+#include "../util/archive.hpp"
+
 #include <iosfwd>
 #include <regex>
 #include <string_view>
@@ -26,6 +28,11 @@ public:
 public:
   template <typename T>
   static ComponentType FromType();
+
+public:
+  void Save(ArchiveWriter &archive) const;
+
+  void Load(ArchiveReader &archive);
 
 public:
   std::string_view ToStringView() const;

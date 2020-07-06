@@ -79,6 +79,21 @@ sol::table ModuleData(sol::state_view lua) {
     t["remove_global_field"] = &Model::RemoveGlobalField;
 
     t["group_names"] = &Model::GetGroupNames;
+
+    t.set_function(
+        "save_native_binary", [](Model const &self, std::string path) {
+          std::fstream file{path, file.out};
+          NativeBinaryArchiveWriter archive{file};
+          self.Save(archive);
+        });
+
+    t.set_function("load_native_binary", [](std::string path) {
+      std::fstream file{path, file.in};
+      NativeBinaryArchiveReader archive{file};
+      Model *model = new Model;
+      model->Load(archive);
+      return model;
+    });
   }
 
   {

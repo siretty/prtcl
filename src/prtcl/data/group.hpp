@@ -134,6 +134,11 @@ public:
     varying_.PermuteItems(input_perm);
   }
 
+public:
+  void Save(ArchiveWriter &archive) const;
+
+  void Load(ArchiveReader &archive);
+
 private:
   Model *model_;
 

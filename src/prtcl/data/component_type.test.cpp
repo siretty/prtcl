@@ -8,9 +8,9 @@
 
 #include <cstdint>
 
-TEST(DataTests, CheckComponentType) {
-  using namespace prtcl;
+using namespace prtcl;
 
+TEST(DataTests, CheckComponentType) {
   {
     ComponentType const ctype;
     ASSERT_TRUE(not ctype.IsValid());
@@ -68,5 +68,28 @@ TEST(DataTests, CheckComponentType) {
     ASSERT_EQ(MakeComponentType<float>(), ComponentType::kFloat32);
     ASSERT_EQ(MakeComponentType<double>(), ComponentType::kFloat64);
     ASSERT_EQ(MakeComponentType<std::string>(), ComponentType::kInvalid);
+  }
+}
+
+TEST(ComponentType, SaveLoadTest) {
+  std::string data;
+
+  {
+    std::ostringstream os;
+    NativeBinaryArchiveWriter ar{os};
+
+    ComponentType::kFloat64.Save(ar);
+
+    data = os.str();
+  }
+
+  {
+    std::istringstream is{data};
+    NativeBinaryArchiveReader ar{is};
+
+    ComponentType ctype;
+    ctype.Load(ar);
+
+    ASSERT_EQ(ComponentType::kFloat64, ctype);
   }
 }

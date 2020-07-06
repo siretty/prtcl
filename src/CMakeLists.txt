@@ -166,6 +166,7 @@ prtcl_add_library_simple(
     prtcl/util/hcp_lattice_source
     prtcl/util/integral_grid
 
+    prtcl/util/archive
     prtcl/util/save_vtk
 
     EXTRA_HEADERS

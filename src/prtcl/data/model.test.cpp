@@ -9,9 +9,9 @@
 #include <boost/range/algorithm/copy.hpp>
 #include <boost/range/algorithm/sort.hpp>
 
-TEST(DataTests, CheckModel) {
-  using namespace prtcl;
+using namespace prtcl;
 
+TEST(DataTests, CheckModel) {
   {
     Model model;
     ASSERT_EQ(model.GetGroupCount(), 0);
@@ -50,9 +50,9 @@ TEST(DataTests, CheckModel) {
     }
 
     {
-      auto &gf_a = model.AddGlobalFieldImpl<float, 2, 3>("a");
+      auto gf_a = model.AddGlobalFieldImpl<float, 2, 3>("a");
       ASSERT_EQ(model.GetGlobal().GetFieldCount(), 1);
-      ASSERT_EQ(gf_a.GetSize(), 1);
+      ASSERT_TRUE(gf_a);
 
       ASSERT_THROW(
           { (void)(model.AddGlobalFieldImpl<float, 3, 2>("a")); },
@@ -64,5 +64,40 @@ TEST(DataTests, CheckModel) {
 
     model.RemoveGroup("a");
     ASSERT_EQ(model.GetGroupCount(), 1);
+  }
+}
+
+TEST(Model, SaveLoadTest) {
+  std::string data;
+
+  {
+    std::ostringstream os;
+    NativeBinaryArchiveWriter ar{os};
+
+    Model model;
+    model.AddGroup("a", "a_type");
+    model.AddGroup("b", "b_type");
+    model.AddGlobalFieldImpl<bool, 1, 2>("bx1x2");
+
+    model.Save(ar);
+
+    data = os.str();
+  }
+
+  {
+    std::istringstream is{data};
+    NativeBinaryArchiveReader ar{is};
+
+    Model model;
+    model.Load(ar);
+
+    ASSERT_NE(nullptr, model.TryGetGroup("a"));
+    ASSERT_EQ("a_type", model.TryGetGroup("a")->GetGroupType());
+
+    ASSERT_NE(nullptr, model.TryGetGroup("b"));
+    ASSERT_EQ("b_type", model.TryGetGroup("b")->GetGroupType());
+
+    ASSERT_EQ(1, model.GetGlobal().GetFieldCount());
+    ASSERT_TRUE((model.GetGlobal().FieldSpan<bool, 1, 2>("bx1x2")));
   }
 }

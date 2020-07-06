@@ -12,6 +12,14 @@ ComponentType const ComponentType::kSInt64 = {CType::kSInt64};
 ComponentType const ComponentType::kFloat32 = {CType::kFloat32};
 ComponentType const ComponentType::kFloat64 = {CType::kFloat64};
 
+void ComponentType::Save(ArchiveWriter &archive) const {
+  archive.SaveString(this->ToStringView());
+}
+
+void ComponentType::Load(ArchiveReader &archive) {
+  *this = ComponentType::FromString(archive.LoadString());
+}
+
 std::string_view ComponentType::ToStringView() const {
   switch (ctype_) {
   case CType::kBoolean:

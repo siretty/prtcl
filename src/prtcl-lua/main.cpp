@@ -26,7 +26,8 @@ static int Main(cxx::span<std::string const> argv) {
 
   sol::state lua;
   lua.open_libraries(
-      sol::lib::base, sol::lib::string, sol::lib::package, sol::lib::math);
+      sol::lib::base, sol::lib::string, sol::lib::package, sol::lib::math,
+      sol::lib::io);
 
   // preload our own package (builtin)
   lua["package"]["preload"]["prtcl"] = luaopen_prtcl;

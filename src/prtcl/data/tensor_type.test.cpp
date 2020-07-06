@@ -2,9 +2,9 @@
 
 #include "tensor_type.hpp"
 
-TEST(DataTests, CheckTensorType) {
-  using namespace prtcl;
+using namespace prtcl;
 
+TEST(DataTests, CheckTensorType) {
   {
     TensorType const ttype;
     ASSERT_EQ(ttype.GetComponentType(), ComponentType::kInvalid);
@@ -66,5 +66,30 @@ TEST(DataTests, CheckTensorType) {
       ASSERT_EQ(ttype.GetShape(), from_ttype.GetShape());
       ASSERT_EQ(ttype.GetComponentCount(), 3 * 4 * 5);
     }
+  }
+}
+
+TEST(TensorType, SaveLoadTest) {
+  std::string data;
+
+  {
+    std::ostringstream os;
+    NativeBinaryArchiveWriter ar{os};
+
+    TensorType const ttype{ComponentType::kFloat32, {1, 2}};
+    ttype.Save(ar);
+
+    data = os.str();
+  }
+
+  {
+    std::istringstream is{data};
+    NativeBinaryArchiveReader ar{is};
+
+    TensorType ttype;
+    ttype.Load(ar);
+
+    ASSERT_EQ(ComponentType::kFloat32, ttype.GetComponentType());
+    ASSERT_EQ((Shape{1, 2}), ttype.GetShape());
   }
 }

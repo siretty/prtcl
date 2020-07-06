@@ -6,6 +6,18 @@
 
 namespace prtcl {
 
+void Shape::Save(ArchiveWriter &archive) const {
+  archive.SaveSize(extents_.size());
+  for (auto const extent : extents_)
+    archive.SaveSize(extent);
+}
+
+void Shape::Load(ArchiveReader &archive) {
+  extents_.resize(archive.LoadSize());
+  for (auto &extent : extents_)
+    extent = archive.LoadSize();
+}
+
 std::ostream &operator<<(std::ostream &o, Shape const &shape) {
   o << '[';
   for (size_t dim = 0; dim < shape.GetRank(); ++dim) {

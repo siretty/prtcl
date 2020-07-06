@@ -6,9 +6,9 @@
 #include <array>
 #include <initializer_list>
 
-TEST(DataTests, CheckShape) {
-  using namespace prtcl;
+using namespace prtcl;
 
+TEST(DataTests, CheckShape) {
   {
     std::initializer_list<size_t> input = {1, 2, 3, 4};
 
@@ -76,5 +76,33 @@ TEST(DataTests, CheckShape) {
     ASSERT_EQ(shape.GetExtents()[2], 1);
     ASSERT_EQ(shape.ToString(), "[3, 0, 1]");
     ASSERT_EQ(Shape::FromString("[3, 0, 1]"), shape);
+  }
+}
+
+TEST(Shape, SaveLoadTest) {
+  {
+    std::string data;
+    {
+      std::ostringstream os;
+      NativeBinaryArchiveWriter ar{os};
+
+      Shape shape{3, 2, 1};
+      shape.Save(ar);
+
+      data = os.str();
+    }
+
+    {
+      std::istringstream is{data};
+      NativeBinaryArchiveReader ar{is};
+
+      Shape shape;
+      shape.Load(ar);
+
+      ASSERT_EQ(3, shape.GetRank());
+      ASSERT_EQ(3, shape[0]);
+      ASSERT_EQ(2, shape[1]);
+      ASSERT_EQ(1, shape[2]);
+    }
   }
 }

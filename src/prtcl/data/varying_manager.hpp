@@ -7,6 +7,7 @@
 #include "../errors/invalid_identifier_error.hpp"
 #include "prtcl/util/is_valid_identifier.hpp"
 #include "varying_field.hpp"
+#include "../util/archive.hpp"
 
 #include "../log.hpp"
 
@@ -164,6 +165,11 @@ public:
   auto GetFields() const {
     return GetNamedFields() | boost::adaptors::map_values;
   }
+
+public:
+  void Save(ArchiveWriter &archive) const;
+
+  void Load(ArchiveReader &archive);
 
 private:
   size_t size_ = 0;

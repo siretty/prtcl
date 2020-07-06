@@ -51,4 +51,27 @@ void Model::RemoveGroup(std::string_view name) {
   }
 }
 
+void Model::Save(ArchiveWriter &archive) const {
+  global_.Save(archive);
+
+  archive.SaveSize(groups_.size());
+  for (auto &[group_name, group_ptr] : groups_) {
+    archive.SaveString(group_name);
+    archive.SaveString(group_ptr->GetGroupType());
+    group_ptr->Save(archive);
+  }
+}
+
+void Model::Load(ArchiveReader &archive) {
+  global_.Load(archive);
+
+  size_t group_count = archive.LoadSize();
+  for (size_t group_index = 0; group_index < group_count; ++group_index) {
+    auto group_name = archive.LoadString();
+    auto group_type = archive.LoadString();
+    auto &group = this->AddGroup(group_name, group_type);
+    group.Load(archive);
+  }
+}
+
 } // namespace prtcl

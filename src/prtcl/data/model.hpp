@@ -93,6 +93,11 @@ public:
 
   void RemoveGlobalField(std::string_view name) { global_.RemoveField(name); }
 
+public:
+  void Save(ArchiveWriter &archive) const;
+
+  void Load(ArchiveReader &archive);
+
 private:
   UniformManager global_;
 

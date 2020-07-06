@@ -79,7 +79,23 @@ local frames_per_second = 24
 local seconds_per_frame = 1 / frames_per_second
 
 
-local model = prtcl.data.model.new()
+local function readable_path(path)
+  file = io.open(path, 'r')
+  if file ~= nil then
+    io.close(file)
+    return true
+  end
+  return false
+end
+
+local model = nil
+local model_path = 'output/model.6.bin'
+if readable_path(model_path) then
+  model = prtcl.data.model.load_native_binary(model_path)
+else
+  model = prtcl.data.model.new()
+end
+
 
 local f = model:add_group("f", "fluid")
 f:add_tag("dynamic")
@@ -185,6 +201,7 @@ nhood:update()
 
 local function save_frame(frame)
   f:save_vtk('output/f.' .. frame .. '.vtk')
+  model:save_native_binary('output/model.' .. frame .. '.bin')
 end
 
 
@@ -200,13 +217,14 @@ schedule:schedule_at(0, function(s, delay)
   print('FRAME #' .. current_frame .. ' (DELAYED ' .. tostring(delay) .. ')')
   save_frame(current_frame)
 
-  nhood:update(model)
-
-  schemes.horas:run_procedure("update_visible_aabb", nhood)
-
   horasons:resize(0)
   camera:sample(horasons)
+
+  nhood:load(model)
+  nhood:update(model)
   schemes.horas:load(model)
+
+  schemes.horas:run_procedure("update_visible_aabb", nhood)
 
   schemes.horas:run_procedure("reset", nhood)
   for step = 1, 100 do
@@ -266,7 +284,9 @@ local function setup_fluid()
   end
 end
 
-setup_fluid()
+if f.item_count == 0 then
+  setup_fluid()
+end
 
 
 for _, field_name in ipairs(model.global:field_names()) do

@@ -3,6 +3,7 @@
 
 #include "../cxx/span.hpp"
 #include "../math.hpp"
+#include "../util/archive.hpp"
 #include "tensor_type.hpp"
 
 #include <any>
@@ -143,6 +144,11 @@ public:
   virtual void SetVector(size_t index, RealVector const &vector) = 0;
 
   virtual void SetMatrix(size_t index, RealMatrix const &matrix) = 0;
+
+public:
+  virtual void Save(ArchiveWriter &archive) const = 0;
+
+  virtual void Load(ArchiveReader &archive) = 0;
 };
 
 template <typename T, size_t... N>
@@ -212,6 +218,35 @@ public:
 
   void SetMatrix(size_t index, RealMatrix const &matrix) final {
     SetImpl<2, RealScalar>(index, matrix);
+  }
+
+public:
+  void Save(ArchiveWriter &archive) const final {
+    auto const count = data_.size();
+    archive.SaveSize(count);
+    if (count > 0) {
+      // TODO: relies on the Eigen math library
+      if constexpr (0 == sizeof...(N)) {
+        archive.SaveValues(count, &data_[0]);
+      } else {
+        auto const component_count = static_cast<size_t>(ItemType{}.size());
+        archive.SaveValues(count * component_count, data_[0].data());
+      }
+    }
+  }
+
+  void Load(ArchiveReader &archive) final {
+    auto const count = archive.LoadSize();
+    // TODO: relies on the Eigen math library
+    data_.resize(count);
+    if (count > 0) {
+      if constexpr (0 == sizeof...(N)) {
+        archive.LoadValues(count, &data_[0]);
+      } else {
+        auto const component_count = static_cast<size_t>(ItemType{}.size());
+        archive.LoadValues(count * component_count, data_[0].data());
+      }
+    }
   }
 
 public:
@@ -302,6 +337,11 @@ public:
   void Set(size_t index, RealMatrix const &matrix) const {
     data_->SetMatrix(index, matrix);
   }
+
+public:
+  void Save(ArchiveWriter &archive) const { data_->Save(archive); }
+
+  void Load(ArchiveReader &archive) { data_->Load(archive); }
 
 public:
   template <typename T, size_t... N>

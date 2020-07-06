@@ -74,6 +74,10 @@ public:
 
     // iterate over all groups
     for (auto &group : model_.GetGroups()) {
+      log::Debug(
+          "lib", "Neighborhood", "Load(", &model_,
+          ") Group name=", group.GetGroupName());
+
       auto const group_index = static_cast<size_t>(group.GetGroupIndex());
       auto &group_data = _data.groups[group_index];
 
@@ -86,8 +90,10 @@ public:
       }
 
       group_data.tags.clear();
-      group_data.tags.insert(
-          boost::begin(group.GetTags()), boost::end(group.GetTags()));
+      for (auto const &tag : group.GetTags()) {
+        log::Debug("lib", "Neighborhood", "Load(", &model_, ") tag=", tag);
+        group_data.tags.insert(tag);
+      }
     }
   }
 

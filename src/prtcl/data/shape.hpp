@@ -1,6 +1,7 @@
 #ifndef PRTCL_SRC_PRTCL_DATA_SHAPE_HPP
 #define PRTCL_SRC_PRTCL_DATA_SHAPE_HPP
 
+#include "../util/archive.hpp"
 #include <prtcl/cxx.hpp>
 
 #include <algorithm>
@@ -42,6 +43,11 @@ public:
     return extents_.empty() or
            std::find(extents_.begin(), extents_.end(), 0) != extents_.end();
   }
+
+public:
+  void Save(ArchiveWriter &archive) const;
+
+  void Load(ArchiveReader &archive);
 
 public:
   friend bool operator==(Shape const &lhs, Shape const &rhs) {

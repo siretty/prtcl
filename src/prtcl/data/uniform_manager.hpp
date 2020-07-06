@@ -85,6 +85,11 @@ public:
     return GetNamedFields() | boost::adaptors::map_values;
   }
 
+public:
+  void Save(ArchiveWriter &archive) const;
+
+  void Load(ArchiveReader &archive);
+
 private:
   cxx::het_flat_map<std::string, UniformField> fields_ = {};
 };

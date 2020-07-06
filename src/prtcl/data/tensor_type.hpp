@@ -3,6 +3,7 @@
 
 #include "../errors/not_implemented_error.hpp"
 #include "../log.hpp"
+#include "../util/archive.hpp"
 #include "component_type.hpp"
 #include "shape.hpp"
 
@@ -54,6 +55,11 @@ public:
   TensorType WithShapeOf(TensorType const &other) const {
     return {ctype_, other.shape_};
   }
+
+public:
+  void Save(ArchiveWriter &archive) const;
+
+  void Load(ArchiveReader &archive);
 
 public:
   friend bool operator==(TensorType const &lhs, TensorType const &rhs) {

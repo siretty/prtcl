@@ -3,6 +3,7 @@
 
 #include "../cxx/span.hpp"
 #include "../math.hpp"
+#include "../util/archive.hpp"
 #include "tensor_type.hpp"
 
 #include <any>
@@ -134,6 +135,11 @@ public:
   virtual void SetVector(BooleanVector const &vector) = 0;
 
   virtual void SetMatrix(BooleanMatrix const &matrix) = 0;
+
+public:
+  virtual void Save(ArchiveWriter &archive) const = 0;
+
+  virtual void Load(ArchiveReader &archive) = 0;
 };
 
 template <typename T, size_t... N>
@@ -243,6 +249,25 @@ public:
   }
 
 public:
+  void Save(ArchiveWriter &archive) const final {
+    if constexpr (sizeof...(N) == 0)
+      archive.SaveValues(1, &data_);
+    else {
+      auto const component_count = static_cast<size_t>(ItemType{}.size());
+      archive.SaveValues(component_count, data_.data());
+    }
+  }
+
+  void Load(ArchiveReader &archive) {
+    if constexpr (sizeof...(N) == 0)
+      archive.LoadValues(1, &data_);
+    else {
+      auto const component_count = static_cast<size_t>(ItemType{}.size());
+      archive.LoadValues(component_count, data_.data());
+    }
+  }
+
+public:
   UniformFieldSpan<T, N...> Span() { return {&data_}; }
 
   template <typename U>
@@ -329,6 +354,11 @@ public:
   void Set(BooleanVector const &vector) const { data_->SetVector(vector); }
 
   void Set(BooleanMatrix const &matrix) const { data_->SetMatrix(matrix); }
+
+public:
+  void Save(ArchiveWriter &archive) const { data_->Save(archive); }
+
+  void Load(ArchiveReader &archive) const { data_->Load(archive); }
 
 public:
   template <typename T, size_t... N>
