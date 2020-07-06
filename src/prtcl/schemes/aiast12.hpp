@@ -19,6 +19,7 @@
 #include <prtcl/util/neighborhood.hpp>
 
 #include <sstream>
+#include <string_view>
 #include <vector>
 
 #include <omp.h>
@@ -181,6 +182,39 @@ private:
     ss << "[T=" << MakeComponentType<T>() << ", N=" << N
        << ", K=" << kernel_type::get_name() << "]";
     return ss.str();
+  }
+
+public:
+  std::string_view GetPrtclSourceCode() const final {
+    return R"prtcl(
+
+scheme aiast12 {
+  groups boundary {
+    select type boundary;
+
+    varying field x = real[] position;
+    varying field V = real volume;
+  }
+
+  global {
+    field h = real smoothing_scale;
+  }
+
+  procedure compute_volume {
+    foreach boundary particle b {
+      compute V.b = 0;
+
+      foreach boundary neighbor b_b {
+        compute V.b += kernel_h(x.b - x.b_b, h);
+      }
+
+      compute V.b = 1 / V.b;
+    }
+  }
+}
+
+
+)prtcl";
   }
 
 private:

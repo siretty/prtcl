@@ -19,6 +19,7 @@
 #include <prtcl/util/neighborhood.hpp>
 
 #include <sstream>
+#include <string_view>
 #include <vector>
 
 #include <omp.h>
@@ -184,6 +185,38 @@ private:
     ss << "[T=" << MakeComponentType<T>() << ", N=" << N
        << ", K=" << kernel_type::get_name() << "]";
     return ss.str();
+  }
+
+public:
+  std::string_view GetPrtclSourceCode() const final {
+    return R"prtcl(
+
+scheme gravity {
+  groups dynamic {
+    select tag dynamic;
+
+    varying field a = real[] acceleration;
+  }
+
+  global {
+    field g = real[] gravity;
+  }
+
+  procedure initialize_acceleration {
+    foreach dynamic particle f {
+      compute a.f = g;
+    }
+  }
+
+  procedure accumulate_acceleration {
+    foreach dynamic particle f {
+      compute a.f += g;
+    }
+  }
+}
+
+
+)prtcl";
   }
 
 private:

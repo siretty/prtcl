@@ -42,6 +42,9 @@ public:
     return boost::make_iterator_range(procedures_) | boost::adaptors::map_keys;
   }
 
+public:
+  virtual std::string_view GetPrtclSourceCode() const = 0;
+
 protected:
   template <typename Impl>
   void RegisterProcedure(

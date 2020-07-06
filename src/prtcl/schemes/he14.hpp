@@ -19,6 +19,7 @@
 #include <prtcl/util/neighborhood.hpp>
 
 #include <sstream>
+#include <string_view>
 #include <vector>
 
 #include <omp.h>
@@ -357,6 +358,106 @@ private:
     ss << "[T=" << MakeComponentType<T>() << ", N=" << N
        << ", K=" << kernel_type::get_name() << "]";
     return ss.str();
+  }
+
+public:
+  std::string_view GetPrtclSourceCode() const final {
+    return R"prtcl(
+
+scheme he14 {
+  groups fluid {
+    select type fluid;
+
+    varying field x = real[] position;
+    varying field a = real[] acceleration;
+
+    varying field rho = real density;
+    varying field m = real mass;
+
+    uniform field rho0 = real rest_density;
+    uniform field k = real surface_tension;
+
+    varying field c = real   he14_color_field;
+    varying field d = real[] he14_color_field_gradient;
+  }
+
+  groups boundary {
+    select type boundary;
+
+    varying field x = real[] position;
+
+    varying field V = real volume;
+
+    uniform field k = real surface_tension;
+  }
+
+  global {
+    field h = real smoothing_scale;
+  }
+
+  procedure compute_color_field {
+    foreach fluid particle f {
+      // TODO: this is most likely wrong
+      compute c.f =
+          (m.f / rho.f)
+        *
+          kernel_h(zeros<real[]>(), h);
+
+      foreach fluid neighbor f_f {
+        compute c.f +=
+            (m.f_f / rho.f_f)
+          *
+            kernel_h(x.f - x.f_f, h);
+      }
+    }
+  }
+
+  procedure compute_color_field_gradient {
+    foreach fluid particle f {
+      compute d.f = zeros<real[]>();
+
+      foreach fluid neighbor f_f {
+        compute d.f +=
+            (m.f_f / rho.f_f)
+          *
+            c.f_f
+          *
+            kernel_gradient_h(x.f - x.f_f, h);
+      }
+
+      compute d.f /= c.f;
+    }
+  }
+
+  procedure accumulate_acceleration {
+    foreach fluid particle f {
+      foreach fluid neighbor f_f {
+        compute a.f +=
+            (0.25 * k.f / rho.f)
+          *
+            (m.f_f / rho.f_f)
+          *
+            (norm_squared(d.f) + norm_squared(d.f_f))
+          *
+            kernel_gradient_h(x.f - x.f_f, h);
+      }
+
+      foreach boundary neighbor f_b {
+        compute a.f +=
+            (0.25 * k.f_b / rho.f)
+          *
+            V.f_b
+          *
+            norm_squared(d.f)
+          *
+            kernel_gradient_h(x.f - x.f_b, h);
+      }
+    }
+  }
+}
+
+
+)prtcl";
   }
 
 private:

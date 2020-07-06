@@ -19,6 +19,7 @@
 #include <prtcl/util/neighborhood.hpp>
 
 #include <sstream>
+#include <string_view>
 #include <vector>
 
 #include <omp.h>
@@ -307,6 +308,83 @@ private:
     ss << "[T=" << MakeComponentType<T>() << ", N=" << N
        << ", K=" << kernel_type::get_name() << "]";
     return ss.str();
+  }
+
+public:
+  std::string_view GetPrtclSourceCode() const final {
+    return R"prtcl(
+
+scheme sesph {
+  groups fluid {
+    select type fluid;
+
+    varying field x = real[] position;
+    varying field v = real[] velocity;
+    varying field a = real[] acceleration;
+
+    varying field rho = real density;
+    varying field m = real mass;
+    varying field p = real pressure;
+
+    uniform field rho0 = real rest_density;
+    uniform field kappa = real compressibility;
+  }
+
+  groups boundary {
+    select type boundary;
+
+    varying field x = real[] position;
+
+    varying field V = real volume;
+  }
+
+  global {
+    field h = real smoothing_scale;
+  }
+
+  procedure compute_density_and_pressure {
+    foreach fluid particle f {
+      compute rho.f = 0;
+
+      foreach fluid neighbor f_f {
+        compute rho.f += m.f_f * kernel_h(x.f - x.f_f, h);
+      }
+
+      foreach boundary neighbor f_b {
+        compute rho.f += V.f_b * rho0.f * kernel_h(x.f - x.f_b, h);
+      }
+
+      compute p.f = kappa.f * max(0, rho.f / rho0.f - 1);
+    }
+  }
+
+  procedure accumulate_acceleration {
+    foreach fluid particle f {
+      foreach fluid neighbor f_f {
+        // pressure
+        compute a.f -= 
+            m.f_f
+          *
+            (p.f / (rho.f * rho.f) + p.f_f / (rho.f_f * rho.f_f))
+          *
+            kernel_gradient_h(x.f - x.f_f, h);                                             
+      }
+
+      foreach boundary neighbor f_b {
+        // pressure
+        compute a.f -= 
+            0.7 * V.f_b * rho0.f
+          *
+            (2 * p.f / (rho.f * rho.f))
+          *
+            kernel_gradient_h(x.f - x.f_b, h);                                             
+      }
+    }
+  }
+}
+
+
+)prtcl";
   }
 
 private:

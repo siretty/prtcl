@@ -48,7 +48,7 @@ function class:isave(indent)
   end
 end
 
-function class:iload(indent)
+function class:iload()
   self._indent = self._saved_indent[#self._saved_indent]
 end
 

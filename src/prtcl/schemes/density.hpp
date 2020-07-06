@@ -19,6 +19,7 @@
 #include <prtcl/util/neighborhood.hpp>
 
 #include <sstream>
+#include <string_view>
 #include <vector>
 
 #include <omp.h>
@@ -225,6 +226,53 @@ private:
     ss << "[T=" << MakeComponentType<T>() << ", N=" << N
        << ", K=" << kernel_type::get_name() << "]";
     return ss.str();
+  }
+
+public:
+  std::string_view GetPrtclSourceCode() const final {
+    return R"prtcl(
+
+scheme density {
+  groups fluid {
+    select type fluid;
+
+    varying field x = real[] position;
+
+    varying field rho = real density;
+    varying field m = real mass;
+    
+    uniform field rho0 = real rest_density;
+  }
+
+  groups boundary {
+    select type boundary;
+
+    varying field x = real[] position;
+
+    varying field V = real volume;
+  }
+
+  global {
+    field h = real smoothing_scale;
+  }
+
+  procedure compute_density {
+    foreach fluid particle f {
+      compute rho.f = 0;
+
+      foreach fluid neighbor f_f {
+        compute rho.f += m.f_f * kernel_h(x.f - x.f_f, h);
+      }
+
+      foreach boundary neighbor f_b {
+        compute rho.f += V.f_b * rho0.f * kernel_h(x.f - x.f_b, h);
+      }
+    }
+  }
+}
+
+
+)prtcl";
   }
 
 private:

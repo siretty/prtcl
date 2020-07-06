@@ -19,6 +19,7 @@
 #include <prtcl/util/neighborhood.hpp>
 
 #include <sstream>
+#include <string_view>
 #include <vector>
 
 #include <omp.h>
@@ -310,6 +311,108 @@ private:
     ss << "[T=" << MakeComponentType<T>() << ", N=" << N
        << ", K=" << kernel_type::get_name() << "]";
     return ss.str();
+  }
+
+public:
+  std::string_view GetPrtclSourceCode() const final {
+    return R"prtcl(
+
+scheme aat13 {
+  groups fluid {
+    select type fluid;
+
+    varying field x = real[] position;
+    varying field a = real[] acceleration;
+
+    varying field rho = real density;
+    varying field m = real mass;
+
+    uniform field rho0 = real rest_density;
+
+    uniform field gamma = real surface_tension;
+
+    varying field n = real[] aat13_particle_normal;
+  }
+
+  groups boundary {
+    select type boundary;
+
+    varying field x = real[] position;
+
+    varying field V = real volume;
+
+    uniform field beta = real adhesion;
+  }
+
+  global {
+    field h = real smoothing_scale;
+  }
+
+  procedure compute_particle_normal {
+    foreach fluid particle f {
+      compute n.f = zeros<real[]>();
+
+      foreach fluid neighbor f_f {
+        compute n.f +=
+            kernel_support_radius(h)
+          *
+            m.f_f / rho.f_f
+          *
+            kernel_gradient_h(x.f - x.f_f, h);
+      }
+    }
+  }
+
+  procedure accumulate_acceleration {
+    foreach fluid particle f {
+      foreach fluid neighbor f_f {
+        // cohesion
+        compute a.f -=
+            (
+                (2 * rho0.f / (rho.f + rho.f_f))
+              *
+                gamma.f
+              *
+                m.f_f
+              *
+                (x.f - x.f_f)
+              *
+                reciprocal_or_zero(norm(x.f - x.f_f), 1e-9)
+            )
+          *
+            aat13_cohesion_h(norm(x.f - x.f_f), h);
+
+        // curvature
+        compute a.f -=
+            (
+                (2 * rho0.f / (rho.f + rho.f_f))
+              *
+                gamma.f
+            )
+          *
+            (n.f - n.f_f);
+      }
+
+      foreach boundary neighbor f_b {
+        compute a.f -=
+            (
+                beta.f_b
+              *
+                rho0.f * V.f_b
+              *
+                (x.f - x.f_b)
+              *
+                reciprocal_or_zero(norm(x.f - x.f_b), 1e-9)
+            )
+          *
+            aat13_adhesion_h(norm(x.f - x.f_b), h);
+      }
+    }
+  }
+}
+
+
+)prtcl";
   }
 
 private:

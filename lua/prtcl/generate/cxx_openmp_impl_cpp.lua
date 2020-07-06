@@ -838,7 +838,7 @@ local function scheme_registration(o, S, T, N, K)
 end
 
 
-function module.generate(prtcl, printer, namespaces, scheme_name)
+function module.generate(_, prtcl, printer, namespaces, scheme_name)
   local o = printer
 
   o:put('#include "scheme_base.hpp"'):nl()

@@ -28,6 +28,7 @@ hpp_header = [===[
 #include <prtcl/util/neighborhood.hpp>
 
 #include <vector>
+#include <string_view>
 #include <sstream>
 
 #include <omp.h>
@@ -839,7 +840,7 @@ end
 -- }}}
 
 
-function module.generate(prtcl, printer, namespaces, scheme_name)
+function module.generate(source, prtcl, printer, namespaces, scheme_name)
   local o = printer
 
   o:put(hpp_header)
@@ -1192,8 +1193,20 @@ function module.generate(prtcl, printer, namespaces, scheme_name)
       o:iput('return ss.str();'):nl()
       o:decrease_indent()
       o:iput('}'):nl()
-
       o:nl()
+
+      cxx_access_modifier(o, 'public')
+      o:iput('std::string_view GetPrtclSourceCode() const final {'):nl()
+      o:increase_indent()
+      o:iput('return R"prtcl('):nl()
+      o:isave(0)
+      o:put(source):nl()
+      o:iload()
+      o:put(')prtcl";'):nl()
+      o:decrease_indent()
+      o:iput('}'):nl()
+      o:nl()
+
       cxx_access_modifier(o, 'private')
       o:iput('static inline bool const registered_ = GetSchemeRegistry().RegisterScheme<' .. scheme.name .. '>(GetFullNameImpl());'):nl()
       o:nl()

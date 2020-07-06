@@ -19,6 +19,7 @@
 #include <prtcl/util/neighborhood.hpp>
 
 #include <sstream>
+#include <string_view>
 #include <vector>
 
 #include <omp.h>
@@ -521,6 +522,232 @@ static std::string GetFullNameImpl() {
   ss << "[T=" << MakeComponentType<T>() << ", N=" << N
      << ", K=" << kernel_type::get_name() << "]";
   return ss.str();
+}
+
+public:
+std::string_view GetPrtclSourceCode() const final {
+  return R"prtcl(
+
+scheme iisph {
+  groups fluid {
+    select type fluid;
+
+    varying field x = real[] position;
+    varying field v = real[] velocity;
+    varying field a = real[] acceleration;
+
+    varying field rho = real density;
+    varying field p   = real pressure;
+    varying field m   = real mass;
+
+    uniform field rho0 = real rest_density;
+
+    // IISPH
+    varying field c  = real[] iisph_helper_c;
+    varying field s  = real   iisph_source_term;
+    varying field AA = real   iisph_diagonal_element;
+    varying field Ap = real   iisph_right_hand_side;
+  }
+
+  groups boundary {
+    select type boundary;
+
+    varying field x = real[] position;
+
+    varying field V = real volume;
+  }
+
+  global {
+    field g = real[] gravity;
+
+    field h = real smoothing_scale;
+    field dt = real time_step;
+
+    // IISPH
+    field omega = real iisph_relaxation;
+    field aprde = real iisph_aprde;
+    field nprde = integer iisph_nprde;
+  }
+
+  procedure setup {
+    foreach fluid particle f {
+      // reset the helper variable
+      compute c.f = zeros<real[]>();
+
+      foreach fluid neighbor f_f {
+        // accumulate the helper variable
+        compute c.f -=
+            ( m.f_f / (rho.f * rho.f) )
+          *
+            kernel_gradient_h(x.f - x.f_f, h);
+      }
+
+      foreach boundary neighbor f_b {
+        // accumulate the helper variable
+        compute c.f -=
+            // TODO: check the correction factor
+            0.7 * 2
+          *
+            rho0.f * ( V.f_b / (rho.f * rho.f) )
+          *
+            kernel_gradient_h(x.f - x.f_b, h);
+      }
+    }
+
+    compute nprde = zeros<integer>();
+
+    foreach fluid particle f {
+      // reset the pressure
+      compute p.f = 0;
+
+      // reset the source term
+      compute s.f = 0;
+      // reset the diagonal element
+      compute AA.f = 0;
+
+      foreach fluid neighbor f_f {
+        // accumulate source term
+        compute s.f +=
+            m.f_f
+          *
+            dot(
+              v.f - v.f_f,
+              kernel_gradient_h(x.f - x.f_f, h)
+            );
+        // accumulate first term of the diagonal element
+        compute AA.f +=
+            m.f_f
+          *
+            dot(
+              c.f,
+              kernel_gradient_h(x.f - x.f_f, h)
+            );
+        // accumulate second term of the diagonal element
+        compute AA.f -=
+            m.f_f
+          *
+            ( m.f / (rho.f * rho.f) )
+          *
+            norm_squared(
+              kernel_gradient_h(x.f - x.f_f, h)
+            );
+      }
+
+      foreach boundary neighbor f_b {
+        // accumulate source term
+        compute s.f +=
+            rho0.f * V.f_b
+          *
+            dot(
+              // HACK: boundaries are currently static, adjust
+              v.f - zeros<real[]>(),
+              kernel_gradient_h(x.f - x.f_b, h)
+            );
+        // accumulate third term of the diagonal element
+        compute AA.f +=
+            rho0.f * V.f_b
+          *
+            dot(
+              c.f,
+              kernel_gradient_h(x.f - x.f_b, h)
+            );
+      }
+
+      // finalize source term
+      compute s.f = rho0.f - rho.f - dt * (rho0.f / rho.f) * s.f;
+      // finalize diagonal element
+      compute AA.f *= dt * dt * (rho0.f / rho.f);
+
+      // accumulate the number of particles
+      reduce nprde += ones<integer>();
+    }
+  }
+
+  procedure iteration_pressure_acceleration {
+    foreach fluid particle f {
+      // reset the acceleration
+      compute a.f = zeros<real[]>();
+
+      foreach fluid neighbor f_f {
+        // accumulate the pressure acceleration
+        compute a.f -= 
+            m.f_f
+          *
+            (p.f / (rho.f * rho.f) + p.f_f / (rho.f_f * rho.f_f))
+          *
+            kernel_gradient_h(x.f - x.f_f, h);                                             
+      }
+
+      foreach boundary neighbor f_b {
+        // accumulate the pressure acceleration
+        compute a.f -= 
+            0.7
+          *
+            rho0.f * V.f_b 
+          *
+            (2 * p.f / (rho.f * rho.f))
+          *
+            kernel_gradient_h(x.f - x.f_b, h);                                             
+      }
+    }
+  }
+
+  procedure iteration_pressure {
+    foreach fluid particle f {
+      // reset the right hand side
+      compute Ap.f = 0;
+
+      foreach fluid neighbor f_f {
+        // accumulate the right hand side
+        compute Ap.f += 
+            m.f_f
+          *
+            dot(
+              a.f - a.f_f,
+              kernel_gradient_h(x.f - x.f_f, h)
+            );                                             
+      }
+
+      foreach boundary neighbor f_b {
+        // accumulate the right hand side
+        compute Ap.f += 
+            rho0.f * V.f_b 
+          *
+            dot(
+              a.f - zeros<real[]>(), // TODO: boundary currently has no acceleration
+              kernel_gradient_h(x.f - x.f_b, h)
+            );                                             
+      }
+
+      // finalize the right hand side
+      compute Ap.f *= dt * dt * ( rho0.f / rho.f );
+
+      // compute the pressure
+      compute p.f =
+          max(
+            0,
+              p.f
+            +
+                omega
+              *
+                (s.f - Ap.f)
+              *
+                reciprocal_or_zero(AA.f, 1e-9)
+          )
+        *
+          unit_step_l(1e-9, cabs(AA.f));
+
+      // accumulate the relative density error
+      reduce aprde +=
+          ( (Ap.f - s.f) / rho0.f )
+        *
+          unit_step_l(1e-9, p.f);
+    }
+  }
+}
+
+
+)prtcl";
 }
 
 private:

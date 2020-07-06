@@ -19,6 +19,7 @@
 #include <prtcl/util/neighborhood.hpp>
 
 #include <sstream>
+#include <string_view>
 #include <vector>
 
 #include <omp.h>
@@ -473,6 +474,137 @@ private:
     ss << "[T=" << MakeComponentType<T>() << ", N=" << N
        << ", K=" << kernel_type::get_name() << "]";
     return ss.str();
+  }
+
+public:
+  std::string_view GetPrtclSourceCode() const final {
+    return R"prtcl(
+
+scheme horas {
+  groups visible {
+    select tag visible;
+
+    varying field x = real[] position;
+  }
+
+  groups fluid {
+    select type fluid and tag visible;
+
+    varying field x = real[] position;
+
+    varying field rho = real density;
+    varying field m   = real mass;
+
+    uniform field rho0 = real rest_density;
+  }
+
+  groups horason {
+    select type horason;
+
+    varying field s = integer[2] sensor_position;
+
+    varying field x = real[] position;
+    varying field x0 = real[] initial_position;
+
+    varying field d = real[] direction;
+
+    varying field t0 = real initial_parameter;
+    varying field t = real parameter;
+    
+    varying field phi = real implicit_function;
+    varying field grad_phi = real[] implicit_function_gradient;
+  }
+
+  global {
+    field h = real smoothing_scale;
+
+    field x_min = real[] position_aabb_min;
+    field x_max = real[] position_aabb_max;
+  }
+
+  procedure update_visible_aabb {
+    foreach dimension index dim {
+      local x_min_dim : real = positive_infinity<real>();
+      local x_max_dim : real = negative_infinity<real>();
+
+      foreach visible particle i {
+        reduce x_min_dim min= x.i[dim];
+        reduce x_max_dim max= x.i[dim];
+      }
+
+      compute x_min[dim] = x_min_dim - h;
+      compute x_max[dim] = x_max_dim + h;
+    }
+  }
+
+  procedure reset {
+    foreach horason particle i {
+      compute x.i = x0.i;
+      compute t.i = t0.i;
+    }
+  }
+
+  procedure step_fluid {
+    // The 'relative' level of the implicit surface we want to find.
+    local W : real = 0.8;
+    // An upper bound to the Lipschitz constant of the implicit function.
+    local L : real = 1.1;
+
+    foreach horason particle i {
+      // The implicit function is constant one interpolated using SPH.
+      compute phi.i = zeros<real>();
+      compute grad_phi.i = zeros<real[]>();
+      foreach fluid neighbor f_i {
+        compute phi.i += m.f_i / rho.f_i * kernel_h(x.i - x.f_i, h);
+        compute grad_phi.i += m.f_i / rho.f_i * kernel_gradient_h(x.i - x.f_i, h);
+      }
+      // Since this vanishes 'outside' of the fluid, we subtract it from the level
+      // and scale it by the smoothing scale to force it's Lipschitz constant
+      // to be bounded by one (as for the unscaled function it is the reciprocal
+      // of the smoothing scale).
+      compute phi.i = (W - phi.i) * h;
+      compute grad_phi.i *= -h;
+
+      compute t.i += phi.i / L;
+      compute x.i = x0.i + t.i * d.i;
+    }
+  }
+
+  procedure step {
+    local R : real = 2 * h;
+    local W : real = h / 2;
+    local O : real = h;
+    local L : real = 1.1;
+  
+    foreach horason particle i {
+      local nom : real[] = zeros<real[]>();
+      local den : real = 0;
+
+      foreach visible neighbor j {
+        local k : real = norm(x.i - x.j) / R;
+        compute k = (1 - k * k);
+        compute k = k * k * k;
+
+        compute nom += x.j * k;
+        compute den += k;
+      }
+
+      local v_bar : real[] = nom * reciprocal_or_zero(den, 1e-9);
+      compute phi.i = min(
+            (norm(x.i - v_bar) - W) * unit_step_r(1e-9, den)
+          +
+            O * unit_step_r(den, 1e-9)
+        ,
+          O
+      );
+
+      compute t.i += phi.i / L;
+      compute x.i = x0.i + t.i * d.i;
+    }
+  }
+}
+
+)prtcl";
   }
 
 private:

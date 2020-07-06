@@ -17,7 +17,7 @@ function main(generate_module, source, output, scheme_name, ...)
   ast = pst_to_ast(pst)
   if ast == nil then print('error in pst_to_ast', file) end
 
-  generate.generate(ast, output, {...}, scheme_name)
+  generate.generate(source, ast, output, {...}, scheme_name)
 end
 
 -- unpack the cli arguments

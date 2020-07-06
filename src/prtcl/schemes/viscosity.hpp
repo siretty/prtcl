@@ -19,6 +19,7 @@
 #include <prtcl/util/neighborhood.hpp>
 
 #include <sstream>
+#include <string_view>
 #include <vector>
 
 #include <omp.h>
@@ -245,6 +246,105 @@ private:
     ss << "[T=" << MakeComponentType<T>() << ", N=" << N
        << ", K=" << kernel_type::get_name() << "]";
     return ss.str();
+  }
+
+public:
+  std::string_view GetPrtclSourceCode() const final {
+    return R"prtcl(
+
+scheme viscosity {
+  groups fluid {
+    select type fluid;
+
+    varying field x = real[] position;
+    varying field v = real[] velocity;
+    varying field a = real[] acceleration;
+
+    varying field rho = real density;
+    varying field m = real mass;
+
+    uniform field rho0 = real rest_density;
+    uniform field mu = real dynamic_viscosity;
+  }
+
+  groups boundary {
+    select type boundary;
+
+    varying field x = real[] position;
+
+    varying field V = real volume;
+
+    uniform field mu = real dynamic_viscosity;
+  }
+
+  global {
+    field h = real smoothing_scale;
+  }
+
+  procedure accumulate_acceleration {
+    foreach fluid particle f {
+      foreach fluid neighbor f_f {
+        // accumulate viscosity acceleration
+        compute a.f +=
+            (
+                10 // HACK: this is actually a dimensionality correction factor (10 in 3D, 8 in 2D)
+              *
+                (mu.f / rho.f)
+              *
+                (m.f_f / rho.f_f)
+              *
+                dot(v.f - v.f_f, x.f - x.f_f)
+              /
+                (norm_squared(x.f - x.f_f) + 0.01 * h * h)
+            )
+          *
+            kernel_gradient_h(x.f - x.f_f, h);
+      }
+
+      foreach boundary neighbor f_b {
+        // accumulate viscosity acceleration
+        compute a.f +=
+            (
+                10 // HACK: this is actually a dimensionality correction factor (10 in 3D, 8 in 2D)
+              *
+                (mu.f_b / rho.f)
+              *
+                (rho0.f * V.f_b / rho.f)
+              *
+                // TODO: fix velocity for boundaries
+                dot(v.f - zeros<real[]>(), x.f - x.f_b)
+              /
+                (norm_squared(x.f - x.f_b) + 0.01 * h * h)
+            )
+          *
+            kernel_gradient_h(x.f - x.f_b, h);
+      }
+    }
+  }
+}
+
+// XSPH Viscosity (Fluid)
+// compute a.f -=
+//    (
+//        (nu.f / h) * (m.f_f / rho.f_f)
+//      *
+//        (v.f - v.f_f)
+//    )
+//  *
+//    kernel_h(x.f - x.f_f, h);
+
+// XSPH Viscosity (Boundary)
+// compute a.f -=
+//    (
+//        (nu.f_b / h) * (rho0.f * V.f_b / rho.f_f)
+//      *
+//        (v.f)
+//    )
+//  *
+//    kernel_h(x.f - x.f_f, h);
+
+
+)prtcl";
   }
 
 private:

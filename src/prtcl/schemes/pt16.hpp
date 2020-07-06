@@ -19,6 +19,7 @@
 #include <prtcl/util/neighborhood.hpp>
 
 #include <sstream>
+#include <string_view>
 #include <vector>
 
 #include <omp.h>
@@ -685,6 +686,243 @@ static std::string GetFullNameImpl() {
   ss << "[T=" << MakeComponentType<T>() << ", N=" << N
      << ", K=" << kernel_type::get_name() << "]";
   return ss.str();
+}
+
+public:
+std::string_view GetPrtclSourceCode() const final {
+  return R"prtcl(
+
+scheme pt16 {
+  groups fluid {
+    select type fluid;
+
+    varying field x = real[] position;
+    varying field v = real[] velocity;
+    varying field a = real[] acceleration;
+
+    varying field rho = real density;
+    varying field m = real mass;
+
+    varying field L = real[][] gradient_correction;
+
+    uniform field rho0 = real rest_density;
+
+    varying field t_birth = real time_of_birth;
+
+    varying field pt16_one = real pt16_normalizer;
+    varying field pt16_rho = real pt16_density;
+    varying field pt16_same_rho = real pt16_same_density;
+
+    varying field omega = real[] vorticity;
+
+    varying field tvg = real[][] target_velocity_gradient;
+
+    varying field omega_diagonal = real   pt16_vorticity_diffusion_diagonal;
+    varying field omega_rhs      = real[] pt16_vorticity_diffusion_rhs;
+
+    varying field v_rec_diagonal = real   pt16_velocity_reconstruction_diagonal;
+    varying field v_rec_rhs      = real[] pt16_velocity_reconstruction_rhs;
+
+    uniform field xi = real strain_rate_viscosity;
+
+    uniform field pcg_max_error  = real    pt16_maximum_error;
+    uniform field pcg_max_iters  = integer pt16_maximum_iterations;
+    uniform field pcg_iterations = integer pt16_iterations;
+  }
+
+  groups boundary {
+    select type boundary;
+
+    varying field x = real[] position;
+    varying field V = real volume;
+  }
+
+  global {
+    field h = real smoothing_scale;
+    field dt = real time_step;
+
+    field t = real current_time;
+    field dt_fade = real fade_duration;
+  }
+
+  procedure setup {
+    foreach fluid particle f {
+      // same-group density
+      compute pt16_same_rho.f = 0;
+
+      foreach _ neighbor f_f {
+        compute pt16_same_rho.f += m.f_f * kernel_h(x.f - x.f_f, h);
+      }
+
+      // smoothed density field (from SPlisHSPlasH / Viscosity / Peer16)
+      compute pt16_rho.f = 0;
+
+      foreach fluid neighbor f_f {
+        compute pt16_rho.f += (m.f_f / rho0.f_f) * kernel_h(x.f - x.f_f, h);
+      }
+      
+      foreach boundary neighbor f_b {
+        compute pt16_rho.f += V.f_b * kernel_h(x.f - x.f_b, h);
+      }
+      
+      compute pt16_rho.f *= rho0.f;
+    }
+
+    foreach fluid particle f {
+      // initialize the velocity gradient (matrix)
+      local vg_f : real[][] = zeros<real[][]>();
+
+      // accumulate the velocity gradient only from particles of the same group
+      foreach _ neighbor f_f {
+        compute vg_f +=
+          m.f_f
+        *
+          outer_product(
+            v.f_f - v.f,
+            kernel_gradient_h(x.f - x.f_f, h)
+          );
+      }
+
+      compute vg_f /= rho.f; // pt16_same_rho.f;
+
+      // decompose the velocity gradient into spin, expansion and shear rate
+      local divergence_f : real = trace(vg_f);
+      local R_f : real[][] = (vg_f - transpose(vg_f)) / 2;
+      local V_f : real[][] = (divergence_f / 3) * identity<real[][]>();
+      local S_f : real[][] = (vg_f + transpose(vg_f)) / 2 - V_f;
+
+      // extract the vorticity from the spin rate
+      compute omega.f = 2 * vector_from_cross_product_matrix(R_f);
+
+      // partially compose the target velocity gradient (without spin rate)
+      compute tvg.f =
+          V_f * unit_step_r(0, rho.f - rho0.f, -divergence_f)
+          // TODO: is divergence_f >= 0 or -divergence_f >= 0 correct?
+        +
+          xi.f * S_f;
+    }
+  }
+
+  procedure solve_vorticity_diffusion {
+    // compute the right-hand-side of the vorticity diffusion system
+    foreach fluid particle f {
+      compute omega_rhs.f = zeros<real[]>();
+
+      foreach _ neighbor f_f {
+        compute omega_rhs.f +=
+            m.f_f
+          *
+            (omega.f - omega.f_f)
+          *
+            kernel_h(x.f - x.f_f, h);
+      }
+
+      compute omega_rhs.f *= xi.f;
+    }
+
+    foreach dimension index dim {
+      solve pcg real over fluid particle f {
+        setup right_hand_side into result {
+          compute result.f = omega_rhs.f[dim];
+        }
+
+        setup guess into iterate {
+          compute iterate.f = omega.f[dim];
+        }
+
+        product preconditioner with iterate into result {
+          compute result.f =
+              iterate.f
+            /
+              (pt16_same_rho.f - m.f * kernel_h(zeros<real[]>(), h));
+        }
+
+        product system with iterate into result {
+          compute result.f = pt16_same_rho.f * iterate.f;
+          
+          foreach _ neighbor f_f {
+            compute result.f -= m.f_f * kernel_h(x.f - x.f_f, h) * iterate.f_f;
+          }
+        }
+
+        apply iterate {
+          // finalize the target vorticity
+          compute omega.f[dim] =
+              iterate.f * unit_step_l(0, (t - t_birth.f) - dt_fade)
+            +
+              omega.f[dim] * unit_step_r(0, dt_fade - (t - t_birth.f));
+        }
+      }
+    }
+    
+    // finalize target velocity gradient
+    foreach fluid particle f {
+      // add the target spin rate (from the vorticity) to the velocity gradient
+      compute tvg.f += cross_product_matrix_from_vector(0.5 * omega.f);
+    }
+  }
+
+  procedure solve_velocity_reconstruction {
+    foreach fluid particle f {
+      compute v_rec_rhs.f = zeros<real[]>();
+      
+      foreach _ neighbor f_f {
+        compute v_rec_rhs.f +=
+            m.f_f
+          *
+            0.5 * ((tvg.f + tvg.f_f) * (x.f - x.f_f))
+          *
+            kernel_h(x.f - x.f_f, h);
+      }
+    }
+  
+    foreach dimension index dim {
+      solve pcg real over fluid particle f {
+        setup right_hand_side into result {
+          compute result.f = v_rec_rhs.f[dim];
+        }
+
+        setup guess into iterate {
+          compute iterate.f = v.f[dim];
+        }
+
+        product preconditioner with iterate into result {
+          compute result.f =
+              iterate.f
+            /
+              (pt16_same_rho.f - m.f * kernel_h(zeros<real[]>(), h));
+        }
+
+        product system with iterate into result {
+          compute result.f = pt16_rho.f * iterate.f;
+
+          foreach _ neighbor f_f {
+            compute result.f -= m.f_f * kernel_h(x.f - x.f_f, h) * iterate.f_f;
+          }
+        }
+
+        apply iterate {
+          // implement fade-in of particles by applying the resulting iterate
+          // after the fade was completed and the previous velocity if the
+          // particle is still fading in
+          compute v.f[dim] =
+              iterate.f * unit_step_l(0, (t - t_birth.f) - dt_fade)
+            +
+              v.f[dim] * unit_step_r(0, dt_fade - (t - t_birth.f));
+
+          //compute v.f[dim] = iterate.f;
+          
+          //compute v.f = iterate.f * unit_step_l(0, (t - t_birth.f) - dt_fade);
+
+          // compute the viscosity acceleration
+          //compute a.f[dim] = (iterate.f - v.f[dim]) / dt; // NOTE NEGATED
+        }
+      }
+    }
+  }
+}
+
+)prtcl";
 }
 
 private:

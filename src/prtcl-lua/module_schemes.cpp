@@ -21,6 +21,7 @@ sol::table ModuleSchemes(sol::state_view lua) {
     t.set_function("load", &SchemeBase::Load);
     t.set_function("get_procedure_names", &SchemeBase::GetProcedureNames);
     t.set_function("run_procedure", &SchemeBase::RunProcedure);
+    t.set_function("get_prtcl_source_code", &SchemeBase::GetPrtclSourceCode);
   }
 
   return m;

@@ -19,6 +19,7 @@
 #include <prtcl/util/neighborhood.hpp>
 
 #include <sstream>
+#include <string_view>
 #include <vector>
 
 #include <omp.h>
@@ -277,6 +278,69 @@ private:
     ss << "[T=" << MakeComponentType<T>() << ", N=" << N
        << ", K=" << kernel_type::get_name() << "]";
     return ss.str();
+  }
+
+public:
+  std::string_view GetPrtclSourceCode() const final {
+    return R"prtcl(
+
+scheme symplectic_euler {
+  groups dynamic {
+    select tag dynamic;
+
+    varying field x = real[] position;
+    varying field v = real[] velocity;
+    varying field a = real[] acceleration;
+
+    varying field t_birth = real time_of_birth;
+  }
+
+  global {
+    field dt = real time_step;
+
+    field t = real current_time;
+    field dt_fade = real fade_duration;
+
+    field max_speed = real maximum_speed;
+  }
+
+  procedure integrate_velocity {
+    foreach dynamic particle i {
+      compute v.i += dt * a.i;
+    }
+  }
+
+  procedure integrate_velocity_with_hard_fade {
+    foreach dynamic particle i {
+      compute v.i +=
+          dt * a.i
+        *
+          // accelerations "turn on" after a particle is older than dt_fade
+          unit_step_l(0, (t - t_birth.i) - dt_fade);
+    }
+  }
+
+  procedure integrate_velocity_with_smooth_fade {
+    foreach dynamic particle i {
+      compute v.i +=
+          dt * a.i
+        *
+          // accelerations "fade in" until a particle is older than dt_fade
+          smoothstep((t - t_birth.i - dt_fade) / dt_fade);
+    }
+  }
+
+  procedure integrate_position {
+    foreach dynamic particle i {
+      compute x.i += dt * v.i;
+
+      reduce max_speed max= norm(v.i);
+    }
+  }
+}
+
+
+)prtcl";
   }
 
 private:
