@@ -51,6 +51,7 @@ public:
 private:
   struct global_data {
     UniformFieldSpan<real, N> g_g;
+    UniformFieldSpan<real, N> g_c;
   };
 
 private:
@@ -61,6 +62,7 @@ private:
     // uniform fields
 
     // varying fields
+    VaryingFieldSpan<real, N> v_x;
     VaryingFieldSpan<real, N> v_a;
 
     static bool selects(Group const &group) {
@@ -92,6 +94,9 @@ public:
         "initialize_acceleration", &gravity::initialize_acceleration);
     this->RegisterProcedure(
         "accumulate_acceleration", &gravity::accumulate_acceleration);
+    this->RegisterProcedure(
+        "initialize_axial_acceleration",
+        &gravity::initialize_axial_acceleration);
   }
 
 public:
@@ -101,6 +106,7 @@ public:
   void Load(Model &model) final {
     // global fields
     _data.global.g_g = model.AddGlobalFieldImpl<real, N>("gravity");
+    _data.global.g_c = model.AddGlobalFieldImpl<real, N>("gravity_center");
 
     auto group_count = model.GetGroupCount();
     _data.group_count = group_count;
@@ -117,6 +123,7 @@ public:
         data.index = group_index;
 
         // varying fields
+        data.v_x = group.AddVaryingFieldImpl<real, N>("position");
         data.v_a = group.AddVaryingFieldImpl<real, N>("acceleration");
       }
     }
@@ -178,6 +185,47 @@ public:
     }   // foreach dynamic particle f
   }
 
+public:
+  void initialize_axial_acceleration(Neighborhood const &nhood) {
+    auto &g = _data.global;
+
+    // mathematical operations
+    namespace o = ::prtcl::math;
+
+    // resize per-thread storage
+    _per_thread.resize(omp_get_max_threads());
+
+    { // foreach dynamic particle f
+#pragma omp parallel
+      {
+        PRTCL_RT_LOG_TRACE_SCOPED("foreach_particle", "p=dynamic");
+
+        auto &t = _per_thread[omp_get_thread_num()];
+
+        for (auto &p : _data.groups.dynamic) {
+#pragma omp for schedule(static)
+          for (size_t i = 0; i < p._count; ++i) {
+            // local_def ...;
+            Tensor<real, N> l_xc = (p.v_x[i] - *g.g_c);
+
+            // local_def ...;
+            Tensor<real, N> l_g_n =
+                (*g.g_g *
+                 o::reciprocal_or_zero(o::norm(*g.g_g), static_cast<T>(1e-9)));
+
+            // local_def ...;
+            Tensor<real, N> l_xc_o = (l_xc - (o::dot(l_xc, l_g_n) * l_g_n));
+
+            // compute
+            p.v_a[i] =
+                (((-o::norm(*g.g_g)) * l_xc_o) *
+                 o::reciprocal_or_zero(o::norm(l_xc_o), static_cast<T>(1e-9)));
+          }
+        }
+      } // omp parallel region
+    }   // foreach dynamic particle f
+  }
+
 private:
   static std::string GetFullNameImpl() {
     std::ostringstream ss;
@@ -195,11 +243,13 @@ scheme gravity {
   groups dynamic {
     select tag dynamic;
 
+    varying field x = real[] position;
     varying field a = real[] acceleration;
   }
 
   global {
     field g = real[] gravity;
+    field c = real[] gravity_center;
   }
 
   procedure initialize_acceleration {
@@ -211,6 +261,15 @@ scheme gravity {
   procedure accumulate_acceleration {
     foreach dynamic particle f {
       compute a.f += g;
+    }
+  }
+
+  procedure initialize_axial_acceleration {
+    foreach dynamic particle f {
+      local xc : real[] = x.f - c;
+      local g_n : real[] = g * reciprocal_or_zero(norm(g), 1e-9);
+      local xc_o : real[] = xc - dot(xc, g_n) * g_n;
+      compute a.f = -norm(g) * xc_o * reciprocal_or_zero(norm(xc_o), 1e-9);
     }
   }
 }

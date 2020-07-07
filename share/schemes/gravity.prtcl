@@ -3,11 +3,13 @@ scheme gravity {
   groups dynamic {
     select tag dynamic;
 
+    varying field x = real[] position;
     varying field a = real[] acceleration;
   }
 
   global {
     field g = real[] gravity;
+    field c = real[] gravity_center;
   }
 
   procedure initialize_acceleration {
@@ -19,6 +21,15 @@ scheme gravity {
   procedure accumulate_acceleration {
     foreach dynamic particle f {
       compute a.f += g;
+    }
+  }
+
+  procedure initialize_axial_acceleration {
+    foreach dynamic particle f {
+      local xc : real[] = x.f - c;
+      local g_n : real[] = g * reciprocal_or_zero(norm(g), 1e-9);
+      local xc_o : real[] = xc - dot(xc, g_n) * g_n;
+      compute a.f = -norm(g) * xc_o * reciprocal_or_zero(norm(xc_o), 1e-9);
     }
   }
 }
