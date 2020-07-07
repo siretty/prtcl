@@ -3,25 +3,23 @@ local ttype = prtcl.data.ttype
 local rvec, rmat = prtcl.math.rvec, prtcl.math.rmat
 
 
-local unitcube = prtcl.geometry.triangle_mesh.from_obj_file('share/models/unitcube.obj')
-
-local floor = prtcl.geometry.triangle_mesh.from_obj_file('share/models/unitslab.obj')
-floor:scale(rvec.new { 1, 0, 1 })
-
-local wall = prtcl.geometry.triangle_mesh.from_obj_file('share/models/unitslab.obj')
-wall:scale(rvec.new { 2, 0, 0.2 })
-wall:rotate(math.pi / 2, rvec.new { 0, 0, 1 })
-wall:translate(rvec.new { 0, 2.025, 0 })
-
-local fluidsphere = prtcl.geometry.triangle_mesh.from_obj_file('share/models/unitsphere.obj')
-fluidsphere:scale(rvec.new { .25, .25, .25 })
-fluidsphere:translate(rvec.new { .5, .25, .5 })
+--local unitcube = prtcl.geometry.triangle_mesh.from_obj_file('share/models/unitcube.obj')
+--
+--local floor = prtcl.geometry.triangle_mesh.from_obj_file('share/models/unitslab.obj')
+--floor:scale(rvec.new { 1, 0, 1 })
+--
+--local wall = prtcl.geometry.triangle_mesh.from_obj_file('share/models/unitslab.obj')
+--wall:scale(rvec.new { 2, 0, 0.2 })
+--wall:rotate(math.pi / 2, rvec.new { 0, 0, 1 })
+--wall:translate(rvec.new { 0, 2.025, 0 })
+--
+--local fluidsphere = prtcl.geometry.triangle_mesh.from_obj_file('share/models/unitsphere.obj')
+--fluidsphere:scale(rvec.new { .25, .25, .25 })
+--fluidsphere:translate(rvec.new { .5, .25, .5 })
 
 local fluidcube = prtcl.geometry.triangle_mesh.from_obj_file('share/models/unitcube.obj')
---fluidcube:rotate(1.0, rvec.new{1, 0, 0})
 fluidcube:scale(rvec.new { .4, .4, .4 })
 fluidcube:translate(rvec.new { -.2, -.2, -.2 })
---fluidcube:translate(rvec.new { .3, .4, .3 })
 
 
 for _, scheme in ipairs(prtcl.schemes.get_scheme_names()) do
@@ -172,8 +170,19 @@ local function setup_fluid()
   local h = model.global:get_field('smoothing_scale'):get()
   local rho0 = f.uniform:get_field('rest_density'):get()
   local m = f.varying:get_field('mass')
+  local x = f.varying:get_field('position')
+
+  local x_avg = rvec.new{0, 0, 0}
+  local m0 = h * h * h * rho0
   for i = 0, f.item_count - 1 do
-    m:set(i, h * h * h * rho0)
+    m:set(i, m0)
+    x_avg = x_avg + x:get(i)
+  end
+
+  x_avg = (1 / f.item_count) * x_avg
+
+  for i = 0, f.item_count - 1 do
+    x:set(i, x:get(i) - x_avg)
   end
 end
 
@@ -283,8 +292,9 @@ while schedule.clock.seconds <= 10 do
     schemes.implicit_viscosity:run_procedure('setup', nhood)
     f.uniform:get_field("pt16_maximum_error"):set(cfg.pt16.vorticity_diffusion_maximum_error)
     f.uniform:get_field("pt16_maximum_iterations"):set(cfg.pt16.vorticity_diffusion_maximum_iterations)
-    schemes.implicit_viscosity:run_procedure('solve_vorticity_diffusion', nhood)
-    print('  PT16 VORTICITY #' .. tostring(f.uniform:get_field('pt16_iterations'):get()))
+    --schemes.implicit_viscosity:run_procedure('solve_vorticity_diffusion', nhood)
+    --print('  PT16 VORTICITY #' .. tostring(f.uniform:get_field('pt16_iterations'):get()))
+    schemes.implicit_viscosity:run_procedure('vorticity_preservation', nhood)
     f.uniform:get_field("pt16_maximum_error"):set(cfg.pt16.velocity_reconstruction_maximum_error)
     f.uniform:get_field("pt16_maximum_iterations"):set(cfg.pt16.velocity_reconstruction_maximum_iterations)
     schemes.implicit_viscosity:run_procedure('solve_velocity_reconstruction', nhood)
@@ -293,7 +303,7 @@ while schedule.clock.seconds <= 10 do
 
   schemes.advect:run_procedure('integrate_position', nhood)
 
-  --[[
+  -- [[
   local axis = rvec.new{1, 0, 0}
   local x = f.varying:get_field('position')
   local v = f.varying:get_field('velocity')
