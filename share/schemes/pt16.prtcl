@@ -169,6 +169,13 @@ scheme pt16 {
     }
   }
 
+  procedure vorticity_preservation {
+    foreach fluid particle f {
+      // add the target spin rate (from the vorticity) to the velocity gradient
+      compute tvg.f += cross_product_matrix_from_vector(0.5 * omega.f);
+    }
+  }
+
   procedure solve_velocity_reconstruction {
     foreach fluid particle f {
       compute v_rec_rhs.f = zeros<real[]>();

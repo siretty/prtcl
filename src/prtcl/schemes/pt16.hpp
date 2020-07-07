@@ -132,6 +132,8 @@ public:
     this->RegisterProcedure(
         "solve_vorticity_diffusion", &pt16::solve_vorticity_diffusion);
     this->RegisterProcedure(
+        "vorticity_preservation", &pt16::vorticity_preservation);
+    this->RegisterProcedure(
         "solve_velocity_reconstruction", &pt16::solve_velocity_reconstruction);
   }
 
@@ -531,6 +533,35 @@ void solve_vorticity_diffusion(Neighborhood const &nhood) {
 }
 
 public:
+void vorticity_preservation(Neighborhood const &nhood) {
+  auto &g = _data.global;
+
+  // mathematical operations
+  namespace o = ::prtcl::math;
+
+  // resize per-thread storage
+  _per_thread.resize(omp_get_max_threads());
+
+  { // foreach fluid particle f
+#pragma omp parallel
+    {
+      PRTCL_RT_LOG_TRACE_SCOPED("foreach_particle", "p=fluid");
+
+      auto &t = _per_thread[omp_get_thread_num()];
+
+      for (auto &p : _data.groups.fluid) {
+#pragma omp for schedule(static)
+        for (size_t i = 0; i < p._count; ++i) {
+          // compute
+          p.v_tvg[i] += o::cross_product_matrix_from_vector(
+              (static_cast<T>(0.5) * p.v_omega[i]));
+        }
+      }
+    } // omp parallel region
+  }   // foreach fluid particle f
+}
+
+public:
 void solve_velocity_reconstruction(Neighborhood const &nhood) {
   auto &g = _data.global;
 
@@ -856,6 +887,13 @@ scheme pt16 {
     }
     
     // finalize target velocity gradient
+    foreach fluid particle f {
+      // add the target spin rate (from the vorticity) to the velocity gradient
+      compute tvg.f += cross_product_matrix_from_vector(0.5 * omega.f);
+    }
+  }
+
+  procedure vorticity_preservation {
     foreach fluid particle f {
       // add the target spin rate (from the vorticity) to the velocity gradient
       compute tvg.f += cross_product_matrix_from_vector(0.5 * omega.f);
