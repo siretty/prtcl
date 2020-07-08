@@ -1,6 +1,6 @@
 
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
-find_package(Boost 1.70 REQUIRED COMPONENTS container)
+find_package(Boost 1.70 REQUIRED COMPONENTS headers container)
 
 find_package(Threads REQUIRED)
 find_package(OpenMP REQUIRED)
@@ -172,8 +172,11 @@ prtcl_add_library_simple(
     EXTRA_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/prtcl/cxx/span.inc
 
-    LINK_LIBRARIES
-    PUBLIC Eigen3::Eigen Boost::container Threads::Threads OpenMP::OpenMP_CXX
+    LINK_LIBRARIES PUBLIC
+    Boost::headers Boost::container
+    Eigen3::Eigen
+    OpenMP::OpenMP_CXX
+    Threads::Threads
 )
 
 
@@ -188,8 +191,10 @@ prtcl_add_library_simple(
     prtcl-lua/module_schemes
     prtcl-lua/module_util
 
-    LINK_LIBRARIES
-    PUBLIC prtcl ${LUA_LIBRARIES} sol2
+    LINK_LIBRARIES PUBLIC
+    prtcl
+    ${LUA_LIBRARIES}
+    sol2
 
     INCLUDE_DIRECTORIES
     PUBLIC ${LUA_INCLUDE_DIR}
@@ -198,6 +203,7 @@ target_compile_definitions(
     prtcl_lua
     PUBLIC SOL_ALL_SAFETIES_ON=1
 )
+
 
 add_executable(
     prtcl-lua
@@ -215,6 +221,7 @@ set_target_properties(
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
 )
+
 
 add_library(
     prtcl-idecollector STATIC
