@@ -40,11 +40,14 @@ function(prtcl_add_library_simple NAME_)
   # parse remaining function arguments
   set(l_options POSITION_INDEPENDENT_CODE NO_TESTS)
   set(l_ov_kwargs TYPE OUTPUT_NAME)
-  set(l_mv_kwargs
+  set(
+      l_mv_kwargs
       SOURCES_DIR HEADERS_DIR
       PHYSICAL_COMPONENTS
       EXTRA_HEADERS EXTRA_SOURCES
-      LINK_LIBRARIES INCLUDE_DIRECTORIES)
+      PROPERTIES
+      LINK_LIBRARIES INCLUDE_DIRECTORIES
+  )
 
   cmake_parse_arguments(
       PARSE_ARGV 1 l_arg
@@ -164,16 +167,16 @@ function(prtcl_add_library_simple NAME_)
     )
 
     list(APPEND targets "${TEST_NAME_}")
-  endif()
+  endif ()
 
-  set_target_properties(
-      ${targets}
+  if (l_arg_PROPERTIES)
+    set_target_properties(
+        ${targets}
 
-      PROPERTIES
-      CXX_STANDARD 17
-      CXX_STANDARD_REQUIRED ON
-      CXX_EXTENSIONS OFF
-  )
+        PROPERTIES
+        ${l_arg_PROPERTIES}
+    )
+  endif ()
 
   if (NOT "${l_arg_TYPE}" STREQUAL "INTERFACE")
     DE_Common_Diagnostics_CXX_Target("${NAME_}")

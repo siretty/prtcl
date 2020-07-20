@@ -25,6 +25,10 @@ include(DEAddOurIncludeDirectories)
 add_subdirectory(external/googletest)
 add_subdirectory(external/sol2)
 
+set(UNGRD_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(UNGRD_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
+add_subdirectory(external/ungrd)
+
 
 set(S ${CMAKE_CURRENT_SOURCE_DIR}/src)
 

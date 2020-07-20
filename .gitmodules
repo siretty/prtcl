@@ -7,3 +7,6 @@
 [submodule "external/sol2"]
 	path = external/sol2
 	url = https://github.com/ThePhD/sol2.git
+[submodule "external/ungrd"]
+	path = external/ungrd
+	url = https://github.com/siretty/ungrd

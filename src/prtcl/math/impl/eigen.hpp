@@ -203,7 +203,7 @@ decltype(auto) cabs(Arg &&arg) {
   if constexpr (IsScalar<Arg>())
     return std::abs(std::forward<Arg>(arg));
   else
-    return std::forward<Arg>(arg).abs();
+    return Eigen::abs(std::forward<Arg>(arg).array());
 }
 
 template <typename LHS, typename RHS>

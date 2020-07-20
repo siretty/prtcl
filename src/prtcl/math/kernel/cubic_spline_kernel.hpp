@@ -73,6 +73,10 @@ private:
     return normalization(d) * result;
   }
 
+  constexpr static real lipschitzq(size_t d) {
+    return -evaldq(real{2} / real{3}, d);
+  }
+
 private:
   /// Calculate the normalization factor for this kernel.
   /// This depends on the dimensionality of the kernel (N).

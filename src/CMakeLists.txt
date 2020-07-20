@@ -125,14 +125,22 @@ prtcl_add_library_simple(
     prtcl/util/archive
     prtcl/util/save_vtk
 
+    prtcl/util/sphere_tracer
+
     EXTRA_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/prtcl/cxx/span.inc
 
     LINK_LIBRARIES PUBLIC
+    ungrd
     Boost::headers Boost::container
     Eigen3::Eigen
     OpenMP::OpenMP_CXX
     Threads::Threads
+
+    PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
 )
 
 
@@ -154,6 +162,11 @@ prtcl_add_library_simple(
 
     INCLUDE_DIRECTORIES
     PUBLIC ${LUA_INCLUDE_DIR}
+
+    PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
 )
 target_compile_definitions(
     prtcl_lua
@@ -173,7 +186,7 @@ set_target_properties(
     prtcl-lua
 
     PROPERTIES
-    CXX_STANDARD 17
+    CXX_STANDARD 20
     CXX_STANDARD_REQUIRED ON
     CXX_EXTENSIONS OFF
 )

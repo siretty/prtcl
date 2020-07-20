@@ -60,8 +60,8 @@ local schemes = {
 
   -- various viscosity implementations
   --viscosity = make_scheme('viscosity'),
-  --implicit_viscosity = make_scheme('wkbb18'),
-  implicit_viscosity = make_scheme('pt16'),
+  implicit_viscosity = make_scheme('wkbb18'),
+  --implicit_viscosity = make_scheme('pt16'),
 
   -- rendering via particles
   --horas = make_scheme('horas'),
@@ -123,7 +123,9 @@ model.global:get_field("smoothing_scale"):set(0.025)
 model.global:get_field("time_step"):set(0.001) -- :set(0.002)
 model.global:get_field("fade_duration"):set(2 * seconds_per_frame)
 
-model.global:get_field("gravity"):set(rvec.new { 0, 0, 0 })
+model.global:get_field("gravity_center"):set(rvec.new { 0, 0, 0 })
+--model.global:get_field("gravity"):set(rvec.new { 0, 0, 0 })
+model.global:get_field("gravity"):set(rvec.new { 9.81, 0, 0 })
 --model.global:get_field("gravity"):set(rvec.new { 0, -9.81, 0.1 })
 --model.global:get_field("gravity"):set(rvec.new { -1, -9.81, 0 })
 --model.global:get_field("gravity"):set(rvec.new { -1, -9.81, -1 })
@@ -145,8 +147,9 @@ end
 
 -- for standard and wkbb18 viscosity
 if f.uniform:has_field("dynamic_viscosity") then
-  f.uniform:get_field("dynamic_viscosity"):set(1000)
-  --f.uniform:get_field("dynamic_viscosity"):set(10)
+  --f.uniform:get_field("dynamic_viscosity"):set(10000)
+  --f.uniform:get_field("dynamic_viscosity"):set(1000)
+  f.uniform:get_field("dynamic_viscosity"):set(1)
   --f.uniform:get_field("dynamic_viscosity"):set(0)
 end
 
@@ -193,8 +196,8 @@ end
 local camera = prtcl.geometry.pinhole_camera.new()
 camera.sensor_width, camera.sensor_height = 800, 600
 camera.focal_length = 1
-camera.origin = rvec.new { -1, 0.4, 0.5 }
-camera.principal = rvec.new { 1, 0, 0 }
+camera.origin = rvec.new { 0, 0, -1.3 }
+camera.principal = rvec.new { 0, 0, 1 }
 camera.up = rvec.new { 0, 1, 0 }
 
 
@@ -222,6 +225,27 @@ schedule:schedule_at(0, function(s, delay)
 
   print('FRAME #' .. current_frame .. ' (DELAYED ' .. tostring(delay) .. ')')
   save_frame(current_frame)
+
+
+  local tracer = prtcl.util.sphere_tracer.new(camera)
+  local image = tracer:trace(model)
+  print('IMAGE', image.width, image.height)
+
+  local ppm = io.open('output/image.' .. current_frame .. '.ppm', 'wb')
+  ppm:write("P6\n")
+  ppm:write(tostring(image.width) .. "\n")
+  ppm:write(tostring(image.height) .. "\n")
+  ppm:write("255\n")
+  for iy = 0, image.height - 1, 1 do
+    for ix = 0, image.width - 1, 1 do
+      local gray = math.floor(image:get_pixel(ix, iy) * 255)
+      ppm:write(string.char(gray, gray, gray))
+      --ppm:write(string.char(ix % 256))
+      --ppm:write(string.char(ix % 256))
+      --ppm:write(string.char(ix % 256))
+    end
+  end
+  io.close(ppm)
 
   --[[
   horasons:resize(0)
@@ -363,7 +387,8 @@ while schedule.clock.seconds <= 10 do
 
   schemes.density:run_procedure('compute_density', nhood)
 
-  schemes.gravity:run_procedure('initialize_acceleration', nhood)
+  --schemes.gravity:run_procedure('initialize_acceleration', nhood)
+  schemes.gravity:run_procedure('initialize_axial_acceleration', nhood)
 
   if schemes.surface_tension ~= nil then
     schemes.surface_tension:run_procedure('compute_particle_normal', nhood)

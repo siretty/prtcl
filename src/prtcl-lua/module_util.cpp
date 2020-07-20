@@ -1,8 +1,10 @@
 #include "module_util.hpp"
 
+#include <prtcl/geometry/pinhole_camera.hpp>
 #include <prtcl/util/hcp_lattice_source.hpp>
 #include <prtcl/util/neighborhood.hpp>
 #include <prtcl/util/scheduler.hpp>
+#include <prtcl/util/sphere_tracer.hpp>
 
 #include <iomanip>
 #include <sstream>
@@ -143,6 +145,30 @@ sol::table ModuleUtil(sol::state_view lua) {
 
     t["regular_spawn_interval"] =
         sol::property(&HCPLatticeSource::GetRegularSpawnInterval);
+  }
+
+  {
+    auto t = m.new_usertype<Image>(sol::no_constructor);
+
+    t["width"] = sol::property(&Image::width);
+    t["height"] = sol::property(&Image::height);
+
+    t.set_function(
+        "get_pixel", [](Image const &self, size_t const ix, size_t const iy) {
+          return self(ix, iy);
+        });
+  }
+
+  {
+    using Tracer = SphereTracer<PinholeCamera>;
+
+    auto t = m.new_usertype<Tracer>(
+        "sphere_tracer", sol::constructors<Tracer(PinholeCamera)>());
+
+    t.set_function(
+        "trace", [](Tracer const &self, Model const &model) -> Image {
+          return self.Trace(model);
+        });
   }
 
   return m;

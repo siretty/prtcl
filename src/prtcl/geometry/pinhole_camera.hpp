@@ -11,6 +11,7 @@ private:
   static constexpr auto N = 3;
   static_assert(N == 3, "");
 
+public:
   using Real = double;
   using RVec = TensorT<Real, N>;
 

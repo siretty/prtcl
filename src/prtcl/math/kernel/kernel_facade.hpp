@@ -30,6 +30,11 @@ struct kernel_access {
   static auto evaldq(K const &k, Args &&... args) {
     return k.evaldq(std::forward<Args>(args)...);
   }
+
+  template <typename K, typename... Args>
+  static auto lipschitzq(K const &k, Args &&... args) {
+    return k.lipschitzq(std::forward<Args>(args)...);
+  }
 };
 
 // }}}
@@ -112,6 +117,10 @@ public:
     if (r < epsilon<real>())
       return vector_type{zeros<real, N>()};
     return vector_type{(evaldr(r, h, N) / r) * v};
+  }
+
+  constexpr auto lipschitz(real h) const {
+    return kernel_access::lipschitzq(impl(), N) / constpow(h, N + 1);
   }
 
 private:
