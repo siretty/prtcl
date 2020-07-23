@@ -28,6 +28,7 @@ prtcl_generate_scheme(aat13)
 prtcl_generate_scheme(he14)
 prtcl_generate_scheme(pt16)
 prtcl_generate_scheme(wkbb18)
+prtcl_generate_scheme(wkbb18_gc)
 
 prtcl_generate_scheme(horas)
 
@@ -104,6 +105,7 @@ prtcl_add_library_simple(
     prtcl/schemes/he14
     prtcl/schemes/pt16
     prtcl/schemes/wkbb18
+    prtcl/schemes/wkbb18_gc
 
     prtcl/schemes/horas
 

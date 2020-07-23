@@ -1,0 +1,173 @@
+
+scheme wkbb18_gc {
+  groups fluid {
+    select type fluid;
+
+    varying field x = real[] position;
+    varying field v = real[] velocity;
+    varying field a = real[] acceleration;
+
+    varying field rho = real density;
+    varying field m   = real mass;
+
+    varying field L  = real[][] gradient_correction;
+
+    uniform field rho0 = real rest_density;
+    uniform field mu   = real dynamic_viscosity;
+
+    varying field vd = real[]   wkbb18_velocity_delta;
+    varying field sp = real[][] wkbb18_system_diagonal;
+
+    varying field t_birth = real time_of_birth;
+
+    // TODO: at the moment the aliases
+    //       - pcg_max_error
+    //       - pcg_max_iters
+    //       - pcg_iterations
+    //       are hardcoded (the field name can be freely chosen)
+    uniform field pcg_max_error  = real    wkbb18_maximum_error;
+    uniform field pcg_max_iters  = integer wkbb18_maximum_iterations;
+    uniform field pcg_iterations = integer wkbb18_iterations;
+  }
+
+  groups boundary {
+    select type boundary;
+
+    varying field x = real[] position;
+
+    varying field V = real volume;
+
+    uniform field mu = real dynamic_viscosity;
+  }
+
+  global {
+    field h = real smoothing_scale;
+    field dt = real time_step;
+
+    field t = real current_time;
+    field dt_fade = real fade_duration;
+  }
+
+  procedure compute_diagonal {
+    foreach fluid particle f {
+      // reset the diagonal element vector
+      compute sp.f = zeros<real[][]>();
+
+      // accumulate over fluid neighbors
+      foreach _ neighbor f_f {
+        compute sp.f +=
+            10 // HACK: this is actually a dimensionality correction factor (10 in 3D, 8 in 2D)
+          *
+            (mu.f / rho.f)
+          *
+            (m.f_f / rho.f_f)
+          /
+            (norm_squared(x.f - x.f_f) + 0.01 * h * h)
+          *
+            outer_product(
+              L.f * kernel_gradient_h(x.f - x.f_f, h),
+              x.f - x.f_f
+            )
+          ;
+      }
+
+      // accumulate over boundary neighbors
+      foreach boundary neighbor f_b {
+        compute sp.f +=
+            10 // HACK: this is actually a dimensionality correction factor (10 in 3D, 8 in 2D)
+          *
+            (mu.f_b / rho.f)
+          *
+            (rho0.f * V.f_b / rho.f)
+          /
+            (norm_squared(x.f - x.f_b) + 0.01 * h * h)
+          *
+            outer_product(
+              L.f * kernel_gradient_h(x.f - x.f_b, h),
+              x.f - x.f_b
+            )
+        ;
+      }
+
+      compute sp.f = invert(identity<real[][]>() - dt * sp.f);
+    }
+  }
+
+  procedure accumulate_acceleration {
+    solve pcg real[] over fluid particle f {
+      setup right_hand_side into result {
+        local a_b : real[] = zeros<real[]>();
+        local v_f_b : real[] = zeros<real[]>();
+
+        foreach boundary neighbor f_b {
+          compute a_b +=
+              10 // HACK: this is actually a dimensionality correction factor (10 in 3D, 8 in 2D)
+            *
+              (mu.f_b / rho.f)
+            *
+              (rho0.f * V.f_b / rho.f)
+            *
+              dot(v_f_b, x.f - x.f_b)
+            /
+              (norm_squared(x.f - x.f_b) + 0.01 * h * h)
+            *
+              L.f * kernel_gradient_h(x.f - x.f_b, h);
+        }
+
+        compute result.f = v.f - dt * a_b;
+      }
+
+      setup guess into result {
+        compute result.f = v.f + vd.f;
+      }
+
+      product preconditioner with iterate into result {
+        compute result.f = sp.f * iterate.f;
+      }
+
+      product system with iterate into result {
+        local a_f : real[] = zeros<real[]>();
+
+        foreach _ neighbor f_f {
+          compute a_f +=
+              10 // HACK: this is actually a dimensionality correction factor (10 in 3D, 8 in 2D)
+            *
+              (mu.f / rho.f)
+            *
+              (m.f_f / rho.f_f)
+            *
+              dot(iterate.f - iterate.f_f, x.f - x.f_f)
+            /
+              (norm_squared(x.f - x.f_f) + 0.01 * h * h)
+            *
+              L.f * kernel_gradient_h(x.f - x.f_f, h);
+        }
+
+        foreach boundary neighbor f_b {
+          compute a_f +=
+              10 // HACK: this is actually a dimensionality correction factor (10 in 3D, 8 in 2D)
+            *
+              (mu.f_b / rho.f)
+            *
+              (rho0.f * V.f_b / rho.f)
+            *
+              dot(iterate.f /* - v.f_b */, x.f - x.f_b)
+            /
+              (norm_squared(x.f - x.f_b) + 0.01 * h * h)
+            *
+              L.f * kernel_gradient_h(x.f - x.f_b, h);
+        }
+
+        compute result.f = iterate.f - dt * a_f;
+      }
+
+      apply iterate {
+        // velocity delta is set to zero if the particle is still fading in
+        compute vd.f = (iterate.f - v.f)
+          * unit_step_l(0, (t - t_birth.f) - dt_fade);
+        // compute the viscosity acceleration
+        compute a.f = vd.f / dt;
+      }
+    }
+  }
+}

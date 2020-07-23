@@ -92,6 +92,9 @@ private:
 public:
   correction() {
     this->RegisterProcedure(
+        "identity_gradient_correction",
+        &correction::identity_gradient_correction);
+    this->RegisterProcedure(
         "compute_gradient_correction",
         &correction::compute_gradient_correction);
   }
@@ -125,6 +128,34 @@ public:
         data.v_L = group.AddVaryingFieldImpl<real, N, N>("gradient_correction");
       }
     }
+  }
+
+public:
+  void identity_gradient_correction(Neighborhood const &nhood) {
+    auto &g = _data.global;
+
+    // mathematical operations
+    namespace o = ::prtcl::math;
+
+    // resize per-thread storage
+    _per_thread.resize(omp_get_max_threads());
+
+    { // foreach fluid particle f
+#pragma omp parallel
+      {
+        PRTCL_RT_LOG_TRACE_SCOPED("foreach_particle", "p=fluid");
+
+        auto &t = _per_thread[omp_get_thread_num()];
+
+        for (auto &p : _data.groups.fluid) {
+#pragma omp for schedule(static)
+          for (size_t i = 0; i < p._count; ++i) {
+            // compute
+            p.v_L[i] = o::template identity<real, N, N>();
+          }
+        }
+      } // omp parallel region
+    }   // foreach fluid particle f
   }
 
 public:
@@ -212,6 +243,12 @@ scheme correction {
 
   global {
     field h = real smoothing_scale;
+  }
+
+  procedure identity_gradient_correction {
+    foreach fluid particle f {
+      compute L.f = identity<real[][]>();
+    }
   }
 
   procedure compute_gradient_correction {

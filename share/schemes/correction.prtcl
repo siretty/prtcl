@@ -15,6 +15,12 @@ scheme correction {
     field h = real smoothing_scale;
   }
 
+  procedure identity_gradient_correction {
+    foreach fluid particle f {
+      compute L.f = identity<real[][]>();
+    }
+  }
+
   procedure compute_gradient_correction {
     foreach fluid particle f {
       // compute the velocity gradient
