@@ -223,7 +223,7 @@ local x = f.varying:get_field('position')
 local v = f.varying:get_field('velocity')
 for i = 0, f.item_count - 1 do
   local position = x:get(i)
-  local velocity = 5 * axis:cross(position)
+  local velocity = 1 * axis:cross(position)
   v:set(i, velocity)
 end
 
