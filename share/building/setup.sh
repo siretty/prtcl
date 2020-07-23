@@ -9,4 +9,4 @@ git submodule update --init --recursive
 
 mkdir build
 
-CC=clang CXX=clang++ cmake -GNinja -S. -Bbuild -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS_RELEASE=-march=native
+CC=clang CXX=clang++ cmake -GNinja -S. -Bbuild -DCMAKE_BUILD_TYPE=Release
