@@ -37,11 +37,11 @@ local schemes = {
   gravity = make_scheme('gravity'),
   iisph = make_scheme('iisph'),
   advect = make_scheme('symplectic_euler'),
-  correction = make_scheme('correction'),
+  --correction = make_scheme('correction'),
 
   -- various viscosity implementations
   --viscosity = make_scheme('viscosity'),
-  implicit_viscosity = make_scheme('wkbb18_gc'),
+  implicit_viscosity = make_scheme('wkbb18'),
   --implicit_viscosity = make_scheme('pt16'),
 }
 
@@ -171,7 +171,7 @@ local function setup_fluid()
 
   -- compute fluid particle mass
   local h = model.global:get_field('smoothing_scale'):get()
-  local rho0 = f.uniform:get_field('rest_density'):get() * 0.8
+  local rho0 = f.uniform:get_field('rest_density'):get()
   local m = f.varying:get_field('mass')
   local x = f.varying:get_field('position')
 
@@ -252,8 +252,10 @@ while schedule.clock.seconds <= 10 do
 
   schemes.density:run_procedure('compute_density', nhood)
 
-  schemes.correction:run_procedure('identity_gradient_correction', nhood)
-  --schemes.correction:run_procedure('compute_gradient_correction', nhood)
+  if schemes.correction ~= nil then
+    --schemes.correction:run_procedure('identity_gradient_correction', nhood)
+    schemes.correction:run_procedure('compute_gradient_correction', nhood)
+  end
 
   schemes.gravity:run_procedure('initialize_acceleration', nhood)
 

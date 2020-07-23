@@ -555,7 +555,7 @@ scheme wkbb18 {
 
       setup guess into result {
         // compute result.f = v.f + vd.f; // leads to 'accelerated spinning'
-        compute result.f = v.f; // ???
+        compute result.f = v.f; // does not lead to 'accelerated spinning'
         // compute result.f = v.f - vd.f; // does not lead to 'accelerated spinning'
       }
 
