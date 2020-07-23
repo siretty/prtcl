@@ -28,8 +28,7 @@ def parse_log(file, last_step='integrate_position'):
         if m is not None:
             if steps[-1][0] == m.group(2):
                 steps[-1][2] = int(m.group(1))
-                steps[-1][3] = (steps[-1][2] - steps[-1][1]) / 1.
-                l0e9
+                steps[-1][3] = (steps[-1][2] - steps[-1][1]) / 1.0e9
 
                 if steps[-1][0] == last_step:
                     parts.append(steps)

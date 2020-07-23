@@ -339,7 +339,7 @@ public:
           // solve_setup
 
           // compute
-          p_into[i] = (p.v_v[i] + p.v_vd[i]);
+          p_into[i] = p.v_v[i];
         };
 
         auto product_s = [&](auto &p, size_t i, auto &p_into, auto &p_with) {
@@ -561,7 +561,9 @@ scheme wkbb18_gc {
       }
 
       setup guess into result {
-        compute result.f = v.f + vd.f;
+        // compute result.f = v.f + vd.f; // leads to 'accelerated spinning'
+        compute result.f = v.f; // ???
+        // compute result.f = v.f - vd.f; // does not lead to 'accelerated spinning'
       }
 
       product preconditioner with iterate into result {
