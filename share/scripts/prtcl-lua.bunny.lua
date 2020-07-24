@@ -6,14 +6,14 @@ local rvec, rmat = prtcl.math.rvec, prtcl.math.rmat
 local floor = prtcl.geometry.triangle_mesh.from_obj_file('share/models/unitslab.obj')
 floor:scale(rvec.new { 1, 0, 1 })
 
--- [[ small bunny
+--[[ small bunny
 local bunny = prtcl.geometry.triangle_mesh.from_obj_file('share/models/bunny.obj')
 bunny:scale(rvec.new { .25, .25, .25 })
 bunny:translate(rvec.new { 0, .085, 0 })
 bunny:rotate(math.pi / 16, rvec.new { 0, 1, 0 })
 --]]
 
---[[ large bunny
+-- [[ large bunny
 local bunny = prtcl.geometry.triangle_mesh.from_obj_file('share/models/bunny.obj')
 bunny:scale(rvec.new { .4, .4, .4 })
 bunny:translate(rvec.new { 0, .15, 0 })
@@ -39,10 +39,12 @@ local schemes = {
   gravity = make_scheme('gravity'),
   iisph = make_scheme('iisph'),
   advect = make_scheme('symplectic_euler'),
+  --correction = make_scheme('correction'),
 
   -- various viscosity implementations
   --viscosity = make_scheme('viscosity'),
   implicit_viscosity = make_scheme('wkbb18'),
+  --implicit_viscosity = make_scheme('wkbb18_gc'),
   --implicit_viscosity = make_scheme('pt16'),
 }
 
@@ -120,8 +122,8 @@ end
 cfg.wkbb18 = { used = false }
 if f.uniform:has_field("wkbb18_maximum_error") then
   cfg.wkbb18.used = true
-  f.uniform:get_field("wkbb18_maximum_error"):set(0.001)
-  f.uniform:get_field("wkbb18_maximum_iterations"):set(100)
+  f.uniform:get_field("wkbb18_maximum_error"):set(0.05)
+  f.uniform:get_field("wkbb18_maximum_iterations"):set(1000)
 end
 
 cfg.pt16 = { used = false }
@@ -156,7 +158,7 @@ end
 
 -- for standard and wkbb18 viscosity
 if b.uniform:has_field("dynamic_viscosity") then
-  b.uniform:get_field("dynamic_viscosity"):set(100)
+  b.uniform:get_field("dynamic_viscosity"):set(10000)
   --b.uniform:get_field("dynamic_viscosity"):set(10)
 end
 
@@ -179,7 +181,7 @@ schemes.boundary:run_procedure('compute_volume', nhood)
 
 local function save_frame(frame)
   f:save_vtk('output/f.' .. frame .. '.vtk')
-  model:save_native_binary('output/model.' .. frame .. '.bin')
+  --model:save_native_binary('output/model.' .. frame .. '.bin')
 end
 
 
@@ -272,6 +274,10 @@ while schedule.clock.seconds <= 10 do
   end
 
   schemes.density:run_procedure('compute_density', nhood)
+
+  if schemes.correction ~= nil then
+    schemes.correction:run_procedure('compute_gradient_correction', nhood)
+  end
 
   schemes.gravity:run_procedure('initialize_acceleration', nhood)
 
