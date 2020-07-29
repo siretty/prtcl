@@ -76,14 +76,14 @@ def _load_group(file):
         vf_name, vf_data = _load_varying_field(file)
         varying_fields[vf_name] = vf_data
 
-        print(vf_name, vf_data['ctype'], vf_data['item_shape'], vf_data['data'])
+        # print(vf_name, vf_data['ctype'], vf_data['item_shape'], vf_data['data'])
 
     uf_count = _load_size(file)
     for uf_index in range(uf_count):
         uf_name, uf_data = _load_uniform_field(file)
         uniform_fields[uf_name] = uf_data
 
-        print(uf_name, uf_data['ctype'], uf_data['item_shape'], uf_data['data'])
+        # print(uf_name, uf_data['ctype'], uf_data['item_shape'], uf_data['data'])
 
     return name, {'type': type, 'tags': tags, 'varying_fields': varying_fields, 'uniform_fields': uniform_fields}
 
@@ -99,12 +99,13 @@ def load_model(file):
         gf_name, gf_data = _load_uniform_field(file)
         model['global_fields'][gf_name] = gf_data
 
-        print(gf_name, gf_data['ctype'], gf_data['item_shape'], gf_data['data'])
+        # print(gf_name, gf_data['ctype'], gf_data['item_shape'], gf_data['data'])
 
     group_count = _load_size(file)
     for group_index in range(group_count):
         group_name, group_data = _load_group(file)
-        model[group_name] = group_data
+        model['groups'][group_name] = group_data
 
-        print(group_name, group_data)
+        # print(group_name, group_data)
 
+    return model
