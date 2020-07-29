@@ -110,9 +110,9 @@ end
 
 -- for standard and wkbb18 viscosity
 if f.uniform:has_field("dynamic_viscosity") then
-  --f.uniform:get_field("dynamic_viscosity"):set(1000000) -- slightly 'jumpy'
-  --f.uniform:get_field("dynamic_viscosity"):set(500000) -- also slightly 'jumpy'
-  f.uniform:get_field("dynamic_viscosity"):set(100000) -- looks nice (boundary visc. 100)
+  f.uniform:get_field("dynamic_viscosity"):set(1000000) -- looks nice (boundary visc. 100000)
+  --f.uniform:get_field("dynamic_viscosity"):set(500000) -- looks nice (boundary visc. 100000)
+  --f.uniform:get_field("dynamic_viscosity"):set(100000) -- looks nice (boundary visc. 100)
   --f.uniform:get_field("dynamic_viscosity"):set(10000) -- looks nice (boundary visc. 100)
   --f.uniform:get_field("dynamic_viscosity"):set(1000) -- looks ok (boundary visc. 100)
   --f.uniform:get_field("dynamic_viscosity"):set(10)
@@ -158,7 +158,8 @@ end
 
 -- for standard and wkbb18 viscosity
 if b.uniform:has_field("dynamic_viscosity") then
-  b.uniform:get_field("dynamic_viscosity"):set(10000)
+  b.uniform:get_field("dynamic_viscosity"):set(100000)
+  --b.uniform:get_field("dynamic_viscosity"):set(10000)
   --b.uniform:get_field("dynamic_viscosity"):set(10)
 end
 
@@ -181,7 +182,7 @@ schemes.boundary:run_procedure('compute_volume', nhood)
 
 local function save_frame(frame)
   f:save_vtk('output/f.' .. frame .. '.vtk')
-  --model:save_native_binary('output/model.' .. frame .. '.bin')
+  model:save_native_binary('output/model.' .. frame .. '.bin')
 end
 
 

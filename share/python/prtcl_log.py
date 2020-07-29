@@ -46,7 +46,7 @@ def stackplot_parts(parts):
     import matplotlib.pyplot as plt
 
     fig = plt.figure()
-    axs = np.asarray(fig.subplots(2, 1)).flatten()
+    axs = np.asarray(fig.subplots(1, 1)).flatten()
 
     # s: the step index
     s = np.arange(len(parts))
@@ -57,10 +57,15 @@ def stackplot_parts(parts):
     axs[0].stackplot(s, t.T, labels=[step[0] for step in parts[0]])
     axs[0].legend()
 
+    fig.show()
+
+    fig = plt.figure()
+    axs = np.asarray(fig.subplots(1, 1)).flatten()
+
     # n: the number of iterations of the solvers
     n = np.asarray(list(map(lambda part: tuple(sum(step[4]) for step in part if 0 != len(step[4])), parts)))
 
-    axs[1].stackplot(s, n.T, labels=[step[0] for step in parts[0] if 0 != len(step[4])])
-    axs[1].legend()
+    axs[0].stackplot(s, n.T, labels=[step[0] for step in parts[0] if 0 != len(step[4])])
+    axs[0].legend()
 
     fig.show()

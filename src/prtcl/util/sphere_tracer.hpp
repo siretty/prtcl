@@ -71,7 +71,7 @@ public:
   Image Trace(Model const &model) const {
     std::vector<std::pair<CPos, Entry>> input;
     Real const grid_diameter =
-        2 * model.GetGlobal().FieldWrap<Real>("smoothing_scale");
+        4 * model.GetGlobal().FieldWrap<Real>("smoothing_scale");
 
     RVec const cell_center_delta = [&grid_diameter] {
       RVec result;
@@ -108,7 +108,7 @@ public:
     });
 
     Real const max_parameter = grid_diameter * 10'000;
-    size_t const max_sdf_steps = 300;
+    size_t const max_sdf_steps = max_sdf_steps_;
 
 #pragma omp parallel for default(none) schedule(guided) shared(                \
     cell_center_delta, rays, grid_diameter, groups, max_parameter,             \
@@ -140,12 +140,12 @@ public:
           });
         }
 
-        constexpr auto W = math::cubic_spline_kernel<Real, 3>{};
-        auto const L = W.lipschitz(grid_diameter / 2);
-
         // if sdf < grid_diameter -> do neighborhood search and compute CSG
         // intersection (max) with the sdf value
         if (sdf < grid_diameter) {
+          constexpr auto W = math::cubic_spline_kernel<Real, 3>{};
+          auto const L = W.lipschitz(grid_diameter / 2);
+
           CPos const ray_c = [&] {
             CPos cpos;
             for (size_t dim = 0; dim < 3; ++dim)
@@ -153,7 +153,7 @@ public:
             return cpos;
           }();
 
-          Real phi = 0.8 * W.evalr(0, grid_diameter / 2, 3);
+          Real phi = threshold_ * W.evalr(0, grid_diameter / 2, 3);
           RVec phi_grad = math::zeros<Real, 3>();
 
           // size_t n_sdf_count = 0;
@@ -250,10 +250,21 @@ public:
   }
 
 public:
+  Real GetThreshold() const { return threshold_; }
+
+  void SetThreshold(const Real value) { threshold_ = value; }
+
+  size_t GetMaxSteps() const { return max_sdf_steps_; }
+
+  void SetMaxSteps(const size_t value) { max_sdf_steps_ = value; }
+
+public:
   SphereTracer(Camera camera) : camera_{camera} {}
 
 private:
   Camera camera_;
+  Real threshold_ = 0.5;
+  size_t max_sdf_steps_ = 300;
 };
 
 } // namespace prtcl

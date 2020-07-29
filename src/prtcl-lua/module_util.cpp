@@ -165,6 +165,9 @@ sol::table ModuleUtil(sol::state_view lua) {
     auto t = m.new_usertype<Tracer>(
         "sphere_tracer", sol::constructors<Tracer(PinholeCamera)>());
 
+    t["threshold"] =
+        sol::property(&Tracer::GetThreshold, &Tracer::SetThreshold);
+
     t.set_function(
         "trace", [](Tracer const &self, Model const &model) -> Image {
           return self.Trace(model);

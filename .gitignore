@@ -4,6 +4,7 @@
 
 # default output directory for simulation data
 /output/
+/verify-output/
 
 # developer tool specific directories
 /.clangd/
