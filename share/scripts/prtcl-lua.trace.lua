@@ -18,7 +18,7 @@ camera.up = rvec.new { 0, 1, 0 }
 
 -- [[ camera settings for the rotating cube scene
 local camera = prtcl.geometry.pinhole_camera.new()
-camera.sensor_width, camera.sensor_height = 400, 300 -- 800, 600
+camera.sensor_width, camera.sensor_height = 800, 600
 camera.focal_length = 1
 camera.origin = rvec.new { -2, 0.7, 2 }
 camera.principal = rvec.new { 1, 0, -1 }

@@ -13,3 +13,10 @@
 # project specific files
 schemes/include/**/*.hpp
 !schemes/include/**/pt16_solvers.hpp
+
+**/*.tar
+**/*.tar.gz
+**/*.tar.zst
+**/*.tar.zstd
+**/*.zst
+**/*.zstd
