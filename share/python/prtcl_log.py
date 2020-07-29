@@ -42,6 +42,18 @@ def parse_log(file, last_step='integrate_position'):
 
     return parts
 
+def fix_parts(parts):
+    def fix_part(part, name):
+        step_names = [step[0] for step in part]
+        first_index = step_names.index(name)
+        last_index = len(step_names) - 1 - step_names[::-1].index(name)
+        fixed_step = [name, part[first_index][1], part[last_index][2], sum([step[3] for step in part if step[0] == name]), []]
+        fixed_part = [step for step in part if step[0] != name]
+        fixed_part.insert(first_index, fixed_step)
+        return fixed_part
+
+    return [[step for step in fix_part(fix_part(part, 'iteration_pressure_acceleration'), 'iteration_pressure') if step[0] != 'compute_volume'] for part in parts]
+
 def stackplot_parts(parts):
     import matplotlib.pyplot as plt
 
