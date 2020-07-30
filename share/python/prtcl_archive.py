@@ -2,6 +2,7 @@
 
 import ctypes
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def _load_size(file):
@@ -109,3 +110,22 @@ def load_model(file):
         # print(group_name, group_data)
 
     return model
+
+def compute_total_momentum(data):
+    speed = np.linalg.norm(data['varying_fields']['velocity']['data'], axis=1)
+    mass = data['varying_fields']['mass']['data']
+    return (speed * mass).sum()
+
+def plot_total_momentum(model_file_names, group_name):
+    p = []
+    for model_file_name in model_file_names:
+        with open(model_file_name, 'rb') as f:
+            model = load_model(f)
+        p.append(compute_total_momentum(model['groups'][group_name]))
+    p = np.asarray(p)
+
+    fig = plt.figure(figsize=(10, 3))
+    axs = np.asarray(fig.subplots(1, 1)).flatten()
+    axs[0].plot(np.arange(len(p)), p)
+    axs[0].set_ylim(p.min() * 0.9, p.max() * 1.1)
+    fig.show()
